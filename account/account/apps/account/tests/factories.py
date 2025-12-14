@@ -158,5 +158,3 @@ def payment_method_factory_teardown(payment_method: PaymentMethod):
     except Exception as e:
         logger.error("payment_method_factory_teardown() Error deleting payment method: %s", e)
         raise
-
-

@@ -137,7 +137,9 @@ class AMTokenAuthenticationMiddleware(MiddlewareMixin, AMHelperMixin):
         url = self.smarter_build_absolute_uri(request)
         if not AMValidator.is_api_endpoint(url):
             # skip token authentication if we're not a Account Manager API request
-            logger.info("%s skipping token authentication for non-Account Manager API request", self.formatted_class_name)
+            logger.info(
+                "%s skipping token authentication for non-Account Manager API request", self.formatted_class_name
+            )
             return self.get_response(request)
 
         self.authorization_header = get_authorization_header(request)  # type: ignore[assignment]

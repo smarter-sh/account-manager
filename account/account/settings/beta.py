@@ -7,9 +7,7 @@ from .base_aws import *
 
 environment_name = os.path.basename(__file__).replace(".py", "")
 if environment_name != AMEnvironments.BETA:
-    raise AMConfigurationError(
-        f"Inconsistent environment name: .env {environment_name} does not {AMEnvironments.BETA}"
-    )
+    raise AMConfigurationError(f"Inconsistent environment name: .env {environment_name} does not {AMEnvironments.BETA}")
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https?://[\w-]+\.(\d+-\d+-\d+)\.beta\.api\.smarter\.sh$",

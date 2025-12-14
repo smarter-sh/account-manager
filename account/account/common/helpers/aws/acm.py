@@ -7,7 +7,7 @@ import time
 from typing import Optional
 
 # our stuff
-from .aws import AWSBase, AMAWSException
+from .aws import AMAWSException, AWSBase
 from .exceptions import AWSACMVerificationFailed
 
 

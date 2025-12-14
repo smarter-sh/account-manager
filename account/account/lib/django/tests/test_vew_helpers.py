@@ -111,15 +111,11 @@ class TestAMAuthenticatedNeverCachedWebView(TestViewHelpersBase):
     """Test the AMAuthenticatedNeverCachedWebView class."""
 
     def test_inheritance(self):
-        self.assertTrue(
-            issubclass(view_helpers.AMAuthenticatedNeverCachedWebView, view_helpers.AMAuthenticatedWebView)
-        )
+        self.assertTrue(issubclass(view_helpers.AMAuthenticatedNeverCachedWebView, view_helpers.AMAuthenticatedWebView))
 
 
 class TestAMAdminWebView(TestViewHelpersBase):
     """Test the AMAdminWebView class."""
 
     def test_inheritance(self):
-        self.assertTrue(
-            issubclass(view_helpers.AMAdminWebView, view_helpers.AMAuthenticatedNeverCachedWebView)
-        )
+        self.assertTrue(issubclass(view_helpers.AMAdminWebView, view_helpers.AMAuthenticatedNeverCachedWebView))

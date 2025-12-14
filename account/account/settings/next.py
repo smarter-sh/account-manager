@@ -7,9 +7,7 @@ from .base_aws import *
 
 environment_name = os.path.basename(__file__).replace(".py", "")
 if environment_name != AMEnvironments.NEXT:
-    raise AMConfigurationError(
-        f"Inconsistent environment name: .env {environment_name} does not {AMEnvironments.NEXT}"
-    )
+    raise AMConfigurationError(f"Inconsistent environment name: .env {environment_name} does not {AMEnvironments.NEXT}")
 
 
 CORS_ALLOWED_ORIGIN_REGEXES = [

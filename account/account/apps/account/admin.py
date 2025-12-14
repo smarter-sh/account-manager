@@ -1,6 +1,6 @@
-
 # Refactored: Register all models to the default Django admin site with standard ModelAdmin
 from django.contrib import admin
+
 from .models import (
     Account,
     AccountContact,
@@ -9,6 +9,7 @@ from .models import (
     PaymentMethod,
     UserProfile,
 )
+
 
 admin.site.register(Account)
 admin.site.register(AccountContact)

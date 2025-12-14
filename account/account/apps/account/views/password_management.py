@@ -19,11 +19,11 @@ from account.lib.django.http.shortcuts import (
     AMHttpResponseNotFound,
 )
 from account.lib.django.token_generators import (
-    ExpiringTokenGenerator,
     AMTokenConversionError,
     AMTokenExpiredError,
     AMTokenIntegrityError,
     AMTokenParseError,
+    ExpiringTokenGenerator,
 )
 from account.lib.django.view_helpers import AMNeverCachedWebView
 from account.lib.django.waffle import AMWaffleSwitches

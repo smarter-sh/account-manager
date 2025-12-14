@@ -1,4 +1,4 @@
-"""Unit test base classes for Accout Manager."""
+"""Unit test base classes for Account Manager."""
 
 from ..models import PaymentMethod
 from ..serializers import (
@@ -60,4 +60,3 @@ class TestSerializers(TestAccountMixin):
         serializer = PaymentMethodSerializer(self.payment_method)
         data = serializer.data
         self.assertIsInstance(data, dict)
-

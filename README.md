@@ -5,7 +5,6 @@
 
 Account user and payment management microservice for Smarter.
 
-
 ## Documentation
 
 Detailed documentation for this repo is available here: [docs.smarter.sh](https://docs.smarter.sh/)

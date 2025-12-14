@@ -170,5 +170,3 @@ class TestAMRequestMixin(TestAccountMixin):
         self.assertEqual(srm.url, url)
         self.assertFalse(srm.is_smarter_api)
         self.assertEqual(srm.domain, "example.3141-5926-5359.api.localhost:8000")
-
-

@@ -7,7 +7,7 @@ from botocore.config import Config
 
 from account.common.conf import SettingsDefaults
 
-from .aws import AWSBase, AMAWSException
+from .aws import AMAWSException, AWSBase
 
 
 logger = logging.getLogger(__name__)

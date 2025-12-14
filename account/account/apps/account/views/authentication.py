@@ -19,11 +19,11 @@ from account.lib.django.http.shortcuts import (
     AMHttpResponseServerError,
 )
 from account.lib.django.token_generators import (
-    ExpiringTokenGenerator,
     AMTokenConversionError,
     AMTokenExpiredError,
     AMTokenIntegrityError,
     AMTokenParseError,
+    ExpiringTokenGenerator,
 )
 from account.lib.django.view_helpers import (
     AMAuthenticatedNeverCachedWebView,
@@ -78,12 +78,7 @@ class LoginView(AMNeverCachedWebView):
 
     def post(
         self, request, *args, **kwargs
-    ) -> (
-        HttpResponseRedirect
-        | AMHttpResponseBadRequest
-        | AMHttpResponseForbidden
-        | AMHttpResponseServerError
-    ):
+    ) -> HttpResponseRedirect | AMHttpResponseBadRequest | AMHttpResponseForbidden | AMHttpResponseServerError:
         form = LoginView.LoginForm(request.POST)
         authenticated_user: Optional[User] = None
         if form.is_valid():
@@ -95,9 +90,7 @@ class LoginView(AMNeverCachedWebView):
                 if authenticated_user is not None:
                     login(request, authenticated_user)
                     return redirect_and_expire_cache(path="/")
-                return AMHttpResponseBadRequest(
-                    request=request, error_message="Username and/or password do not match."
-                )
+                return AMHttpResponseBadRequest(request=request, error_message="Username and/or password do not match.")
             except User.DoesNotExist:
                 return AMHttpResponseForbidden(
                     request=request, error_message=f"Invalid login attempt. Unknown user {email}"

@@ -554,7 +554,6 @@ class AMRequestMixin(AccountMixin):
 
         return self._cache_key
 
-
     @property
     def smarter_request_chatbot_id(self) -> Optional[int]:
         """
@@ -774,7 +773,6 @@ class AMRequestMixin(AccountMixin):
         timestamp = self.timestamp.isoformat()
         return f"{account_number}.{url}.{self.user_agent}.{self.ip_address}.{timestamp}"
 
-
     @cached_property
     def ip_address(self) -> Optional[str]:
         """
@@ -793,11 +791,7 @@ class AMRequestMixin(AccountMixin):
             print(ip)  # e.g., '192.168.1.100'
 
         """
-        if (
-            self.am_request is not None
-            and hasattr(self.am_request, "META")
-            and isinstance(self.am_request.META, dict)
-        ):
+        if self.am_request is not None and hasattr(self.am_request, "META") and isinstance(self.am_request.META, dict):
             return self.am_request.META.get("REMOTE_ADDR", "") or "ip_address"
         return None
 
@@ -819,11 +813,7 @@ class AMRequestMixin(AccountMixin):
             print(ua)  # e.g., 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)...'
 
         """
-        if (
-            self.am_request is not None
-            and hasattr(self.am_request, "META")
-            and isinstance(self.am_request.META, dict)
-        ):
+        if self.am_request is not None and hasattr(self.am_request, "META") and isinstance(self.am_request.META, dict):
             # META is a dictionary-like object containing all HTTP headers
             # and other request metadata.
             # HTTP_USER_AGENT is the standard header for user agent information.
@@ -844,8 +834,10 @@ class AMRequestMixin(AccountMixin):
             return False
         if not self.parsed_url:
             return False
-        return self.parsed_url.netloc == account_settings.environment_account_manager_domain and self.parsed_url.path == "/"
-
+        return (
+            self.parsed_url.netloc == account_settings.environment_account_manager_domain
+            and self.parsed_url.path == "/"
+        )
 
     @cached_property
     def is_smarter_api(self) -> bool:
@@ -866,7 +858,6 @@ class AMRequestMixin(AccountMixin):
         if "api" in self.url_path_parts:
             return True
         return False
-
 
     @cached_property
     def is_default_domain(self) -> bool:
@@ -1050,7 +1041,6 @@ class AMRequestMixin(AccountMixin):
         """
         if self.am_request and self.am_request.COOKIES:
             return self.am_request.COOKIES.get(cookie_name)
-
 
     def to_json(self) -> dict[str, Any]:
         """

@@ -12,7 +12,7 @@ from django.conf import settings
 
 from account.common.helpers.console_helpers import formatted_text
 
-from .aws import AWSBase, AMAWSException
+from .aws import AMAWSException, AWSBase
 from .exceptions import AWSRoute53RecordVerificationTimeout
 
 

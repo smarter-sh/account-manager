@@ -13,7 +13,7 @@ from account.common.helpers.console_helpers import formatted_text
 from account.common.utils import get_readonly_yaml_file
 from account.lib import json
 
-from ..classes import Singleton, AMHelperMixin
+from ..classes import AMHelperMixin, Singleton
 from ..conf import account_settings
 
 

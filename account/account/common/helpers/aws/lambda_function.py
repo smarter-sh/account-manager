@@ -1,6 +1,6 @@
 """AWS Lambda helper class."""
 
-from .aws import AWSBase, AMAWSException
+from .aws import AMAWSException, AWSBase
 
 
 class AWSLambdaFunction(AWSBase):

@@ -436,7 +436,6 @@ class AMValidator:
         except AMValueError:
             return False
 
-
     @staticmethod
     def validate_account_number(account_number: str) -> str:
         """Validate account number format
@@ -763,7 +762,6 @@ class AMValidator:
             return True
         except AMValueError:
             return False
-
 
     @staticmethod
     def is_valid_account_number(account_number: str) -> bool:

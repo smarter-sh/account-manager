@@ -39,7 +39,6 @@ from dotenv import load_dotenv
 from pydantic import Field, SecretStr, ValidationError, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings
 
-
 from ..lib.django.validators import AMValidator
 
 # our stuff
@@ -153,17 +152,13 @@ class SettingsDefaults:
 
     FERNET_ENCRYPTION_KEY: str = os.environ.get("FERNET_ENCRYPTION_KEY", DEFAULT_MISSING_VALUE)
 
-
-
     LOCAL_HOSTS = ["localhost", "127.0.0.1"]
     LOCAL_HOSTS += [host + ":8000" for host in LOCAL_HOSTS]
     LOCAL_HOSTS.append("testserver")
 
     LOG_LEVEL: int = logging.DEBUG if DEBUG_MODE else logging.INFO
 
-    LOGO: str = os.environ.get(
-        "OPENAI_API_ORGANIZATION", "https://cdn.account.smarter.sh/images/logo/smarter-crop.png"
-    )
+    LOGO: str = os.environ.get("OPENAI_API_ORGANIZATION", "https://cdn.account.smarter.sh/images/logo/smarter-crop.png")
     MAILCHIMP_API_KEY: SecretStr = SecretStr(os.environ.get("MAILCHIMP_API_KEY", DEFAULT_MISSING_VALUE))
     MAILCHIMP_LIST_ID = os.environ.get("MAILCHIMP_LIST_ID", DEFAULT_MISSING_VALUE)
 
@@ -712,7 +707,8 @@ class Settings(BaseSettings):
         retval = AMValidator.urlify(self.account_manager_domain, environment=self.environment)
         if retval is None:
             raise AMConfigurationError(
-                f"Invalid account_manager_domain: {self.account_manager_domain}. " "Please check your environment settings."
+                f"Invalid account_manager_domain: {self.account_manager_domain}. "
+                "Please check your environment settings."
             )
         return retval
 
@@ -1092,7 +1088,6 @@ class Settings(BaseSettings):
             See https://github.com/smarter-sh/smarter-account/blob/main/docs/legacy/SEMANTIC_VERSIONING.md for more information.
         """
         return get_semantic_version()
-
 
     @field_validator("shared_resource_identifier")
     def validate_shared_resource_identifier(cls, v: Optional[str]) -> str:

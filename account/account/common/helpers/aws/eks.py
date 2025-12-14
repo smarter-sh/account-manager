@@ -2,7 +2,7 @@
 
 from account.common.conf import account_settings
 
-from .aws import AWSBase, AMAWSException
+from .aws import AMAWSException, AWSBase
 
 
 class AWSEks(AWSBase):

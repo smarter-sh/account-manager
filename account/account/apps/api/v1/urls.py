@@ -26,6 +26,7 @@ Namespaces are used for each included URL configuration to avoid naming conflict
 from django.urls import include, path
 
 from account.apps.account.const import namespace as account_namespace
+
 from .const import namespace
 
 

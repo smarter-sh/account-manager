@@ -2,8 +2,7 @@
 
 import re
 
-from account.common.conf import bool_environment_variable
-from account.common.conf import account_settings
+from account.common.conf import account_settings, bool_environment_variable
 
 
 ACCOUNT_SETTINGS_OUTPUT = bool_environment_variable("ACCOUNT_SETTINGS_OUTPUT", False)

@@ -925,5 +925,3 @@ class DailyBillingRecord(TimestampedModel):
         return (
             f"{self.account.account_number} - {self.user.email} - {self.provider} - {self.date} - {self.total_tokens}"
         )
-
-

@@ -10,8 +10,7 @@ import boto3  # AWS SDK for Python https://boto3.amazonaws.com/v1/documentation/
 from botocore.exceptions import ProfileNotFound
 
 from account.common.classes import AMHelperMixin
-from account.common.conf import Services
-from account.common.conf import account_settings
+from account.common.conf import Services, account_settings
 
 # our stuff
 from account.common.const import (
@@ -454,7 +453,9 @@ class AWSBase(AMHelperMixin):
         if self.environment == AMEnvironments.LOCAL:
             proxy_domain: Optional[str] = None
             if account_settings.environment_account_manager_domain in domain:
-                proxy_domain = domain.replace(account_settings.environment_account_manager_domain, self.environment_domain)
+                proxy_domain = domain.replace(
+                    account_settings.environment_account_manager_domain, self.environment_domain
+                )
             if account_settings.environment_api_domain in domain:
                 proxy_domain = domain.replace(account_settings.environment_api_domain, self.environment_api_domain)
             if proxy_domain:

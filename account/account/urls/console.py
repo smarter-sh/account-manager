@@ -14,7 +14,12 @@ from account.apps.account.views.authentication import (
     LoginView,
     LogoutView,
 )
-from account.apps.account.views.webserver import (FaviconView, HealthzView, ReadinessView, RobotsTxtView)
+from account.apps.account.views.webserver import (
+    FaviconView,
+    HealthzView,
+    ReadinessView,
+    RobotsTxtView,
+)
 from account.apps.api.const import namespace as api_namespace
 
 

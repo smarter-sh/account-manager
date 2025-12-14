@@ -27,4 +27,3 @@ Example::
 
     new_charge_created.send(sender=self.__class__, charge=self)
 """
-

@@ -6,8 +6,8 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 from account.lib.django.token_generators import (
-    ExpiringTokenGenerator,
     AMTokenError,
+    ExpiringTokenGenerator,
 )
 from account.lib.unittest.base_classes import AMTestBase
 

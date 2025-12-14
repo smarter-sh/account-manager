@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from .aws import AWSBase, AMAWSException
+from .aws import AMAWSException, AWSBase
 
 
 class AWSDynamoDB(AWSBase):

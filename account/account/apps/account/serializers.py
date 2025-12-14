@@ -218,8 +218,6 @@ class PaymentMethodSerializer(AMCamelCaseSerializer):
         fields = "__all__"
 
 
-
-
 class AccountContactSerializer(AMCamelCaseSerializer):
     """
     Serializer for the `AccountContact` model in the Account Manager API.
