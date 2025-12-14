@@ -1,0 +1,20 @@
+"""This module is used to add an email address to the Account Contact list."""
+
+from django.conf import settings
+
+from account.lib.django.management.base import AMCommand
+
+
+# pylint: disable=E1101
+class Command(AMCommand):
+    """add an email address to the Account Contact list."""
+
+    def handle(self, *args, **options):
+        """Dump all Django settings."""
+        self.handle_begin()
+
+        for setting in dir(settings):
+            if setting.isupper():
+                print(f"{setting}: {getattr(settings, setting)}")
+
+        self.handle_completed_success()

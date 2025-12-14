@@ -1,0 +1,12 @@
+[run]
+source =
+    account/
+omit =
+    **/tests/*
+    **/migrations/*
+    account/apps/account/models.py
+    account/common/
+    account/lib/
+[report]
+exclude_lines =
+    pragma: no cover

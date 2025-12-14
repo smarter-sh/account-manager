@@ -1,0 +1,16 @@
+"""Plugin app configuration."""
+
+from django.apps import AppConfig
+
+
+class DrfConfig(AppConfig):
+    """Django rest framework lib app configuration."""
+
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "account.lib.drf"
+    verbose_name = "Smarter DRF"
+
+    # pylint: disable=import-outside-toplevel,W0611
+    def ready(self):
+        """Import signals."""
+        from . import receivers  # noqa: F401

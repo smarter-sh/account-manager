@@ -1,0 +1,3 @@
+"""Account constants"""
+
+namespace = "account"

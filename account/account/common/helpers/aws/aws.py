@@ -1,0 +1,511 @@
+"""AWS helper base class."""
+
+# python stuff
+import logging
+import os
+from typing import Optional
+from urllib.parse import urlparse
+
+import boto3  # AWS SDK for Python https://boto3.amazonaws.com/v1/documentation/api/latest/index.html
+from botocore.exceptions import ProfileNotFound
+
+from account.common.classes import AMHelperMixin
+from account.common.conf import Services
+from account.common.conf import account_settings
+
+# our stuff
+from account.common.const import (
+    ACCOUNT_API_SUBDOMAIN,
+    ACCOUNT_MANAGER_SUBDOMAIN,
+    AMEnvironments,
+)
+from account.common.exceptions import AMException
+
+# mcdaniel apr-2024: technically we shouldn't import smarter.libe.django into the aws helpers
+# but the validators don't depend on django initialization, so we're okay here.
+from account.lib.django.validators import AMValidator, AMValueError
+
+
+# from .exceptions import AWSNotReadyError
+
+
+logger = logging.getLogger(__name__)
+
+
+class AMAWSException(AMException):
+    """Raised when the hosted zone is not found."""
+
+
+# pylint: disable=too-many-instance-attributes,too-many-public-methods
+class AWSBase(AMHelperMixin):
+    """
+    Provides a foundational interface for interacting with AWS services in a secure, consistent, and environment-aware manner.
+
+    This base class is responsible for initializing and managing AWS connections, ensuring that credentials and sessions
+    are established only when the application is in a ready state. It supports multiple authentication strategies,
+    including IAM role-based security (for environments like AWS Lambda), AWS profiles, and direct access key credentials.
+    The class automatically detects the execution environment and adapts its behavior accordingly, such as recognizing
+    when it is running inside AWS infrastructure.
+
+    AWSBase also implements logic to determine whether the current environment is a recognized and authorized Smarter
+    environment, which is critical for safely creating or modifying billable AWS resources. It provides mechanisms for
+    reformatting and validating domain names, particularly transforming localhost or development domains into proxy domains
+    compatible with AWS Route53 and Kubernetes, thereby supporting seamless local development and cloud deployment.
+
+    The class exposes properties and methods for accessing AWS account identity, region, authentication sources, and
+    session objects, as well as utility functions for domain validation and environment-specific configuration. It includes
+    robust logging and error handling to facilitate debugging and operational transparency. By centralizing AWS connection
+    logic and environment checks, AWSBase enables derived helper classes to focus on service-specific functionality while
+    maintaining consistent security and configuration practices across the codebase.
+    """
+
+    LOCAL_HOSTS = account_settings.local_hosts
+
+    _aws_access_key_id: Optional[str] = None
+    _aws_secret_access_key: Optional[str] = None
+    _aws_region: Optional[str] = None
+    _aws_profile: Optional[str] = None
+
+    _aws_access_key_id_source: Optional[str] = None
+    _aws_secret_access_key_source: Optional[str] = None
+
+    _initialized: bool = False
+    _domain = None
+    _aws_session = None
+    _root_domain: str = account_settings.root_domain
+    _environment: str = account_settings.environment
+    _environment_domain: Optional[str] = None
+    _shared_resource_identifier: Optional[str] = None
+    _debug_mode: bool = False
+
+    _connected: bool = False
+    _identity: Optional[dict] = None
+
+    # pylint: disable=too-many-arguments
+    def __init__(
+        self,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_region: Optional[str] = None,
+        aws_profile: Optional[str] = None,
+        shared_resource_identifier: Optional[str] = None,
+        environment: Optional[str] = None,
+        environment_domain: Optional[str] = None,
+        root_domain: Optional[str] = None,
+        debug_mode: bool = False,
+        init_info: Optional[str] = None,
+    ):
+        Services.raise_error_on_disabled(Services.AWS_CLI)
+
+        self._shared_resource_identifier = shared_resource_identifier or account_settings.shared_resource_identifier
+        self._environment = environment or account_settings.environment
+
+        self._root_domain = root_domain or account_settings.root_domain
+        self._environment_domain = environment_domain or account_settings.environment_account_manager_domain
+        self._debug_mode = debug_mode or account_settings.debug_mode
+
+        if init_info:
+            logger.debug(init_info)
+
+        # ----------------------------------------------------------------------
+        # AWS authentication. Hereon we only want to initialize whatever is
+        # needed to establish a connection to AWS.
+        # ----------------------------------------------------------------------
+
+        # priority 1: AWS IAM role based security
+        if not self.initialized and self.is_aws_deployed:
+            # If we're running inside AWS Lambda, then we don't need to set the AWS credentials.
+            logger.debug("running inside AWS Lambda")
+            self._aws_access_key_id_source = "overridden by IAM role-based security"
+            self._aws_secret_access_key_source = "overridden by IAM role-based security"
+            self._aws_session = boto3.Session(region_name=self.aws_region)
+            self._initialized = True
+
+        # initialize creentials from account_settings unless any of these were passed as parameters
+        self._aws_access_key_id = aws_access_key_id or account_settings.aws_access_key_id.get_secret_value()
+        self._aws_secret_access_key = aws_secret_access_key or account_settings.aws_secret_access_key.get_secret_value()
+        self._aws_region = aws_region or account_settings.aws_region
+        self._aws_profile = aws_profile or account_settings.aws_profile
+
+        # priority 2: aws_profile
+        if not self.initialized:
+            if self.aws_profile:
+                self._aws_access_key_id_source = "aws_profile"
+                self._aws_secret_access_key_source = "aws_profile"
+                self._initialized = True
+
+        # priority 3: aws_access_key_id and aws_secret_access_key
+        if not self.initialized and self.aws_access_key_id and self.aws_secret_access_key and self.aws_region:
+            self._aws_session = boto3.Session(
+                region_name=self.aws_region,
+                aws_access_key_id=self.aws_access_key_id,
+                aws_secret_access_key=self.aws_secret_access_key,
+            )
+            self._initialized = True
+            self._aws_access_key_id_source = "passed parameter"
+            self._aws_secret_access_key_source = "passed parameter"
+
+        logger.debug("initialized settings: %s", self.aws_auth)
+        if not self.ready:
+            msg = f"Unable to initialize AWSBase for environment {self.environment}."
+            if self.environment not in AMEnvironments.aws_environments:
+                msg += f" Please note AWS classes only work with the following environments: {AMEnvironments.aws_environments}"
+            # raise AWSNotReadyError(msg)
+            logger.error(msg)
+
+    @property
+    def identity(self) -> Optional[dict]:
+        """
+        Return the AWS identity for the current session.
+
+        This property retrieves the identity information associated with the current AWS credentials,
+        including the user ID, AWS account number, and IAM ARN. The identity is fetched using the AWS
+        Security Token Service (STS) and is cached for subsequent calls.
+
+        :return: A dictionary containing AWS identity details, or None if not available.
+        :rtype: Optional[dict]
+
+        Example output:
+
+        .. code-block:: json
+
+            {
+                "UserId": "AIDARKEXDU3E7KD3L3CRF",
+                "Account": "090511222473",
+                "Arn": "arn:aws:iam::090511222473:user/mcdaniel",
+                "ResponseMetadata": {
+                    "RequestId": "4d20b844-7e75-4980-9e92-ca0867b24387",
+                    "HTTPStatusCode": 200,
+                    "HTTPHeaders": {
+                        "x-amzn-requestid": "4d20b844-7e75-4980-9e92-ca0867b24387",
+                        "x-amz-sts-extended-request-id": "MTp1cy1lYXN0LTI6UzoxNzYzNTc5NjUyMzA0OlI6MVFkeG8yZ1Q=",
+                        "content-type": "text/xml",
+                        "content-length": "405",
+                        "date": "Wed, 19 Nov 2025 19:14:12 GMT"
+                    },
+                    "RetryAttempts": 0
+                }
+            }
+        """
+        if self._identity:
+            return self._identity
+        if self.initialized:
+            self._identity = self.aws_session.client("sts").get_caller_identity() if self.aws_session else None
+            logger.info(
+                "%s connected to AWS with account %s and IAM ARN: %s",
+                self.formatted_class_name,
+                self.aws_account_id,
+                self.aws_iam_arn,
+            )
+
+    @property
+    def version(self):
+        """
+        Return the version.
+
+        :return: boto3 version
+        :rtype: str
+        """
+        return boto3.__version__
+
+    @property
+    def debug_mode(self):
+        """
+        Debug mode
+
+        :return: debug mode
+        :rtype: bool
+        """
+        return self._debug_mode
+
+    @property
+    def initialized(self):
+        """
+        Is settings initialized?
+
+        :return: True if initialized
+        :rtype: bool
+        """
+        return self._initialized
+
+    @property
+    def is_aws_deployed(self) -> bool:
+        """
+        Return True if we're running inside of AWS Lambda.
+
+        :return: True if running inside AWS Lambda
+        :rtype: bool
+        """
+        return bool(os.environ.get("AWS_DEPLOYED", False))
+
+    @property
+    def aws_is_configured(self) -> bool:
+        """
+        Return True if AWS is configured.
+
+        :return: True if AWS is configured
+        :rtype: bool
+        """
+        return account_settings.aws_is_configured
+
+    @property
+    def aws_profile(self):
+        """
+        AWS profile
+
+        :return: AWS profile
+        :rtype: Optional[str]
+        """
+        return self._aws_profile
+
+    @property
+    def aws_account_id(self):
+        """
+        AWS account id
+
+        :return: AWS account id
+        :rtype: Optional[str]
+        """
+        if not self.ready:
+            return None
+
+        if not isinstance(self.identity, dict):
+            return None
+
+        return self.identity.get("Account", None)
+
+    @property
+    def aws_iam_arn(self):
+        """
+        AWS IAM ARN
+
+        :return: AWS IAM ARN (Amazon Resource Name)
+        :rtype: Optional[str]
+        """
+        if not self.ready:
+            return None
+
+        if not isinstance(self.identity, dict):
+            return None
+
+        return self.identity.get("Arn", None)
+
+    @property
+    def aws_region(self):
+        """
+        AWS region
+
+        :return: AWS region (e.g. 'us-west-2')
+        :rtype: Optional[str]
+        """
+        return self._aws_region
+
+    @property
+    def aws_access_key_id_source(self):
+        """
+        AWS access key id source
+
+        :return: AWS access key id source
+        :rtype: Optional[str]
+        """
+        return self._aws_access_key_id_source
+
+    @property
+    def aws_access_key_id(self):
+        """
+        AWS access key id
+
+        :return: AWS access key id
+        :rtype: Optional[str]
+        """
+        return self._aws_access_key_id
+
+    @property
+    def aws_secret_access_key_source(self):
+        """
+        AWS secret access key source
+        :return: AWS secret access key source
+        :rtype: Optional[str]
+        """
+        return self._aws_secret_access_key_source
+
+    @property
+    def aws_secret_access_key(self):
+        """
+        AWS secret access key
+
+        :return: AWS secret access key
+        :rtype: Optional[str]
+        """
+        return self._aws_secret_access_key
+
+    @property
+    def aws_auth(self) -> dict:
+        """
+        AWS authentication
+
+        :return: AWS authentication details
+        :rtype: dict
+        """
+        retval = {
+            "aws_profile": self.aws_profile,
+            "aws_access_key_id_source": self.aws_access_key_id_source,
+            "aws_secret_access_key_source": self.aws_secret_access_key_source,
+            "aws_region": self.aws_region,
+        }
+        return retval
+
+    @property
+    def aws_session(self):
+        """
+        AWS session
+
+        :return: boto3 AWS session
+        :rtype: Optional[boto3.Session]
+        """
+        if self._aws_session:
+            return self._aws_session
+        if not self.initialized:
+            logger.warning("aws_session requested but AWSBase is not initialized")
+            return None
+
+        if self.aws_profile:
+            logger.info("creating new aws_session with aws_profile: %s", self.aws_profile)
+            try:
+                self._aws_session = boto3.Session(profile_name=self.aws_profile, region_name=self.aws_region)
+            except ProfileNotFound:
+                logger.warning("aws_profile %s not found", self.aws_profile)
+
+            return self._aws_session
+        if self.aws_access_key_id is not None and self.aws_secret_access_key is not None:
+            logger.info("creating new aws_session with aws keypair: %s", self.aws_access_key_id_source)
+            self._aws_session = boto3.Session(
+                region_name=self.aws_region,
+                aws_access_key_id=self.aws_access_key_id,
+                aws_secret_access_key=self.aws_secret_access_key,
+            )
+            return self._aws_session
+        logger.warning("creating new aws_session without aws credentials")
+        self._aws_session = boto3.Session(region_name=self.aws_region)
+        return self._aws_session
+
+    @property
+    def shared_resource_identifier(self):
+        """
+        Return the shared resource identifier.
+
+        :return: shared resource identifier
+        :rtype: Optional[str]
+        """
+        return self._shared_resource_identifier
+
+    @property
+    def environment(self) -> str:
+        """
+        Return the environment.
+
+        :return: environment
+        :rtype: str
+        """
+        return self._environment
+
+    @property
+    def environment_domain(self) -> str:
+        """
+        we need to rebuild these in order to reformat the localhost domain into
+        a proxy domain that will work with AWS Route53 and Kubernetes
+
+        :return: environment domain
+        :rtype: str
+        """
+        return f"{self.environment}.{ACCOUNT_MANAGER_SUBDOMAIN}.{self.root_domain}"
+
+    @property
+    def environment_api_domain(self) -> str:
+        """
+        we need to rebuild these in order to reformat the localhost domain into
+        a proxy domain that will work with AWS Route53 and Kubernetes
+
+        :return: environment API domain
+        :rtype: str
+        """
+        return f"{self.environment}.{ACCOUNT_API_SUBDOMAIN}.{self.root_domain}"
+
+    @property
+    def root_domain(self) -> str:
+        """
+        Return the root domain.
+
+        :return: root domain
+        :rtype: str
+        """
+        return self._root_domain
+
+    # --------------------------------------------------------------------------
+    # helper functions
+    # --------------------------------------------------------------------------
+    def domain_resolver(self, domain: str) -> str:
+        """
+        Validate the domain and swap out localhost for the proxy domain.
+
+        :param domain: domain to validate
+        :type domain: str
+        """
+        if self.environment == AMEnvironments.LOCAL:
+            proxy_domain: Optional[str] = None
+            if account_settings.environment_account_manager_domain in domain:
+                proxy_domain = domain.replace(account_settings.environment_account_manager_domain, self.environment_domain)
+            if account_settings.environment_api_domain in domain:
+                proxy_domain = domain.replace(account_settings.environment_api_domain, self.environment_api_domain)
+            if proxy_domain:
+                AMValidator.validate_domain(domain)
+                logger.info("replacing %s with proxy domain %s", domain, proxy_domain)
+                return proxy_domain
+
+        # catch-all to ensure that we don't find ourselves working
+        # with anything boneheaded.
+        parsed_domain = urlparse(f"http://{domain}")
+        root_domain = parsed_domain.netloc
+        if root_domain in self.LOCAL_HOSTS:
+            raise AMValueError(f"Domain {root_domain} is prohibited.")
+
+        # if we're not in a local environment, we don't need to do anything
+        AMValidator.validate_domain(domain)
+        return domain
+
+    # --------------------------------------------------------------------------
+    # AWS state functions
+    # --------------------------------------------------------------------------
+    @property
+    def ready(self) -> bool:
+        """
+        Return True if we're working with a known Account Manager environment, and
+        we consider it safe to create billable resources in AWS.
+
+        :return: True if ready
+        :rtype: bool
+        """
+        return bool(self.connected()) and bool(account_settings.environment in AMEnvironments.all)
+
+    def connected(self) -> bool:
+        """
+        Test that the AWS connection works.
+
+        :return: True if connected
+        :rtype: bool
+        """
+        if self._connected:
+            return True
+        if not self.initialized:
+            logger.warning("connected() Failure - AWSBase is not initialized")
+            return False
+
+        if not self.aws_session:
+            logger.warning("connected() Failure - aws_session is not initialized")
+            return False
+        try:
+            self._connected = isinstance(self.identity, dict)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("connected() Failure - %s", e)
+            self._connected = False
+        return self._connected
