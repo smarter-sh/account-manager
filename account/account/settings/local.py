@@ -58,10 +58,6 @@ CSRF_TRUSTED_ORIGINS = [f"http://{host}" for host in account_settings.local_host
 CSRF_COOKIE_DOMAIN = ENVIRONMENT_DOMAIN.split(":")[0]
 CSRF_COOKIE_SAMESITE = "lax"
 
-# prevent browser caching in dev.
-for template in TEMPLATES:
-    if "OPTIONS" in template and "context_processors" in template["OPTIONS"]:
-        template["OPTIONS"]["context_processors"].append("account.apps.dashboard.context_processors.cache_buster")
 
 # https://dj-stripe.dev/dj-stripe/2.7/installation/
 STRIPE_LIVE_SECRET_KEY = account_settings.stripe_live_secret_key

@@ -71,17 +71,3 @@ class TestSmarterCsrfViewMiddleware(AMTestBase):
         self.middleware.request = self.request
         result = self.middleware.process_view(self.request, MagicMock(), [], {})
         self.assertIsNone(result)
-
-    @patch("account.lib.django.middleware.csrf.account_settings")
-    @patch("account.lib.django.middleware.csrf.waffle")
-    def test_process_view_csrf_suppress_for_chatbots(self, mock_waffle, mock_smarter_settings):
-        mock_smarter_settings.environment = "prod"
-        # First call for CSRF_SUPPRESS_FOR_CHATBOTS, second for MIDDLEWARE_LOGGING
-        mock_waffle.switch_is_active.side_effect = [True, False]
-        # Set up am_request with is_chatbot = True
-        smarter_request_mock = MagicMock()
-        smarter_request_mock.is_chatbot = True
-        self.middleware.am_request = smarter_request_mock
-        self.middleware.request = self.request
-        result = self.middleware.process_view(self.request, MagicMock(), [], {})
-        self.assertIsNone(result)

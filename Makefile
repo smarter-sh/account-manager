@@ -102,6 +102,7 @@ docker-init:
 	docker exec account-app bash -c "\
 		python manage.py makemigrations && python manage.py migrate && \
 		python manage.py initialize_waffle && \
+		python manage.py initialize_site && \
 		python manage.py create_account_admin --username admin --email admin@smarter.sh --password account" && \
 	echo "Docker and Account are initialized." && \
 	docker ps

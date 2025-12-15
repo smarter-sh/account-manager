@@ -26,6 +26,7 @@ from pathlib import Path
 
 from corsheaders.defaults import default_headers
 from django import get_version
+from oscar.defaults import *
 
 from account.__version__ import __version__ as smarter_version
 from account.common.conf import account_settings
@@ -487,9 +488,37 @@ times when deploying ChatBots/Agents.
 See: https://docs.celeryq.dev/en/stable/userguide/configuration.html#std:setting-task_time_limit
 """
 
+HAYSTACK_CONNECTIONS = {
+    "default": {
+        "ENGINE": "haystack.backends.simple_backend.SimpleEngine",
+    },
+}
+
+OSCAR_REQUIRED_ADDRESS_FIELDS = ["first_name", "last_name", "line1", "city", "postcode", "country"]
+OSCAR_INITIAL_ORDER_STATUS = "Pending"
+OSCAR_INITIAL_LINE_STATUS = "Pending"
+OSCAR_ORDER_STATUS_PIPELINE = {
+    "Pending": (
+        "Being processed",
+        "Cancelled",
+    ),
+    "Being processed": (
+        "Processed",
+        "Cancelled",
+    ),
+    "Cancelled": (),
+}
+OSCAR_SHOP_NAME = "Your Shop Name"
+
+
 KNOX_TOKEN_MODEL = "knox.AuthToken"
 
+
 # Application definition
+
+# For Django Oscar 2.0+, list all Oscar apps explicitly.
+# To override (fork) an Oscar app, replace its entry below with your custom app path.
+# Example: to override the order app, use "yourappsfolder.order" instead of "oscar.apps.order"
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -498,6 +527,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # recommended https://docs.oscarcommerce.com/en/latest/internals/getting_started.html
+    # -------------------------------
+    "django.contrib.sites",
+    "django.contrib.flatpages",
     "django_hosts",
     "storages",
     # smarter apps
@@ -518,6 +551,44 @@ INSTALLED_APPS = [
     # Stripe
     # -------------------------------
     "djstripe",
+    # Django Oscar (e-commerce)
+    # -------------------------------
+    "oscar.config.Shop",
+    "oscar.apps.analytics.apps.AnalyticsConfig",
+    "oscar.apps.checkout.apps.CheckoutConfig",
+    "oscar.apps.address.apps.AddressConfig",
+    "oscar.apps.shipping.apps.ShippingConfig",
+    "oscar.apps.catalogue.apps.CatalogueConfig",
+    "oscar.apps.catalogue.reviews.apps.CatalogueReviewsConfig",
+    "oscar.apps.communication.apps.CommunicationConfig",
+    "oscar.apps.partner.apps.PartnerConfig",
+    "oscar.apps.basket.apps.BasketConfig",
+    "oscar.apps.payment.apps.PaymentConfig",
+    "oscar.apps.offer.apps.OfferConfig",
+    "oscar.apps.order.apps.OrderConfig",
+    "oscar.apps.customer.apps.CustomerConfig",
+    "oscar.apps.search.apps.SearchConfig",
+    "oscar.apps.voucher.apps.VoucherConfig",
+    "oscar.apps.wishlists.apps.WishlistsConfig",
+    "oscar.apps.dashboard.apps.DashboardConfig",
+    "oscar.apps.dashboard.reports.apps.ReportsDashboardConfig",
+    "oscar.apps.dashboard.users.apps.UsersDashboardConfig",
+    "oscar.apps.dashboard.orders.apps.OrdersDashboardConfig",
+    "oscar.apps.dashboard.catalogue.apps.CatalogueDashboardConfig",
+    "oscar.apps.dashboard.offers.apps.OffersDashboardConfig",
+    "oscar.apps.dashboard.partners.apps.PartnersDashboardConfig",
+    "oscar.apps.dashboard.pages.apps.PagesDashboardConfig",
+    "oscar.apps.dashboard.ranges.apps.RangesDashboardConfig",
+    "oscar.apps.dashboard.reviews.apps.ReviewsDashboardConfig",
+    "oscar.apps.dashboard.vouchers.apps.VouchersDashboardConfig",
+    "oscar.apps.dashboard.communications.apps.CommunicationsDashboardConfig",
+    "oscar.apps.dashboard.shipping.apps.ShippingDashboardConfig",
+    # 3rd-party apps that oscar depends on
+    "widget_tweaks",
+    "haystack",
+    "treebeard",
+    "sorl.thumbnail",  # Default thumbnail backend, can be replaced
+    "django_tables2",
 ]
 
 MIDDLEWARE = [
@@ -556,7 +627,9 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "waffle.middleware.WaffleMiddleware",
     "django_hosts.middleware.HostsResponseMiddleware",
-    #
+    # -------------------------------
+    "oscar.apps.basket.middleware.BasketMiddleware",
+    "django.contrib.flatpages.middleware.FlatpageFallbackMiddleware",
 ]
 
 ROOT_HOSTCONF = "account.hosts"
@@ -598,7 +671,10 @@ TEMPLATES = [
                 "account.apps.account.context_processors.base",
                 "social_django.context_processors.backends",
                 "social_django.context_processors.login_redirect",
-                "wagtail.contrib.settings.context_processors.settings",
+                "oscar.apps.search.context_processors.search_form",
+                "oscar.apps.checkout.context_processors.checkout",
+                "oscar.apps.communication.notifications.context_processors.notifications",
+                "oscar.core.context_processors.metadata",
             ],
         },
     },
@@ -618,8 +694,6 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "account.apps.account.context_processors.base",
-                "account.apps.dashboard.context_processors.base",
             ],
         },
     },
@@ -668,6 +742,7 @@ AUTHENTICATION_BACKENDS = (
     "social_core.backends.google.GoogleOAuth2",
     "social_core.backends.github.GithubOAuth2",
     "account.lib.social_core.backends.linkedin.LinkedinOAuth2",
+    "oscar.apps.customer.auth_backends.EmailBackend",
     "django.contrib.auth.backends.ModelBackend",
 )
 """

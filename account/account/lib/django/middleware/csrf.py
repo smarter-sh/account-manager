@@ -91,8 +91,6 @@ class SmarterCsrfViewMiddleware(CsrfViewMiddleware, AMHelperMixin):
         If the request is for a ChatBot, the ChatBot's URL is added to the list.
         """
         retval = settings.CSRF_TRUSTED_ORIGINS
-        if self.am_request and (self.am_request.is_chatbot or self.am_request.is_config):
-            retval += [self.am_request.url]
         logger.info("%s.CSRF_TRUSTED_ORIGINS: %s", self.formatted_class_name, retval)
         return retval
 
@@ -165,50 +163,12 @@ class SmarterCsrfViewMiddleware(CsrfViewMiddleware, AMHelperMixin):
 
         logger.info("%s.__call__(): %s", self.formatted_class_name, url)
 
-        if self.am_request.is_chatbot:
-            logger.info("%s ChatBot: %s is csrf exempt.", self.formatted_class_name, url)
-            return None
-
-        if self.am_request.is_chatbot:
-            logger.info("%s.process_request(): csrf_middleware_logging is active", self.formatted_class_name)
-            logger.info("=" * 80)
-            logger.info("%s ChatBot: %s", self.formatted_class_name, url)
-            for cookie in request.COOKIES:
-                logger.info("SmarterCsrfViewMiddleware request.COOKIES: %s", cookie)
-            logger.info("%s cookie settings", self.formatted_class_name)
-            logger.info("%s settings.CSRF_COOKIE_NAME: %s", self.formatted_class_name, settings.CSRF_COOKIE_NAME)
-            logger.info(
-                "%s request.META['CSRF_COOKIE']: %s", self.formatted_class_name, request.META.get("CSRF_COOKIE")
-            )
-            logger.info("%s settings.CSRF_COOKIE_AGE: %s", self.formatted_class_name, settings.CSRF_COOKIE_AGE)
-            logger.info("%s settings.CSRF_COOKIE_DOMAIN: %s", self.formatted_class_name, settings.CSRF_COOKIE_DOMAIN)
-            logger.info("%s settings.CSRF_COOKIE_PATH: %s", self.formatted_class_name, settings.CSRF_COOKIE_PATH)
-            logger.info("%s settings.CSRF_COOKIE_SECURE: %s", self.formatted_class_name, settings.CSRF_COOKIE_SECURE)
-            logger.info(
-                "%s settings.CSRF_COOKIE_HTTPONLY: %s", self.formatted_class_name, settings.CSRF_COOKIE_HTTPONLY
-            )
-            logger.info(
-                "%s settings.CSRF_COOKIE_SAMESITE: %s", self.formatted_class_name, settings.CSRF_COOKIE_SAMESITE
-            )
-            logger.info("=" * 80)
-
         # ------------------------------------------------------
         return super().process_request(request)
 
     def process_view(self, request, callback, callback_args, callback_kwargs):
         if account_settings.environment == "local":
             logger.debug("%s._accept: environment is local. ignoring csrf checks", self.formatted_class_name)
-            return None
-        if (
-            self.am_request
-            and self.am_request.is_chatbot
-            and waffle.switch_is_active(AMWaffleSwitches.CSRF_SUPPRESS_FOR_CHATBOTS)
-        ):
-            logger.info(
-                "%s.process_view() %s waffle switch is active",
-                self.formatted_class_name,
-                AMWaffleSwitches.CSRF_SUPPRESS_FOR_CHATBOTS,
-            )
             return None
         response = super().process_view(request, callback, callback_args, callback_kwargs)
         if isinstance(response, HttpResponseForbidden):

@@ -25,13 +25,19 @@ requests==2.32.5                        # HTTP requests library
 requests-cache==1.2.1                   # HTTP requests caching
 retry-requests==2.0.0                   # HTTP requests retry
 tldextract==5.3.0                       # Extracts the top-level domain from a URL
-validators==0.35.0                      # Data validation library
 mailchimp-marketing==3.0.80             # Mailchimp API, for adding people to the mailing list
+
+# for working with data
+# ------------
+pydantic==2.12.0                        # best data validation library ever!
+pydantic-settings==2.11.0               # settings management
+email-validator==2.3.0                  # Pydantic email validator for EmailStr
+validators==0.35.0                      # Data validation library
 
 
 # Django
 # ------------
-Django==5.2.7
+Django==5.2.7                           # web framework
 django-redis==6.0.0                     # object caching
 django-celery-beat==2.8.1               # scheduled asynchronous tasks
 djangorestframework==3.16.1             # for creating REST APIs on top of Django
@@ -42,13 +48,12 @@ django-cors-headers==4.7.0              # Cross-origin resource sharing
 django-storages==1.14.6                 # Django storage subsystem
 django-waffle==5.0.0                    # Feature flagging
 social-auth-app-django==5.6.0           # Social authentication for Django
-dj-stripe==2.10.3                       # Stripe payment processing
 
-# for working with data
+# Ecommerce
 # ------------
-pydantic==2.12.0                        # best data validation library ever!
-pydantic-settings==2.11.0               # settings management
-email-validator==2.3.0                  # Pydantic email validator for EmailStr
+dj-stripe==2.10.3                       # Stripe payment processing
+django-oscar==4.1                       # ecommerce
+sorl-thumbnail==12.11.0                 # Apache Solr
 
 # Web publishing tools
 # ------------

@@ -80,40 +80,12 @@ class AMRequestMixin(AccountMixin):
 
     **Valid endpoints:**
 
-    1. Root endpoints for named URLs (public or authenticated chats)
-       (``self.is_chatbot_named_url == True``)
-
-       - ``http://example.3141-5926-5359.api.localhost:8000/`` → ``account.lib.django.api.v1.views.default.DefaultChatbotApiView``
-       - ``http://example.3141-5926-5359.api.localhost:8000/config`` → ``account.apps.prompt.views.ChatConfigView``
-
     2. Authenticated sandbox endpoints (authenticated chats)
        (``self.is_chatbot_sandbox_url == True``)
 
        - ``http://localhost:8000/workbench/<str:name>/`` → ``account.apps.prompt.views.ChatAppWorkbenchView``
        - ``http://localhost:8000/workbench/<str:name>/config/`` → ``account.apps.prompt.views.ChatConfigView``
 
-    4. Command-line interface API endpoints (authenticated chats)
-       (``self.is_chatbot_cli_api_url == True``)
-
-       - ``http://localhost:8000/api/v1/cli/chat/<str:name>/`` → ``account.lib.django.api.v1.cli.views.nonbrokered.chat.ApiV1CliChatApiView``
-       - ``http://localhost:8000/api/v1/cli/chat/config/<str:name>/`` → ``account.lib.django.api.v1.cli.views.nonbrokered.chat_config.ApiV1CliChatConfigApiView``
-
-    5. Other endpoints (possibly deprecated or unused)
-       - ``http://localhost:8000/api/v1/chat/``
-
-    **Example URLs:**
-
-    - ``http://testserver``
-    - ``http://localhost:8000/``
-    - ``http://localhost:8000/docs/``
-    - ``http://localhost:8000/dashboard/``
-    - ``https://alpha.account.smarter.sh/api/v1/workbench/1/chatbot/``
-    - ``http://example.com/contact/``
-    - ``https://hr.3141-5926-5359.alpha.api.example.com/``
-    - ``http://example.3141-5926-5359.api.localhost:8000/``
-    - ``http://localhost:8000/api/v1/workbench/1/chat/``
-    - ``http://localhost:8000/api/v1/cli/chat/smarter/?new_session=false&uid=mcdaniel``
-    - ``https://hr.smarter.sh/``
 
     """
 
@@ -212,24 +184,6 @@ class AMRequestMixin(AccountMixin):
             self.user_profile if self.user_profile else None,
             self.account if self.account else None,
         )
-
-        if self._parse_result and self.is_chatbot_named_url:
-            account_number = account_number_from_url(self.url)
-            if account_number:
-                self._url_account_number = account_number
-                if self.account and self.account.account_number != account_number:
-                    raise AMValueError(
-                        f"account number from url ({account_number}) does not match existing account ({self.account.account_number})."
-                    )
-
-            if self.account and not self._user:
-                logger.debug(
-                    "%s.init() - account (%s) is set but user is not.",
-                    self.formatted_class_name,
-                    self.account,
-                )
-
-        self.eval_chatbot_url()
 
         if self.is_requestmixin_ready:
             self.helper_logger(
@@ -493,163 +447,6 @@ class AMRequestMixin(AccountMixin):
                 )
                 return None
         return self._params
-
-    @property
-    def uid(self) -> Optional[str]:
-        """
-        Unique identifier for the client.
-
-        This is assumed to be a combination of the machine MAC address and the hostname.
-
-        :return: The client UID as a string, or None if not available.
-
-        Example::
-
-            request_mixin = AMRequestMixin(request)
-            uid = request_mixin.uid
-            print(uid)  # e.g., '00:1A:2B:3C:4D:5E-myhost'
-
-        """
-        return self.params.get("uid") if isinstance(self.params, QueryDict) else None
-
-    @cached_property
-    def cache_key(self) -> Optional[str]:
-        """
-        Returns a cache key for the request.
-
-        This is used to cache the chat request thread. The key is a combination of:
-        - the class name,
-        - authenticated username,
-        - the chat name,
-        - and the client UID.
-
-        :param name: A generic object or resource name.
-        :param uid: UID of the client, assumed to have been created from the machine MAC address and the hostname of the client.
-        :return: A unique cache key string.
-
-        Example::
-
-            request_mixin = AMRequestMixin(request)
-            key = request_mixin.cache_key
-            print(key)  # e.g., 'a1b2c3d4e5f6...'
-
-        """
-        if self._cache_key:
-            return self._cache_key
-
-        if not self.am_request:
-            logger.warning(
-                "%s.cache_key() - request is None or not set. Cannot generate cache key.",
-                self.formatted_class_name,
-            )
-            return None
-
-        uid = self.uid or "unknown_uid"
-        username = getattr(self.am_request, "user", "Anonymous") if self.am_request else "Anonymous"
-        raw_string = f"{self.__class__.__name__}_{str(username)}_cache_key()_{str(uid)}"
-        hash_object = hashlib.sha256()
-        hash_object.update(raw_string.encode())
-        hash_string = hash_object.hexdigest()
-        self._cache_key = hash_string
-
-        return self._cache_key
-
-    @property
-    def smarter_request_chatbot_id(self) -> Optional[int]:
-        """
-        Extract the chatbot id from the URL.
-
-        Example:
-            http://localhost:8000/api/v1/workbench/1912/chat/config/
-
-            return 1912
-
-        :return: The chatbot id as an integer, or None if not found.
-        """
-        if not self.am_request:
-            return None
-        if not self.qualified_request:
-            return None
-
-        if self.is_chatbot_named_url:
-            # can't get from ChatBot bc of circular import
-            return None
-
-    @property
-    def url_account_number(self) -> Optional[str]:
-        """
-        Extract the account number from the URL using the pattern defined in
-        AMValidator.VALID_ACCOUNT_NUMBER_PATTERN.
-
-        Example:
-            http://example.3141-5926-5359.api.localhost:8000/config
-
-            returns "3141-5926-5359"
-
-        :return: The account number as a string, or None if not found.
-        """
-        if self._url_account_number:
-            return self._url_account_number
-
-        if not self.am_request:
-            return None
-        if not self.qualified_request:
-            return None
-        self._url_account_number = account_number_from_url(self.url)
-        return self._url_account_number
-
-    @cached_property
-    def smarter_request_chatbot_name(self) -> Optional[str]:
-        """
-        Extract the chatbot name from the URL.
-
-        Example:
-            http://example.3141-5926-5359.api.localhost:8000/config
-
-            returns "example"
-
-        :return: The chatbot name as a string, or None if not found.
-        """
-        if not self.is_chatbot:
-            return None
-
-        # 1.) http://example.api.localhost:8000/config
-        if self.is_chatbot_named_url and self.parsed_url is not None:
-            netloc_parts = self.parsed_url.netloc.split(".") if self.parsed_url and self.parsed_url.netloc else None
-            retval = netloc_parts[0] if netloc_parts else None
-            retval = rfc1034_compliant_to_snake(retval) if isinstance(retval, str) else retval
-            return retval
-
-        # 2.) example: http://localhost:8000/workbench/<str:name>/config/
-        if self.is_chatbot_sandbox_url:
-            try:
-                retval = self.url_path_parts[1]
-                retval = rfc1034_compliant_to_snake(retval) if isinstance(retval, str) else retval
-                return retval
-            # pylint: disable=broad-except
-            except Exception:
-                logger.error(
-                    "%s.smarter_request_chatbot_name() - failed to extract chatbot name from url: %s",
-                    self.formatted_class_name,
-                    self.url,
-                )
-
-        # 4.) http://localhost:8000/api/v1/cli/chat/config/<str:name>/
-        #     http://localhost:8000/api/v1/cli/chat/<str:name>/
-        if self.is_chatbot_cli_api_url:
-            try:
-                retval = self.url_path_parts[-1]
-                retval = rfc1034_compliant_to_snake(retval) if isinstance(retval, str) else retval
-                return retval
-            # pylint: disable=broad-except
-            except Exception:
-                logger.error(
-                    "%s.smarter_request_chatbot_name() - failed to extract chatbot name from url: %s",
-                    self.formatted_class_name,
-                    self.url,
-                )
-
-        return None
 
     @property
     def timestamp(self):
@@ -1056,8 +853,6 @@ class AMRequestMixin(AccountMixin):
             "auth_header": self.auth_header[:10] + "****" if self.auth_header else None,
             "api_token": mask_string(self.api_token.decode()) if self.api_token else None,
             "data": self.data,
-            "chatbot_id": self.smarter_request_chatbot_id,
-            "chatbot_name": self.smarter_request_chatbot_name,
             "is_smarter_api": self.is_smarter_api,
             "is_default_domain": self.is_default_domain,
             "path": self.path,
@@ -1073,47 +868,9 @@ class AMRequestMixin(AccountMixin):
             "qualified_request": self.qualified_request,
             "url_path_parts": self.url_path_parts,
             "params": self.params,
-            "uid": self.uid,
-            "cache_key": self.cache_key,
             "is_environment_root_domain": self.is_environment_root_domain,
             **super().to_json(),
         }
-
-    def eval_chatbot_url(self):
-        """
-        If we are a chatbot, based on analysis of the URL format
-        then we need to make a follow up check of the user and account.
-
-        Examples:
-
-            - http://example.3141-5926-5359.api.localhost:8000/
-            - https://alpha.account.smarter.sh/api/v1/workbench/1/chatbot/
-            - http://localhost:8000/api/v1/cli/chat/example/
-
-        1.) For named urls, we extract the account number from the url,
-            then we load the account and admin user for that account.
-
-        2.) For Account Manager API urls, we would extract the chatbot id from the url,
-            then we would load the chatbot, account, and admin user for that account.
-
-        3.) For cli api urls, we would extract the chatbot name from the url,
-            then we would load the chatbot, account, and admin user for that account.
-
-
-        """
-        if not self.is_chatbot:
-            return
-        if self.is_chatbot_named_url:
-            # http://example.3141-5926-5359.api.localhost:8000/
-            if not self.account:
-                account_number = account_number_from_url(self.url)
-                if account_number:
-                    self.account = get_cached_account(account_number=account_number)  # type: ignore
-            if self.account and not self.user:
-                self.user = get_cached_admin_user_for_account(account=self.account)  # type: ignore
-        if self.is_chatbot_cli_api_url:
-            # http://localhost:8000/api/v1/cli/chat/example/
-            pass
 
     def helper_logger(self, message: str):
         """

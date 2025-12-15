@@ -23,7 +23,9 @@ attrs==25.4.0
 autodoc-pydantic==2.2.0
     # via -r account/requirements/in/local.in
 babel==2.17.0
-    # via sphinx
+    # via
+    #   django-oscar
+    #   sphinx
 bandit==1.8.6
     # via -r account/requirements/in/local.in
 bcrypt==5.0.0
@@ -114,13 +116,19 @@ django==5.2.7
     #   django-cors-headers
     #   django-debug-toolbar
     #   django-extensions
+    #   django-extra-views
     #   django-filter
+    #   django-haystack
+    #   django-oscar
+    #   django-phonenumber-field
     #   django-redis
     #   django-rest-knox
     #   django-storages
     #   django-stubs
     #   django-stubs-ext
+    #   django-tables2
     #   django-timezone-field
+    #   django-treebeard
     #   django-waffle
     #   djangorestframework
     #   drf-yasg
@@ -134,10 +142,18 @@ django-debug-toolbar==6.0.0
     # via -r account/requirements/in/local.in
 django-extensions==4.1
     # via -r account/requirements/in/local.in
+django-extra-views==0.16.0
+    # via django-oscar
 django-filter==25.1
     # via -r account/requirements/in/base.in
+django-haystack==3.3.0
+    # via django-oscar
 django-hosts==7.0.0
     # via -r account/requirements/in/base.in
+django-oscar==4.1
+    # via -r account/requirements/in/base.in
+django-phonenumber-field==8.4.0
+    # via django-oscar
 django-redis==6.0.0
     # via -r account/requirements/in/base.in
 django-rest-knox==5.0.2
@@ -150,10 +166,16 @@ django-stubs==5.2.2
     #   djangorestframework-stubs
 django-stubs-ext==5.2.8
     # via django-stubs
+django-tables2==2.7.0
+    # via django-oscar
 django-timezone-field==7.2.1
     # via django-celery-beat
+django-treebeard==4.8.0
+    # via django-oscar
 django-waffle==5.0.0
     # via -r account/requirements/in/base.in
+django-widget-tweaks==1.5.0
+    # via django-oscar
 djangorestframework==3.16.1
     # via
     #   -r account/requirements/in/base.in
@@ -173,6 +195,10 @@ drf-yasg==1.21.10
     # via -r account/requirements/in/base.in
 email-validator==2.3.0
     # via -r account/requirements/in/base.in
+factory-boy==3.3.3
+    # via django-oscar
+faker==38.2.0
+    # via factory-boy
 filelock==3.20.0
     # via
     #   tldextract
@@ -245,6 +271,7 @@ packaging==25.0
     # via
     #   black
     #   build
+    #   django-haystack
     #   drf-yasg
     #   kombu
     #   pyproject-api
@@ -255,6 +282,10 @@ paramiko==4.0.0
     # via -r account/requirements/in/base.in
 pathspec==0.12.1
     # via black
+phonenumbers==9.0.20
+    # via django-oscar
+pillow==12.0.0
+    # via django-oscar
 pip-tools==7.5.0
     # via -r account/requirements/in/local.in
 platformdirs==4.5.1
@@ -274,6 +305,8 @@ pre-commit==4.3.0
     # via -r account/requirements/in/local.in
 prompt-toolkit==3.0.52
     # via click-repl
+purl==1.6
+    # via django-oscar
 pycodestyle==2.14.0
     # via flake8
 pycparser==2.23
@@ -384,6 +417,7 @@ s3transfer==0.16.0
 six==1.17.0
     # via
     #   mailchimp-marketing
+    #   purl
     #   python-dateutil
 snowballstemmer==3.0.1
     # via sphinx
@@ -391,6 +425,8 @@ social-auth-app-django==5.6.0
     # via -r account/requirements/in/base.in
 social-auth-core==4.8.1
     # via social-auth-app-django
+sorl-thumbnail==12.11.0
+    # via -r account/requirements/in/base.in
 sphinx==8.2.3
     # via
     #   -r account/requirements/in/local.in
@@ -473,6 +509,7 @@ typing-inspection==0.4.2
 tzdata==2025.3
     # via
     #   django-celery-beat
+    #   faker
     #   kombu
 uritemplate==4.2.0
     # via drf-yasg
