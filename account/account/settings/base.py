@@ -494,6 +494,17 @@ HAYSTACK_CONNECTIONS = {
     },
 }
 
+KNOX_TOKEN_MODEL = "knox.AuthToken"
+
+OAUTH2_PROVIDER = {
+    "ACCESS_TOKEN_EXPIRE_SECONDS": 36000,
+    "REFRESH_TOKEN_EXPIRE_SECONDS": 1209600,
+    "SCOPES": {
+        "read": "Read scope",
+        "write": "Write scope",
+    },
+}
+
 OSCAR_REQUIRED_ADDRESS_FIELDS = ["first_name", "last_name", "line1", "city", "postcode", "country"]
 OSCAR_INITIAL_ORDER_STATUS = "Pending"
 OSCAR_INITIAL_LINE_STATUS = "Pending"
@@ -508,10 +519,7 @@ OSCAR_ORDER_STATUS_PIPELINE = {
     ),
     "Cancelled": (),
 }
-OSCAR_SHOP_NAME = "Your Shop Name"
-
-
-KNOX_TOKEN_MODEL = "knox.AuthToken"
+OSCAR_SHOP_NAME = "Newco Hosting Solutions"
 
 
 # Application definition
@@ -546,11 +554,12 @@ INSTALLED_APPS = [
     "drf_yasg",
     "django_celery_beat",
     "django.contrib.admindocs",
-    "social_django",
     "waffle",
     # Stripe
     # -------------------------------
     "djstripe",
+    # OAuth Toolkit
+    "oauth2_provider",
     # Django Oscar (e-commerce)
     # -------------------------------
     "oscar.config.Shop",
@@ -669,8 +678,6 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "account.apps.account.context_processors.base",
-                "social_django.context_processors.backends",
-                "social_django.context_processors.login_redirect",
                 "oscar.apps.search.context_processors.search_form",
                 "oscar.apps.checkout.context_processors.checkout",
                 "oscar.apps.communication.notifications.context_processors.notifications",
@@ -735,19 +742,14 @@ See:
 - https://github.com/smarter-sh/smarter-infrastructure
 """
 
-# https://python-social-auth.readthedocs.io/en/latest/configuration/django.html
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
 AUTHENTICATION_BACKENDS = (
-    "social_core.backends.google.GoogleOAuth2",
-    "social_core.backends.github.GithubOAuth2",
-    "account.lib.social_core.backends.linkedin.LinkedinOAuth2",
     "oscar.apps.customer.auth_backends.EmailBackend",
     "django.contrib.auth.backends.ModelBackend",
 )
 """
-The authentication backends for Account Manager, including social authentication
-backends for Google, GitHub, and LinkedIn, as well as the default Django
+The authentication backends for Account Manager as well as the default Django
 model backend.
 
 Note that Account Manager additionally implements its own custom key-based REST API
@@ -757,177 +759,6 @@ See:
 
 - https://docs.djangoproject.com/en/5.0/ref/settings/#authentication-backends
 - https://docs.smarter.sh/en/latest/developers/architecture/lib/drf.html
-"""
-
-SOCIAL_AUTH_CREATE_USERS = False
-"""
-A boolean that determines whether to automatically create user accounts
-when a user authenticates via a social authentication provider.
-
-IMPORTANT: Account Manager defaults this to False for security reasons to prevent
-what is effectively random virtually-anonymous user account creation via
-social authentication. User accounts should be created via the Account Manager
-platform console by an administrator, then linked to social authentication
-providers as needed.
-
-SETTING THIS TO TRUE IS A SECURITY AND A FINANCIAL RISK BECAUSE IT
-WILL ALLOW ANY USERS (E.G. BOTNETS) TO CREATE ACCOUNTS AND ACCESS PAID
-SERVICES WITHOUT RESTRICTION OR OVERSIGHT.
-"""
-
-SOCIAL_AUTH_PIPELINE = (
-    # Get the information we can about the user and return it in a simple
-    # format to create the user instance later. On some cases the details are
-    # already part of the auth response from the provider, but sometimes this
-    # could hit a provider API.
-    "social_core.pipeline.social_auth.social_details",
-    # Get the social uid from whichever service we're authing thru. The uid is
-    # the unique identifier of the given user in the provider.
-    "social_core.pipeline.social_auth.social_uid",
-    # Verifies that the current auth process is valid within the current
-    # project, this is where emails and domains whitelists are applied (if
-    # defined).
-    "social_core.pipeline.social_auth.auth_allowed",
-    # Checks if the current social-account is already associated in the site.
-    "social_core.pipeline.social_auth.social_user",
-    # Make up a username for this person, appends a random string at the end if
-    # there's any collision.
-    "social_core.pipeline.user.get_username",
-    # Send a validation email to the user to verify its email address.
-    # 'social_core.pipeline.mail.mail_validation',
-    # Associates the current social details with another user account with
-    # a similar email address.
-    "social_core.pipeline.social_auth.associate_by_email",
-    # Create a user account if we haven't found one yet.
-    "social_core.pipeline.user.create_user",
-    # Create the record that associated the social account with this user.
-    "social_core.pipeline.social_auth.associate_user",
-    # Populate the extra_data field in the social record with the values
-    # specified by settings (and the default ones like access_token, etc).
-    "social_core.pipeline.social_auth.load_extra_data",
-    # Update the user record with any changed info from the auth service.
-    "social_core.pipeline.user.user_details",
-)
-
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = account_settings.social_auth_google_oauth2_key.get_secret_value()
-"""
-Python Social Auth Google OAuth2 client ID for Account Manager.
-
-The chain of custody for this secret should be:
-
-GitHub Secrets -> GitHub Actions -> environment variable -> account_settings -> Django SOCIAL_AUTH_GOOGLE_OAUTH2_KEY.
-
-See: https://python-social-auth.readthedocs.io/en/latest/backends/google.html
-"""
-
-SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = account_settings.social_auth_google_oauth2_secret.get_secret_value()
-"""
-Python Social Auth Google OAuth2 client secret for Account Manager.
-
-The chain of custody for this secret should be:
-
-GitHub Secrets -> GitHub Actions -> environment variable -> account_settings -> Django SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET.
-
-See: https://python-social-auth.readthedocs.io/en/latest/backends/google.html
-"""
-
-SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = urllib.parse.urljoin(
-    account_settings.environment_url, "/social-auth/complete/google-oauth2/"
-)
-"""
-The redirect URI for Google OAuth2 social authentication in Account Manager.
-Do not change this value unless you know what you are doing.
-
-See: https://python-social-auth.readthedocs.io/en/latest/backends/google.html
-"""
-
-SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ["openid", "email", "profile"]
-"""
-The OAuth2 scopes for Google social authentication in Account Manager.
-See: https://python-social-auth.readthedocs.io/en/latest/backends/google.html
-"""
-
-SOCIAL_AUTH_GITHUB_KEY = account_settings.social_auth_github_key.get_secret_value()
-"""
-Python Social Auth GitHub OAuth2 client ID for Account Manager.
-
-The chain of custody for this secret should be:
-
-GitHub Secrets -> GitHub Actions -> environment variable -> account_settings -> Django SOCIAL_AUTH_GITHUB_KEY.
-
-See: https://python-social-auth.readthedocs.io/en/latest/backends/github.html
-"""
-
-SOCIAL_AUTH_GITHUB_SECRET = account_settings.social_auth_github_secret.get_secret_value()
-"""
-Python Social Auth GitHub OAuth2 client secret for Account Manager.
-
-The chain of custody for this secret should be:
-
-GitHub Secrets -> GitHub Actions -> environment variable -> account_settings -> Django SOCIAL_AUTH_GITHUB_SECRET.
-
-See: https://python-social-auth.readthedocs.io/en/latest/backends/github.html
-"""
-
-SOCIAL_AUTH_LINKEDIN_OAUTH2_SCOPE = ["openid", "profile", "email"]
-"""
-The OAuth2 scopes for LinkedIn social authentication in Account Manager.
-
-NOTE: (Nov-2025) LinkedIn has deprecated OAuth2 client secrets for security reasons. The Account Manager reference
-cloud platform is no longer using LinkedIn OAuth2 for social authentication, but the configuration settings remain
-here for backward compatibility with existing Account Manager deployments that may still be using LinkedIn OAuth2.
-
-See: https://python-social-auth.readthedocs.io/en/latest/backends/linkedin.html
-"""
-
-
-SOCIAL_AUTH_LINKEDIN_OAUTH2_FIELD_SELECTORS = ["id", "first-name", "last-name", "email-address"]
-"""
-The OAuth2 field selectors for LinkedIn social authentication in Account Manager.
-
-NOTE: (Nov-2025) LinkedIn has deprecated OAuth2 client secrets for security reasons. The Account Manager reference
-cloud platform is no longer using LinkedIn OAuth2 for social authentication, but the configuration settings remain
-here for backward compatibility with existing Account Manager deployments that may still be using LinkedIn OAuth2.
-
-See: https://python-social-auth.readthedocs.io/en/latest/backends/linkedin.html
-"""
-
-SOCIAL_AUTH_LINKEDIN_OAUTH2_REDIRECT_URI = urllib.parse.urljoin(
-    account_settings.environment_url, "/social-auth/complete/linkedin-oauth2/"
-)
-"""
-The redirect URI for LinkedIn OAuth2 social authentication in Account Manager.
-
-NOTE: (Nov-2025) LinkedIn has deprecated OAuth2 client secrets for security reasons. The Account Manager reference
-cloud platform is no longer using LinkedIn OAuth2 for social authentication, but the configuration settings remain
-here for backward compatibility with existing Account Manager deployments that may still be using LinkedIn OAuth2.
-
-Do not change this value unless you know what you are doing.
-
-See: https://python-social-auth.readthedocs.io/en/latest/backends/linkedin.html
-"""
-
-SOCIAL_AUTH_LINKEDIN_OAUTH2_EXTRA_DATA = [
-    ("id", "id"),
-    ("firstName", "first_name"),
-    ("lastName", "last_name"),
-    ("emailAddress", "email_address"),
-]
-"""
-The extra data fields to retrieve from LinkedIn during social authentication in Account Manager.
-
-NOTE: (Nov-2025) LinkedIn has deprecated OAuth2 client secrets for security reasons. The Account Manager reference
-cloud platform is no longer using LinkedIn OAuth2 for social authentication, but the configuration settings remain
-here for backward compatibility with existing Account Manager deployments that may still be using LinkedIn OAuth2.
-
-See: https://python-social-auth.readthedocs.io/en/latest/backends/linkedin.html
-"""
-
-SOCIAL_AUTH_ADMIN_USER_SEARCH_FIELDS = ["username", "first_name", "email"]
-"""
-The user fields that can be searched in the Django admin interface for social authentication users.
-
-See: https://python-social-auth.readthedocs.io/en/latest/configuration/django.html#admin-integration
 """
 
 LOGIN_URL = "/login/"

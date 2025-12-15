@@ -2,9 +2,20 @@
 URLs for Account Manager Api.
 """
 
+from django.apps import apps
 from django.contrib import admin
 from django.urls import include, path
 
+from account.apps.account.views.webserver import (
+    FaviconView,
+    HealthzView,
+    ReadinessView,
+    RobotsTxtView,
+)
+
+
+# pylint: disable=C0103
+name_prefix = "root"
 
 urlpatterns = [
     path("", include("account.apps.api.urls")),
@@ -13,6 +24,19 @@ urlpatterns = [
     # -----------
     path("admin/", admin.site.urls),
     path("", include("account.urls.console")),
+    # -----------------------------------
+    # static routes
+    # -----------------------------------
+    path("favicon.png", FaviconView.as_view(), name=f"{name_prefix}_favicon"),
+    path("robots.txt", RobotsTxtView.as_view(), name=f"{name_prefix}_robots_txt"),
+    path("healthz/", HealthzView.as_view(), name=f"{name_prefix}_healthz"),
+    path("readiness/", ReadinessView.as_view(), name=f"{name_prefix}_readiness"),
+    # -----------------------------------
+    # routes for 3rd party apps
+    # -----------------------------------
+    path("o/", include("oauth2_provider.urls", namespace="oauth2_provider")),
+    path("social-auth/", include("social_django.urls", namespace="social_auth")),
+    path("", include(apps.get_app_config("oscar").urls[0])),  # type: ignore[attr-defined]
 ]
 
 __all__ = ["urlpatterns"]

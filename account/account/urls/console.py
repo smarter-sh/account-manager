@@ -2,15 +2,14 @@
 URLs for Account Manager web console.
 """
 
+from django.apps import apps
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.shortcuts import redirect
 from django.urls import include, path
-from django.views.generic.base import RedirectView
 
-from account.apps.account.const import namespace as account_namespace
 from account.apps.account.views.authentication import (
-    AccountRegisterView,
     LoginView,
     LogoutView,
 )
@@ -25,24 +24,21 @@ from account.apps.api.const import namespace as api_namespace
 
 admin.autodiscover()
 
+# pylint: disable=C0103
 name_prefix = "root"
 
 
 urlpatterns = [
-    path("", RedirectView.as_view(pattern_name="dashboard:dashboard"), name=f"{name_prefix}_home"),
-    # -----------------------------------
-    # Api
-    # -----------------------------------
-    path("api/", include("account.apps.api.urls", namespace=api_namespace)),
+    path("", lambda request: redirect("admin:index"), name=f"{name_prefix}_home"),
     # -----------------------------------
     # root paths
     # -----------------------------------
-    path("account/", include("account.apps.account.urls", namespace=account_namespace)),
+    path("api/", include("account.apps.api.urls", namespace=api_namespace)),
     path("admin/", admin.site.urls, name="django_admin"),
     path("admin/docs/", include("django.contrib.admindocs.urls")),
+    path("i18n/", include("django.conf.urls.i18n")),
     path("login/", LoginView.as_view(), name="login_view"),
     path("logout/", LogoutView.as_view(), name="logout_view"),
-    path("register/", AccountRegisterView.as_view(), name=f"{name_prefix}_register_view"),
     # -----------------------------------
     # static routes
     # -----------------------------------
@@ -53,22 +49,22 @@ urlpatterns = [
     # -----------------------------------
     # routes for 3rd party apps
     # -----------------------------------
+    path("o/", include("oauth2_provider.urls", namespace="oauth2_provider")),
     path("social-auth/", include("social_django.urls", namespace="social_auth")),
+    path("", include(apps.get_app_config("oscar").urls[0])),  # type: ignore[attr-defined]
     # -----------------------------------
     # stripe urls
     # see: https://dj-stripe.dev/dj-stripe/
     # -----------------------------------
     # path("stripe/", include("djstripe.urls", namespace="djstripe")),
     # -----------------------------------
-    # -----------------------------------
-    # IMPORTANT: place these wagtail routes at the end of the urlpatterns
-    # -----------------------------------
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-# if settings.DEBUG:
-#     import debug_toolbar
-# urlpatterns += [
-#     path("__debug__/", include(debug_toolbar.urls)),
-# ]
+if settings.DEBUG:
+    import debug_toolbar
+
+    urlpatterns += [
+        path("__debug__/", include(debug_toolbar.urls)),
+    ]
 
 __all__ = ["urlpatterns"]

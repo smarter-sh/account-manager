@@ -47,13 +47,14 @@ django-rest-knox==5.0.2                 # Token authentication for REST APIs
 django-cors-headers==4.7.0              # Cross-origin resource sharing
 django-storages==1.14.6                 # Django storage subsystem
 django-waffle==5.0.0                    # Feature flagging
-social-auth-app-django==5.6.0           # Social authentication for Django
+django-oauth-toolkit==3.1.0             # OAuth2 provider for Django (for ReactJS clients)
 
 # Ecommerce
 # ------------
 dj-stripe==2.10.3                       # Stripe payment processing
 django-oscar==4.1                       # ecommerce
 sorl-thumbnail==12.11.0                 # Apache Solr
+pycountry                               # country database with flags
 
 # Web publishing tools
 # ------------

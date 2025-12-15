@@ -95,6 +95,7 @@ cron-descriptor==2.0.6
     # via django-celery-beat
 cryptography==46.0.3
     # via
+    #   jwcrypto
     #   paramiko
     #   pyjwt
     #   types-paramiko
@@ -119,6 +120,7 @@ django==5.2.7
     #   django-extra-views
     #   django-filter
     #   django-haystack
+    #   django-oauth-toolkit
     #   django-oscar
     #   django-phonenumber-field
     #   django-redis
@@ -149,6 +151,8 @@ django-filter==25.1
 django-haystack==3.3.0
     # via django-oscar
 django-hosts==7.0.0
+    # via -r account/requirements/in/base.in
+django-oauth-toolkit==3.1.0
     # via -r account/requirements/in/base.in
 django-oscar==4.1
     # via -r account/requirements/in/base.in
@@ -236,6 +240,8 @@ jmespath==1.0.1
     # via
     #   boto3
     #   botocore
+jwcrypto==1.5.6
+    # via django-oauth-toolkit
 kombu==5.5.4
     # via celery
 lark==1.3.1
@@ -265,6 +271,7 @@ nodeenv==1.9.1
     # via pre-commit
 oauthlib==3.3.1
     # via
+    #   django-oauth-toolkit
     #   requests-oauthlib
     #   social-auth-core
 packaging==25.0
@@ -309,6 +316,8 @@ purl==1.6
     # via django-oscar
 pycodestyle==2.14.0
     # via flake8
+pycountry==24.6.1
+    # via -r account/requirements/in/base.in
 pycparser==2.23
     # via cffi
 pydantic==2.12.0
@@ -390,6 +399,7 @@ regex==2025.11.3
 requests==2.32.5
     # via
     #   -r account/requirements/in/base.in
+    #   django-oauth-toolkit
     #   djangorestframework-stubs
     #   mailchimp-marketing
     #   requests-cache
@@ -497,6 +507,7 @@ typing-extensions==4.15.0
     #   django-stubs
     #   django-stubs-ext
     #   djangorestframework-stubs
+    #   jwcrypto
     #   mypy
     #   pydantic
     #   pydantic-core
