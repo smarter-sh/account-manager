@@ -21,7 +21,7 @@ import secrets
 import subprocess
 import sys
 import time
-import urllib.parse
+from datetime import timedelta
 from pathlib import Path
 
 from corsheaders.defaults import default_headers
@@ -207,6 +207,8 @@ See:
 """
 
 CSRF_TRUSTED_ORIGINS = [
+    account_settings.root_domain,
+    account_settings.root_api_domain,
     account_settings.environment_account_manager_domain,
     account_settings.environment_api_domain,
 ]
@@ -894,11 +896,6 @@ This is the recommended static files storage backend for production deployments
 of Django applications.
 """
 
-# ReactJS integration with Django. Add all reactapp/dist directories in Django apps
-django_apps_dir = BASE_DIR / "apps"
-reactapp_dirs = [Path(p) for p in glob.glob(os.path.join(django_apps_dir, "*", "reactapp", "dist"))]
-STATICFILES_DIRS.extend(reactapp_dirs)
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
@@ -913,6 +910,8 @@ See: https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "account.lib.drf.auth.account_manager_auth.AMAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "account.lib.drf.token_authentication.AMTokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
@@ -930,6 +929,23 @@ permission classes, and parser classes.
 Do not change these values unless you know what you are doing. Even then, it's probably a bad idea.
 
 See: https://www.django-rest-framework.org/api-guide/settings/
+"""
+
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+"""
+The configuration for the Simple JWT authentication library used by Django REST Framework
+in Account Manager. This includes settings for token lifetimes, signing algorithm, and
+authentication header types.
+See: https://django-rest-framework-simplejwt.readthedocs.io/en/latest/settings.html
 """
 
 LOGGING = {

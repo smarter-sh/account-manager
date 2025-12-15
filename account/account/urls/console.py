@@ -50,7 +50,6 @@ urlpatterns = [
     # routes for 3rd party apps
     # -----------------------------------
     path("o/", include("oauth2_provider.urls", namespace="oauth2_provider")),
-    path("social-auth/", include("social_django.urls", namespace="social_auth")),
     path("", include(apps.get_app_config("oscar").urls[0])),  # type: ignore[attr-defined]
     # -----------------------------------
     # stripe urls

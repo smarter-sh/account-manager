@@ -19,11 +19,8 @@ name_prefix = "root"
 
 urlpatterns = [
     path("", include("account.apps.api.urls")),
+    path("auth/", include("account.lib.drf.auth.urls")),
     #
-    # superfluous stuff that breaks the site unless it's included ...
-    # -----------
-    path("admin/", admin.site.urls),
-    path("", include("account.urls.console")),
     # -----------------------------------
     # static routes
     # -----------------------------------
@@ -35,8 +32,10 @@ urlpatterns = [
     # routes for 3rd party apps
     # -----------------------------------
     path("o/", include("oauth2_provider.urls", namespace="oauth2_provider")),
-    path("social-auth/", include("social_django.urls", namespace="social_auth")),
     path("", include(apps.get_app_config("oscar").urls[0])),  # type: ignore[attr-defined]
+    # superfluous stuff that breaks the site unless it's included ...
+    # -----------
+    path("admin/", admin.site.urls),
 ]
 
 __all__ = ["urlpatterns"]

@@ -70,11 +70,6 @@ cryptography==46.0.3
     # via
     #   jwcrypto
     #   paramiko
-    #   pyjwt
-defusedxml==0.7.1
-    # via
-    #   python3-openid
-    #   social-auth-core
 dj-stripe==2.10.3
     # via -r account/requirements/in/base.in
 django==5.2.7
@@ -97,8 +92,8 @@ django==5.2.7
     #   django-treebeard
     #   django-waffle
     #   djangorestframework
+    #   djangorestframework-simplejwt
     #   drf-yasg
-    #   social-auth-app-django
 django-celery-beat==2.8.1
     # via -r account/requirements/in/base.in
 django-cors-headers==4.7.0
@@ -137,7 +132,10 @@ djangorestframework==3.16.1
     # via
     #   -r account/requirements/in/base.in
     #   django-rest-knox
+    #   djangorestframework-simplejwt
     #   drf-yasg
+djangorestframework-simplejwt==5.5.1
+    # via -r account/requirements/in/base.in
 dnspython==2.7.0
     # via
     #   -r account/requirements/in/base.in
@@ -179,10 +177,7 @@ mailchimp-marketing==3.0.80
 mysqlclient==2.2.7
     # via -r account/requirements/in/base.in
 oauthlib==3.3.1
-    # via
-    #   django-oauth-toolkit
-    #   requests-oauthlib
-    #   social-auth-core
+    # via django-oauth-toolkit
 packaging==25.0
     # via
     #   django-haystack
@@ -213,10 +208,8 @@ pydantic-core==2.41.1
     # via pydantic
 pydantic-settings==2.11.0
     # via -r account/requirements/in/base.in
-pyjwt[crypto]==2.10.1
-    # via
-    #   pyjwt
-    #   social-auth-core
+pyjwt==2.10.1
+    # via djangorestframework-simplejwt
 pynacl==1.6.1
     # via paramiko
 python-crontab==3.3.0
@@ -233,8 +226,6 @@ python-dotenv==1.1.1
     #   pydantic-settings
 python-hcl2==7.3.1
     # via -r account/requirements/in/base.in
-python3-openid==3.2.0
-    # via social-auth-core
 pytz==2025.2
     # via drf-yasg
 pyyaml==6.0.3
@@ -252,17 +243,13 @@ requests==2.32.5
     #   mailchimp-marketing
     #   requests-cache
     #   requests-file
-    #   requests-oauthlib
     #   retry-requests
-    #   social-auth-core
     #   stripe
     #   tldextract
 requests-cache==1.2.1
     # via -r account/requirements/in/base.in
 requests-file==3.0.1
     # via tldextract
-requests-oauthlib==2.0.0
-    # via social-auth-core
 retry-requests==2.0.0
     # via -r account/requirements/in/base.in
 s3transfer==0.16.0
@@ -272,10 +259,6 @@ six==1.17.0
     #   mailchimp-marketing
     #   purl
     #   python-dateutil
-social-auth-app-django==5.6.0
-    # via -r account/requirements/in/base.in
-social-auth-core==4.8.1
-    # via social-auth-app-django
 sorl-thumbnail==12.11.0
     # via -r account/requirements/in/base.in
 sqlparse==0.5.4

@@ -9,7 +9,6 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
-import glob
 import os
 
 from account.common.conf import account_settings
@@ -20,8 +19,6 @@ from .base import *
 if account_settings.developer_mode:
     # dev only:
     # Bootstrap theme source files and static assets.
-    keen_source = [Path(p) for p in glob.glob(os.path.join(django_apps_dir, "*", "keen_demo1"))]
-    STATICFILES_DIRS.extend(keen_source)
     STATICFILES_STORAGE = "whitenoise.storage.StaticFilesStorage"
 
     INSTALLED_APPS += ["django_extensions"]
