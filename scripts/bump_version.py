@@ -37,9 +37,7 @@ def main():
         sys.exit(1)
 
     # Update __version__.py
-    update_version_in_file(
-        "account/account/__version__.py", r'__version__\s*=\s*["\'].*?["\']', f'__version__ = "{new_version}"'
-    )
+    update_version_in_file("am/am/__version__.py", r'__version__\s*=\s*["\'].*?["\']', f'__version__ = "{new_version}"')
 
     # Update pyproject.toml
     update_version_in_file("pyproject.toml", r'version\s*=\s*["\'].*?["\']', f'version = "{new_version}"')

@@ -1,0 +1,26 @@
+"""Test the Serializers class."""
+
+from am.apps.account.serializers import UserMiniSerializer, UserSerializer
+from am.apps.account.tests.mixins import TestAccountMixin
+
+
+class TestUserSerializers(TestAccountMixin):
+    """Test the UserSerializer and UserMiniSerializer classes."""
+
+    def test_user_serializer_fields(self):
+        serializer = UserSerializer(instance=self.admin_user)
+        data = serializer.data
+        self.assertIsInstance(data, dict)
+
+        serializer = UserSerializer(instance=self.non_admin_user)
+        data = serializer.data
+        self.assertIsInstance(data, dict)
+
+    def test_user_mini_serializer_fields(self):
+        serializer = UserMiniSerializer(instance=self.admin_user)
+        data = serializer.data
+        self.assertIsInstance(data, dict)
+
+        serializer = UserMiniSerializer(instance=self.non_admin_user)
+        data = serializer.data
+        self.assertIsInstance(data, dict)

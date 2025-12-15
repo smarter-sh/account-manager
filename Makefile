@@ -28,7 +28,7 @@ init:
 	make check-python		# verify Python 3.11 is installed
 	make docker-check		# verify Docker is installed and running
 	make python-init		# create/replace Python virtual environment and install dependencies
-	make docker-init		# initialize MySQL and create the account database
+	make docker-init		# initialize MySQL and create the am database
 	make pre-commit-init	# install and configure pre-commit
 
 activate:
@@ -65,10 +65,10 @@ lint:
 	make python-lint
 
 analyze:
-	cloc . --exclude-ext=svg,zip --fullpath --not-match-d=account/account/static/assets/ --vcs=git
+	cloc . --exclude-ext=svg,zip --fullpath --not-match-d=am/am/static/assets/ --vcs=git
 
 coverage:
-	docker exec account-app bash -c "coverage run manage.py test && coverage report -m && coverage html"
+	docker exec am-app bash -c "coverage run manage.py test && coverage report -m && coverage html"
 
 pre-commit-init:
 	pre-commit install
@@ -89,7 +89,7 @@ docker-check:
 
 docker-shell:
 	make docker-check && \
-	docker exec -it account-app /bin/bash
+	docker exec -it am-app /bin/bash
 
 
 docker-init:
@@ -97,14 +97,14 @@ docker-init:
 	echo "Building Docker images..." && \
 	docker-compose up -d && \
 	echo "Initializing Docker..." && \
-	docker exec account-mysql bash -c "sleep 20; until echo '\q' | mysql -u account -paccount; do echo 'Waiting for MySQL to be ready...'; sleep 10; done" && \
-	docker exec account-mysql mysql -u account -paccount -e 'DROP DATABASE IF EXISTS account; CREATE DATABASE account;' && \
-	docker exec account-app bash -c "\
+	docker exec am-mysql bash -c "sleep 20; until echo '\q' | mysql -u am -pam; do echo 'Waiting for MySQL to be ready...'; sleep 10; done" && \
+	docker exec am-mysql mysql -u am -pam -e 'DROP DATABASE IF EXISTS am; CREATE DATABASE am;' && \
+	docker exec am-app bash -c "\
 		python manage.py makemigrations && python manage.py migrate && \
 		python manage.py initialize_waffle && \
 		python manage.py initialize_site && \
 		python manage.py oscar_populate_countries && \
-		python manage.py create_account_admin --username admin --email admin@smarter.sh --password account" && \
+		python manage.py create_account_admin --username admin --email admin@smarter.sh --password am" && \
 	echo "Docker and Account are initialized." && \
 	docker ps
 
@@ -120,7 +120,7 @@ docker-run:
 
 docker-test:
 	make docker-check && \
-	docker exec account-app bash -c "python manage.py test account"
+	docker exec am-app bash -c "python manage.py test account"
 
 docker-prune:
 	make docker-check && \
@@ -149,22 +149,22 @@ python-init:
 	$(ACTIVATE_VENV) && \
 	PIP_CACHE_DIR=.pypi_cache $(PIP) install --upgrade pip && \
 	make python-requirements && \
-	PIP_CACHE_DIR=.pypi_cache $(PIP) install -r account/requirements/local.txt
+	PIP_CACHE_DIR=.pypi_cache $(PIP) install -r am/requirements/local.txt
 
 python-lint:
 	make check-python
 	make pre-commit-run
-	pylint account/account
+	pylint am/am
 
 python-clean:
 	rm -rf venv
-	find ./account/ -name __pycache__ -type d -exec rm -rf {} +
+	find ./am/ -name __pycache__ -type d -exec rm -rf {} +
 
 python-requirements:
 	make check-python		# verify Python 3.11 is installed
 	pip install --upgrade pip setuptools wheel pip-tools
-	pip-compile account/requirements/in/local.in -o account/requirements/local.txt
-	pip-compile account/requirements/in/docker.in -o account/requirements/docker.txt
+	pip-compile am/requirements/in/local.in -o am/requirements/local.txt
+	pip-compile am/requirements/in/docker.in -o am/requirements/docker.txt
 
 
 # ---------------------------------------------------------
@@ -190,7 +190,7 @@ keen-server:
 # AWS and deployment
 # -------------------------------------------------------------------------
 helm-update:
-	cd helm/charts/account && \
+	cd helm/charts/am && \
 	helm dependency update
 
 
@@ -226,7 +226,7 @@ help:
 	@echo 'python-lint            - Run Python linting using pre-commit'
 	@echo 'python-clean           - Destroy the Python virtual environment and remove __pycache__ directories'
 	@echo '<************************** Docker **************************>'
-	@echo 'docker-init            - Initialize MySQL and create the account database'
+	@echo 'docker-init            - Initialize MySQL and create the am database'
 	@echo 'docker-build           - Build all Docker containers using docker-compose'
 	@echo 'docker-run             - Start all Docker containers using docker-compose'
 	@echo 'docker-compose-install - Install Docker Compose'

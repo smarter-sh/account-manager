@@ -73,7 +73,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
   redis-tools && \
   rm -rf /var/lib/apt/lists/*
 
-# Install kubectl, required for account/common/helpers/k8s_helpers.py used for ChatBot/Agent
+# Install kubectl, required for am/common/helpers/k8s_helpers.py used for ChatBot/Agent
 # deployments in which dedicated Kubernetes ingress and TLS certificates are created. There
 # are Kubernetes builds for both amd64 and arm64 architectures (we build both for DockerHub
 # multi-arch support).
@@ -81,7 +81,7 @@ RUN curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -
     chmod +x ./kubectl && \
     mv ./kubectl /usr/local/bin/kubectl
 
-# install aws cli, required for account/common/helpers/aws/
+# install aws cli, required for am/common/helpers/aws/
 # We rely extensively on AWS support, for Route53, S3, Simple Email Service,
 # Elastic Kubernetes Service, etc. There are AWS CLI builds for both
 # amd64 and arm64 architectures (we build both for DockerHub multi-arch support).
@@ -94,36 +94,36 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv
 FROM system_packages AS user_setup
 
 # Create a non-root user to run the application
-RUN adduser --disabled-password --gecos '' account_user
+RUN adduser --disabled-password --gecos '' am_user
 
-# create a data directory for the account_user that
+# create a data directory for the am_user that
 # the application can use to store data.
 # - add a .kube directory and an empty config file
 # - add a celery directory for celerybeat to use to store its schedule.
-RUN mkdir -p /home/account_user/data/.kube && touch /home/account_user/data/.kube/config && \
-  mkdir -p /home/account_user/data/celery && \
-  mkdir -p /home/account_user/data/media        # fallback Django storage when not using S3 or other external storage.
+RUN mkdir -p /home/am_user/data/.kube && touch /home/am_user/data/.kube/config && \
+  mkdir -p /home/am_user/data/celery && \
+  mkdir -p /home/am_user/data/media        # fallback Django storage when not using S3 or other external storage.
 
 # Set the KUBECONFIG environment variable
-ENV KUBECONFIG=/home/account_user/data/.kube/config
+ENV KUBECONFIG=/home/am_user/data/.kube/config
 
-# ensure that the account_user owns everything in the /account directory.
-RUN chown -R account_user:account_user /home/account_user/
+# ensure that the am_user owns everything in the /am directory.
+RUN chown -R am_user:am_user /home/am_user/
 
 # so that the Docker file system matches up with the local file system.
-WORKDIR /account
+WORKDIR /am
 
 # Switch to non-root user
-USER account_user
+USER am_user
 
 ############################## python setup #################################
 FROM user_setup AS venv
 # Create and activate a virtual environment in the user's home directory
-RUN python -m venv /home/account_user/venv
-ENV PATH="/home/account_user/venv/bin:$PATH"
+RUN python -m venv /home/am_user/venv
+ENV PATH="/home/am_user/venv/bin:$PATH"
 
 # Add all Python package dependencies
-COPY ./account/requirements requirements
+COPY ./am/requirements requirements
 RUN pip install --upgrade pip && \
   pip install --no-cache-dir -r requirements/docker.txt
 
@@ -134,43 +134,43 @@ RUN if [ "$ENVIRONMENT" = "local" ] ; then pip install -r requirements/local.txt
 ############################## application ##################################
 FROM venv AS application
 # do this last so that we can take advantage of Docker's caching mechanism.
-WORKDIR /home/account_user/
-COPY --chown=account_user:account_user ./account ./account
-RUN mkdir -p /home/account_user/data/manifests/example_manifests
+WORKDIR /home/am_user/
+COPY --chown=am_user:am_user ./am ./am
+RUN mkdir -p /home/am_user/data/manifests/example_manifests
 
 ################################# permissuions #######################################
 FROM application AS permissions
 
-# ensure that account_user owns everything and has the minimum
+# ensure that am_user owns everything and has the minimum
 # permissions needed to run the application and to manage files
-# that the application needs to write to in /home/account_user.
+# that the application needs to write to in /home/am_user.
 # this is important because by default Debian adds
 # read-only and execute permissions to the group and to public.
 # We don't want either of these.
 #
-# files:                    r-------- so that account_user can read them
-# directories:              r-x------ so that account_user can cd into them
-# venv/bin/*:               r-x------ so that account_user can execute them
-# account/**/migrations:    rwx------ so that account_user can write django migration files.
-# data:                     rwx------ so that account_user can manage the data directory.
+# files:                    r-------- so that am_user can read them
+# directories:              r-x------ so that am_user can cd into them
+# venv/bin/*:               r-x------ so that am_user can execute them
+# am/**/migrations:         rwx------ so that am_user can write django migration files.
+# data:                     rwx------ so that am_user can manage the data directory.
 # .cache:                   rwx------ bc some python packages want to write to .cache, like tldextract
 
 USER root
-RUN chown -R account_user:account_user /home/account_user/ && \
-  find /home/account_user/ -type f -exec chmod 400 {} + && \
-  find /home/account_user/ -type d -exec chmod 500 {} + && \
-  find /home/account_user/venv/bin/ -type f -exec chmod 500 {} + && \
-  find /home/account_user/account/account/ -type d -name migrations -exec chmod 700 {} + && \
-  chmod -R 700 /home/account_user/data && \
-  chmod -R 700 /home/account_user/.cache && \
-  chmod 755 /home/account_user/account/manage.py
+RUN chown -R am_user:am_user /home/am_user/ && \
+  find /home/am_user/ -type f -exec chmod 400 {} + && \
+  find /home/am_user/ -type d -exec chmod 500 {} + && \
+  find /home/am_user/venv/bin/ -type f -exec chmod 500 {} + && \
+  find /home/am_user/am/am/ -type d -name migrations -exec chmod 700 {} + && \
+  chmod -R 700 /home/am_user/data && \
+  chmod -R 700 /home/am_user/.cache && \
+  chmod 755 /home/am_user/am/manage.py
 
 ################################# data #################################
 FROM permissions AS data
-# Add our source code and make the 'account' directory the working directory
+# Add our source code and make the 'am' directory the working directory
 # we want this to be the last step so that we can take advantage of Docker's
 # caching mechanism.
-WORKDIR /home/account_user/
+WORKDIR /home/am_user/
 
 
 ############################## collect_assets ##################################
@@ -179,19 +179,19 @@ WORKDIR /home/account_user/
 # but the static assets do not change, we can take advantage of Docker's
 # caching mechanism.
 FROM data AS collect_assets
-WORKDIR /home/account_user/account
+WORKDIR /home/am_user/am
 RUN python manage.py collectstatic --noinput
 
 
 ################################# final #######################################
 # This is the final stage that will be used to run the application.
 # Gunicorn is used as the application server.
-# "account.wsgi:application" is the WSGI application callable and corresponds
-# to the "application" variable in account/wsgi.py.
+# "am.wsgi:application" is the WSGI application callable and corresponds
+# to the "application" variable in am/wsgi.py.
 # The application will listen on all interfaces (0.0.0.0).
 FROM collect_assets AS serve_application
 
-WORKDIR /home/account_user/account
-USER account_user
-CMD ["gunicorn", "account.wsgi:application", "-b", "0.0.0.0:8000"]
+WORKDIR /home/am_user/am
+USER am_user
+CMD ["gunicorn", "am.wsgi:application", "-b", "0.0.0.0:8000"]
 EXPOSE 8000

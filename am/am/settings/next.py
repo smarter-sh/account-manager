@@ -1,0 +1,49 @@
+# pylint: disable=E0402,E0602,unused-wildcard-import,wildcard-import
+"""Django settings for next.account.smarter.sh"""
+import os
+
+from .base_aws import *
+
+
+environment_name = os.path.basename(__file__).replace(".py", "")
+if environment_name != AMEnvironments.NEXT:
+    raise AMConfigurationError(f"Inconsistent environment name: .env {environment_name} does not {AMEnvironments.NEXT}")
+
+
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https?://[\w-]+\.(\d+-\d+-\d+)\.next\.api\.smarter\.sh$",
+    r"^https?://[\w-]+\.next\.platform\.smarter\.sh$",
+    r"^https?://[\w-]+\.next\.api\.smarter\.sh$",
+]
+
+# see: https://python-social-auth.readthedocs.io/en/latest/configuration/settings.html
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = True
+
+logger.info("Loading am.settings.%s", environment_name)
+if ACCOUNT_SETTINGS_OUTPUT or "manage.py" not in sys.argv[0]:
+
+    logger.info("*" * 80)
+    logger.info("CORS_ALLOWED_ORIGINS: %s", CORS_ALLOWED_ORIGINS)
+    logger.info("CORS_ALLOWED_ORIGIN_REGEXES: %s", CORS_ALLOWED_ORIGIN_REGEXES)
+    logger.info("ENVIRONMENT_API_DOMAIN: %s", ENVIRONMENT_API_DOMAIN)
+    logger.info("ENVIRONMENT_DOMAIN: %s", ENVIRONMENT_DOMAIN)
+    logger.info("SECURE_PROXY_SSL_HEADER: %s", SECURE_PROXY_SSL_HEADER)
+    logger.info("ACCOUNT_API_SCHEMA: %s", ACCOUNT_API_SCHEMA)
+    logger.info("ACCOUNT_ALLOWED_HOSTS: %s", ACCOUNT_ALLOWED_HOSTS)
+    logger.info("SMTP_SENDER: %s", SMTP_SENDER)
+    logger.info("SMTP_FROM_EMAIL: %s", SMTP_FROM_EMAIL)
+    logger.info("-" * 80)
+    logger.info("CSRF_COOKIE_DOMAIN: %s", CSRF_COOKIE_DOMAIN)
+    logger.info("CSRF_COOKIE_SAMESITE: %s", CSRF_COOKIE_SAMESITE)
+    logger.info("CSRF_COOKIE_SECURE: %s", CSRF_COOKIE_SECURE)
+    logger.info("CSRF_TRUSTED_ORIGINS: %s", CSRF_TRUSTED_ORIGINS)
+    logger.info("-" * 80)
+    logger.info("SESSION_COOKIE_DOMAIN: %s", SESSION_COOKIE_DOMAIN)
+    logger.info("SESSION_COOKIE_SAMESITE: %s", SESSION_COOKIE_SAMESITE)
+    logger.info("SESSION_COOKIE_SECURE: %s", SESSION_COOKIE_SECURE)
+    logger.info("*" * 80)
+    if not SESSION_COOKIE_SECURE:
+        logger.warning(
+            "WARNING: SESSION_COOKIE_SECURE should be set to True. The current setting makes the cookie vulnerable to man-in-the-middle attacks."
+        )
+        logger.info("*" * 80)

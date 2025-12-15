@@ -13,24 +13,24 @@ import sys
 
 
 HERE = os.path.abspath(os.path.dirname(__file__))
-SMARTER_ROOT = os.path.abspath(os.path.join(HERE, "../../smarter"))
-sys.path.insert(0, SMARTER_ROOT)
+AM_ROOT = os.path.abspath(os.path.join(HERE, "../../am/"))
+sys.path.insert(0, AM_ROOT)
 
-from account.__version__ import __version__  # noqa: F401
-from account.common.conf import account_settings
+from am.__version__ import __version__  # noqa: F401
+from am.common.conf import account_settings
 
 
 if not account_settings.environment:
     raise RuntimeError("The 'account_settings.environment' variable is not set.")
 
-os.environ["DJANGO_SETTINGS_MODULE"] = "smarter.settings." + smarter_settings.environment
+os.environ["DJANGO_SETTINGS_MODULE"] = "am.settings." + account_settings.environment
 
 import django
 
 
 django.setup()
 
-project = "Smarter Documentation"
+project = "Account Manager"
 
 # pylint: disable=redefined-builtin
 copyright = f"{datetime.datetime.now().year}"
