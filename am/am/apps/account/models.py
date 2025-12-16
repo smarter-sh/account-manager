@@ -25,6 +25,7 @@ from am.lib.django.validators import AMValidator
 from am.lib.django.waffle import AMWaffleSwitches
 from am.lib.logging import WaffleSwitchedLoggerWrapper
 
+from .enum import AMHostingPlanTypeEnum
 from .signals import (
     new_charge_created,
     new_user_created,
@@ -925,3 +926,117 @@ class DailyBillingRecord(TimestampedModel):
         return (
             f"{self.account.account_number} - {self.user.email} - {self.provider} - {self.date} - {self.total_tokens}"
         )
+
+
+class Subscription(TimestampedModel):
+    """
+    Subscription model for managing account subscriptions.
+
+    Tracks subscription details for each account, including plan type, status, and billing cycle.
+
+    :param account: ForeignKey to :class:`Account`. The account associated with the subscription.
+    :param plan_type: String. The type of subscription plan.
+    :param status: String. The current status of the subscription.
+    :param start_date: Date. The start date of the subscription.
+    :param end_date: Date. The end date of the subscription.
+
+    **Example usage**::
+
+        subscription = Subscription.objects.create(
+            account=account,
+            plan_type="premium",
+            status="active",
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=30)
+        )
+
+    .. seealso::
+
+        :class:`Account`
+    """
+
+    PLAN_TYPE_CHOICES = [
+        (AMHostingPlanTypeEnum.MULTITENANT, "Multitenant"),
+        (AMHostingPlanTypeEnum.HOSTED_PLATFORM, "Hosted Platform"),
+        (AMHostingPlanTypeEnum.MANAGED_PLATFORM, "Managed Platform"),
+    ]
+
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="subscriptions")
+    plan_type = models.IntegerField(
+        choices=PLAN_TYPE_CHOICES,
+        default=AMHostingPlanTypeEnum.MULTITENANT,
+        help_text="The type of hosting plan for the subscription.",
+    )
+    active = models.BooleanField(default=True, help_text="Indicates if the subscription is currently active.")
+    start_date = models.DateField(help_text="The start date of the subscription.")
+    end_date = models.DateField(help_text="The end date of the subscription.")
+
+    def clean(self):
+        super().clean()
+        if self.end_date and self.start_date and self.end_date < self.start_date:
+            raise AMValueError("End date cannot be before start date.")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.account.account_number} - {self.plan_type} - {self.end_date}"
+
+
+class SubscriptionHosts(TimestampedModel):
+    """
+    SubscriptionHosts model for managing subscription host details.
+
+    Tracks host information for each subscription, including host name and associated subscription.
+
+    :param subscription: ForeignKey to :class:`Subscription`. The subscription associated with the host.
+    :param host_name: String. The name of the host.
+
+    **Example usage**::
+
+        host = SubscriptionHosts.objects.create(
+            subscription=subscription,
+            host_name="example.com"
+        )
+
+    .. seealso::
+
+        :class:`Subscription`
+    """
+
+    class Meta:
+        unique_together = ("subscription", "host_name")
+
+    subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name="hosts")
+    host_name = models.CharField(max_length=255, help_text="The name of the host associated with the subscription.")
+
+    def __str__(self):
+        return f"{self.subscription.account.account_number} - {self.host_name}"
+
+
+class SubscriptionUser(TimestampedModel):
+    """
+    SubscriptionUser model for managing users associated with subscriptions.
+
+    Tracks user information for each subscription, including user email and associated subscription.
+
+    :param subscription: ForeignKey to :class:`Subscription`. The subscription associated with the user.
+    :param user_email: String. The email of the user.
+
+    **Example usage**::
+
+        sub_user = SubscriptionUser.objects.create(
+            subscription=subscription,
+            user_email="
+    """
+
+    class Meta:
+        unique_together = ("subscription", "user")
+
+    subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name="subscription_users")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="user_subscriptions",
+    )

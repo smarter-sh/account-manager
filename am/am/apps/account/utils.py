@@ -25,6 +25,7 @@ import uuid
 from typing import Any, Optional
 
 from django.contrib.auth.models import AnonymousUser
+from django.utils import timezone
 
 from am.apps.account.models import User, get_resolved_user
 from am.common.conf import account_settings
@@ -37,7 +38,14 @@ from am.lib.django.validators import AMValidator
 from am.lib.django.waffle import AMWaffleSwitches
 from am.lib.logging import WaffleSwitchedLoggerWrapper
 
-from .models import Account, UserProfile
+from .enum import AMHostingPlanTypeEnum
+from .models import (
+    Account,
+    Subscription,
+    SubscriptionHosts,
+    SubscriptionUser,
+    UserProfile,
+)
 
 
 def should_log(level):
@@ -52,6 +60,109 @@ base_logger = logging.getLogger(__name__)
 logger = WaffleSwitchedLoggerWrapper(base_logger, should_log)
 
 LRU_CACHE_MAX_SIZE = 128
+
+
+def get_cached_subscription(
+    account: Optional[Account] = None,
+    plan_type: Optional[AMHostingPlanTypeEnum] = None,
+    host: Optional[str] = None,
+    user: Optional[User] = None,
+    invalidate: bool = False,
+) -> Optional[Subscription]:
+    """
+    Retrieve a Subscription instance for a given account and plan type, using caching for performance.
+
+    :returns: Subscription instance if found, otherwise None.
+
+    **Example usage**::
+
+        # Retrieve subscription for an account and plan type
+        subscription = get_cached_subscription(account, AMHostingPlanTypeEnum.MULTITENANT)
+
+        # Invalidate cache before fetching
+        subscription = get_cached_subscription(account, AMHostingPlanTypeEnum.MULTITENANT, invalidate=True)
+    """
+
+    @cache_results()
+    def cached_subscription_by_account_and_plan(account_id: int, plan_type: int) -> Optional[Subscription]:
+        """
+        In-memory cache for subscription objects by account ID and plan type.
+        """
+        logger.info(
+            "cached_subscription_by_account_and_plan() retrieving and caching subscription for account ID %s and plan type %s",
+            account_id,
+            plan_type,
+        )
+
+        subscription = Subscription.objects.filter(account_id=account_id, plan_type=plan_type).first()
+        if subscription:
+            return subscription
+        logger.warning(
+            "cached_subscription_by_account_and_plan() subscription does not exist for account ID %s and plan type %s",
+            account_id,
+            plan_type,
+        )
+        return None
+
+    @cache_results()
+    def cached_subscription_by_host(host: str) -> Optional[Subscription]:
+        """
+        In-memory cache for subscription objects by host name.
+        """
+        logger.info(
+            "cached_subscription_by_host() retrieving and caching subscription for host %s",
+            host,
+        )
+
+        subscription_host = SubscriptionHosts.objects.filter(
+            host_name=host, subscription__end_date__gt=timezone.now().date(), subscription__active=True
+        ).first()
+        if subscription_host:
+            return subscription_host.subscription
+        logger.warning(
+            "cached_subscription_by_host() subscription does not exist for host %s",
+            host,
+        )
+        return None
+
+    @cache_results()
+    def cached_subscription_by_user(user: User) -> Optional[Subscription]:
+        """
+        In-memory cache for subscription objects by user.
+        """
+        logger.info(
+            "cached_subscription_by_user() retrieving and caching subscription for user %s",
+            user,
+        )
+
+        subscription_user = SubscriptionUser.objects.filter(
+            user=user, subscription__end_date__gt=timezone.now().date(), subscription__active=True
+        ).first()
+        if subscription_user:
+            return subscription_user.subscription
+        logger.warning(
+            "cached_subscription_by_user() subscription does not exist for user %s",
+            user,
+        )
+        return None
+
+    # most probably use case: multi-tenant plan for an account
+    if user is not None:
+        return cached_subscription_by_user(user) if not invalidate else cached_subscription_by_user.invalidate(user)
+
+    # next most probable use case: host-based subscription lookup
+    if host is not None:
+        return cached_subscription_by_host(host) if not invalidate else cached_subscription_by_host.invalidate(host)
+
+    # unlikely use case: account + plan type based subscription lookup
+    if account is not None and plan_type is not None:
+        return (
+            cached_subscription_by_account_and_plan(account.id, plan_type.value)
+            if not invalidate
+            else cached_subscription_by_account_and_plan.invalidate(account.id, plan_type.value)
+        )
+    logger.warning("get_cached_subscription() insufficient parameters provided to retrieve subscription")
+    return None
 
 
 def get_cached_account(

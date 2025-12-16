@@ -212,6 +212,8 @@ class AMMiddlewareMixin(MiddlewareMixin, AMHelperMixin):
         :return: The detected client IP address, or None if not found.
         :rtype: Optional[str]
         """
+        if not hasattr(request, "META"):
+            return None
 
         # First check X-Forwarded-For (most reliable for CLB)
         forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -294,6 +296,8 @@ class AMMiddlewareMixin(MiddlewareMixin, AMHelperMixin):
         :return: True if authentication indicators are present, False otherwise.
         :rtype: bool
         """
+        if not hasattr(request, "COOKIES") or not hasattr(request, "META"):
+            return False
 
         # Check for Django session cookie
         if request.COOKIES.get("sessionid"):

@@ -39,7 +39,7 @@ from dotenv import load_dotenv
 from pydantic import Field, SecretStr, ValidationError, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings
 
-from ..lib.django.validators import AMValidator
+from am.lib.django.validators import AMValidator
 
 # our stuff
 from .const import (
@@ -158,14 +158,14 @@ class SettingsDefaults:
 
     LOG_LEVEL: int = logging.DEBUG if DEBUG_MODE else logging.INFO
 
-    LOGO: str = os.environ.get("OPENAI_API_ORGANIZATION", "https://cdn.account.smarter.sh/images/logo/smarter-crop.png")
+    LOGO: str = os.environ.get("OPENAI_API_ORGANIZATION", "https://cdn.am.smarter.sh/images/logo/smarter-crop.png")
     MAILCHIMP_API_KEY: SecretStr = SecretStr(os.environ.get("MAILCHIMP_API_KEY", DEFAULT_MISSING_VALUE))
     MAILCHIMP_LIST_ID = os.environ.get("MAILCHIMP_LIST_ID", DEFAULT_MISSING_VALUE)
 
     MARKETING_SITE_URL: str = os.environ.get("OPENAI_API_ORGANIZATION", f"https://{ROOT_DOMAIN}")
 
     SHARED_RESOURCE_IDENTIFIER = os.environ.get(
-        "SHARED_RESOURCE_IDENTIFIER", TFVARS.get("shared_resource_identifier", "account")
+        "SHARED_RESOURCE_IDENTIFIER", TFVARS.get("shared_resource_identifier", "am")
     )
 
     # -------------------------------------------------------------------------
@@ -355,7 +355,7 @@ class Settings(BaseSettings):
     shared_resource_identifier: str = Field(
         SettingsDefaults.SHARED_RESOURCE_IDENTIFIER,
         description="Account Manager 1-word identifier to be used when naming any shared resource.",
-        examples=["account", "mycompany", "myproject"],
+        examples=["am", "mycompany", "myproject"],
     )
     debug_mode: bool = Field(
         SettingsDefaults.DEBUG_MODE,
@@ -581,7 +581,7 @@ class Settings(BaseSettings):
 
         Note:
             This is based on the Dockerfile located in the root of the repository.
-            See https://github.com/smarter-sh/smarter-account/blob/main/Dockerfile
+            See https://github.com/smarter-sh/account-manager/blob/main/Dockerfile
         """
         return "/home/smarter_user/data"
 
@@ -951,10 +951,10 @@ class Settings(BaseSettings):
 
         Example:
             >>> print(account_settings.aws_s3_bucket_name)
-            'alpha.account.smarter.sh'
+            'alpha.am.smarter.sh'
 
         Note:
-            In local environments, this returns 'alpha.account.smarter.sh' as a proxy.
+            In local environments, this returns 'alpha.am.smarter.sh' as a proxy.
 
         See Also:
             - account_settings.shared_resource_identifier
@@ -1085,7 +1085,7 @@ class Settings(BaseSettings):
             bumped automatically via a GitHub Actions workflow that is
             executed on merges to the main branch. The nature of the
             version bump is based on commit messages in the merge.
-            See https://github.com/smarter-sh/smarter-account/blob/main/docs/legacy/SEMANTIC_VERSIONING.md for more information.
+            See https://github.com/smarter-sh/account-manager/blob/main/docs/legacy/SEMANTIC_VERSIONING.md for more information.
         """
         return get_semantic_version()
 

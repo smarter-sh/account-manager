@@ -1,5 +1,5 @@
 [project]
-name = "Account Manager"
+name = "account-manager"
 version = "0.1.0"
 requires-python = ">=3.10"
 description = "Account Manager: an account and payment management service for Smarter"
@@ -64,7 +64,6 @@ exclude = '''
   |.pypi_cache
   | .pytest_cache
   | .coverage
-  | keen_v3.0.6
   | mysql-data
   | htmlcov
   | .eggs
