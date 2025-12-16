@@ -7,6 +7,9 @@ from .models import (
     Charge,
     DailyBillingRecord,
     PaymentMethod,
+    Subscription,
+    SubscriptionHosts,
+    SubscriptionUser,
     UserProfile,
 )
 
@@ -17,3 +20,6 @@ admin.site.register(Charge)
 admin.site.register(DailyBillingRecord)
 admin.site.register(PaymentMethod)
 admin.site.register(UserProfile)
+admin.site.register(Subscription)
+admin.site.register(SubscriptionHosts)
+admin.site.register(SubscriptionUser)

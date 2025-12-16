@@ -59,18 +59,19 @@ def should_log(level):
 base_logger = logging.getLogger(__name__)
 logger = WaffleSwitchedLoggerWrapper(base_logger, should_log)
 
-LRU_CACHE_MAX_SIZE = 128
-
 
 def get_cached_subscription(
+    user: Optional[User] = None,
+    host: Optional[str] = None,
     account: Optional[Account] = None,
     plan_type: Optional[AMHostingPlanTypeEnum] = None,
-    host: Optional[str] = None,
-    user: Optional[User] = None,
     invalidate: bool = False,
 ) -> Optional[Subscription]:
     """
-    Retrieve a Subscription instance for a given account and plan type, using caching for performance.
+    Retrieve and cache a Subscription instance for one of the following:
+     - a given account and plan type
+     - a given host name
+     - a given user
 
     :returns: Subscription instance if found, otherwise None.
 
@@ -84,30 +85,30 @@ def get_cached_subscription(
     """
 
     @cache_results()
-    def cached_subscription_by_account_and_plan(account_id: int, plan_type: int) -> Optional[Subscription]:
+    def cached_subscription_by_user(user: User) -> Optional[Subscription]:
         """
-        In-memory cache for subscription objects by account ID and plan type.
+        cache for subscription objects by user.
         """
         logger.info(
-            "cached_subscription_by_account_and_plan() retrieving and caching subscription for account ID %s and plan type %s",
-            account_id,
-            plan_type,
+            "cached_subscription_by_user() retrieving and caching subscription for user %s",
+            user,
         )
 
-        subscription = Subscription.objects.filter(account_id=account_id, plan_type=plan_type).first()
-        if subscription:
-            return subscription
+        subscription_user = SubscriptionUser.objects.filter(
+            user=user, subscription__end_date__gt=timezone.now().date(), subscription__active=True
+        ).first()
+        if subscription_user:
+            return subscription_user.subscription
         logger.warning(
-            "cached_subscription_by_account_and_plan() subscription does not exist for account ID %s and plan type %s",
-            account_id,
-            plan_type,
+            "cached_subscription_by_user() subscription does not exist for user %s",
+            user,
         )
         return None
 
     @cache_results()
     def cached_subscription_by_host(host: str) -> Optional[Subscription]:
         """
-        In-memory cache for subscription objects by host name.
+        cache for subscription objects by host name.
         """
         logger.info(
             "cached_subscription_by_host() retrieving and caching subscription for host %s",
@@ -126,23 +127,25 @@ def get_cached_subscription(
         return None
 
     @cache_results()
-    def cached_subscription_by_user(user: User) -> Optional[Subscription]:
+    def cached_subscription_by_account_and_plan(account_id: int, plan_type: int) -> Optional[Subscription]:
         """
-        In-memory cache for subscription objects by user.
+        cache for subscription objects by account ID and plan type.
         """
         logger.info(
-            "cached_subscription_by_user() retrieving and caching subscription for user %s",
-            user,
+            "cached_subscription_by_account_and_plan() retrieving and caching subscription for account ID %s and plan type %s",
+            account_id,
+            plan_type,
         )
 
-        subscription_user = SubscriptionUser.objects.filter(
-            user=user, subscription__end_date__gt=timezone.now().date(), subscription__active=True
+        subscription = Subscription.objects.filter(
+            account_id=account_id, plan_type=plan_type, end_date__gt=timezone.now().date(), active=True
         ).first()
-        if subscription_user:
-            return subscription_user.subscription
+        if subscription:
+            return subscription
         logger.warning(
-            "cached_subscription_by_user() subscription does not exist for user %s",
-            user,
+            "cached_subscription_by_account_and_plan() subscription does not exist for account ID %s and plan type %s",
+            account_id,
+            plan_type,
         )
         return None
 
@@ -198,41 +201,39 @@ def get_cached_account(
     """
 
     @cache_results()
-    def _in_memory_account_by_id(account_id) -> Optional[Account]:
+    def cached_account_by_id(account_id) -> Optional[Account]:
         """
-        In-memory cache for account objects by ID.
+        cache for account objects by ID.
         """
-        logger.info("_in_memory_account_by_id() retrieving and caching account %s", account_id)
+        logger.info("cached_account_by_id() retrieving and caching account %s", account_id)
         try:
             account = Account.objects.get(id=account_id)
         except Account.DoesNotExist:
-            logger.warning("_in_memory_account_by_id() account with ID %s does not exist", account_id)
+            logger.warning("cached_account_by_id() account with ID %s does not exist", account_id)
             return None
         return account
 
     @cache_results()
-    def _in_memory_account_by_number(account_number) -> Optional[Account]:
+    def cached_account_by_number(account_number) -> Optional[Account]:
         """
-        In-memory cache for account objects by account number.
+        cache for account objects by account number.
         """
-        logger.info("_in_memory_account_by_number() retrieving and caching account %s", account_number)
+        logger.info("cached_account_by_number() retrieving and caching account %s", account_number)
         try:
             account = Account.objects.get(account_number=account_number)
         except Account.DoesNotExist:
-            logger.warning("_in_memory_account_by_number() account with number %s does not exist", account_number)
+            logger.warning("cached_account_by_number() account with number %s does not exist", account_number)
             return None
         return account
 
     if account_id:
-        return (
-            _in_memory_account_by_id(account_id) if not invalidate else _in_memory_account_by_id.invalidate(account_id)
-        )
+        return cached_account_by_id(account_id) if not invalidate else cached_account_by_id.invalidate(account_id)
 
     if account_number:
         return (
-            _in_memory_account_by_number(account_number)
+            cached_account_by_number(account_number)
             if not invalidate
-            else _in_memory_account_by_number.invalidate(account_number)
+            else cached_account_by_number.invalidate(account_number)
         )
 
 
@@ -309,7 +310,7 @@ def _get_account_for_user(user, invalidate: bool = False) -> Optional[Account]:
     @cache_results()
     def _get_account_for_user_by_id(user_id):
         """
-        In-memory cache for user accounts.
+        cache for user accounts.
         """
         user_profiles = UserProfile.objects.filter(user_id=user_id)
         for user_profile in user_profiles:
@@ -374,9 +375,9 @@ def _get_cached_user_profile(
 ) -> Optional[UserProfile]:
 
     @cache_results()
-    def _in_memory_user_profile(user_id, account_id):
+    def cached_user_profile(user_id, account_id):
         user_profile = UserProfile.objects.get(user_id=user_id, account_id=account_id)
-        logger.info("_in_memory_user_profile() retrieving and caching UserProfile %s", user_profile)
+        logger.info("cached_user_profile() retrieving and caching UserProfile %s", user_profile)
         return user_profile
 
     if resolved_user is None or account is None:
@@ -384,9 +385,9 @@ def _get_cached_user_profile(
         return None
 
     return (
-        _in_memory_user_profile(resolved_user.id, account.id)
+        cached_user_profile(resolved_user.id, account.id)
         if not invalidate
-        else _in_memory_user_profile.invalidate(resolved_user.id, account.id)
+        else cached_user_profile.invalidate(resolved_user.id, account.id)
     )
 
 
@@ -463,18 +464,18 @@ def get_cached_user_for_user_id(user_id: int, invalidate: bool = False) -> Optio
     """
 
     @cache_results()
-    def _in_memory_user(user_id) -> Optional[User]:
+    def cached_user(user_id) -> Optional[User]:
         """
-        In-memory cache for user objects.
+        cache for user objects.
         """
         try:
             user = User.objects.get(id=user_id)
-            logger.info("_in_memory_user() retrieving and caching user %s", user)
+            logger.info("cached_user() retrieving and caching user %s", user)
             return user  # type: ignore[return-value]
         except User.DoesNotExist:
             logger.error("get_cached_user_for_user_id() user with ID %s does not exist", user_id)
 
-    user = _in_memory_user(user_id) if not invalidate else _in_memory_user.invalidate(user_id)
+    user = cached_user(user_id) if not invalidate else cached_user.invalidate(user_id)
     if user:
         logger.info("get_cached_user_for_user_id() retrieving and caching user %s", user)
     return user
@@ -579,13 +580,13 @@ def get_cached_smarter_admin_user_profile(invalidate: bool = False) -> UserProfi
         )
 
     @cache_results()
-    def _in_memory_smarter_admin_user_profile(smarter_account_id):
+    def cached_smarter_admin_user_profile(smarter_account_id):
         super_user_profile = (
             UserProfile.objects.filter(account_id=smarter_account_id, user__is_superuser=True).order_by("pk").first()
         )
         if super_user_profile:
             logger.info(
-                "_in_memory_smarter_admin_user_profile() retrieving and caching superuser UserProfile %s",
+                "cached_smarter_admin_user_profile() retrieving and caching superuser UserProfile %s",
                 super_user_profile,
             )
             return super_user_profile
@@ -598,7 +599,7 @@ def get_cached_smarter_admin_user_profile(invalidate: bool = False) -> UserProfi
             pass
         if staff_user_profile and waffle.switch_is_active(AMWaffleSwitches.CACHE_LOGGING):
             logger.info(
-                "_in_memory_smarter_admin_user_profile() retrieving and caching staff UserProfile %s",
+                "cached_smarter_admin_user_profile() retrieving and caching staff UserProfile %s",
                 staff_user_profile,
             )
             return staff_user_profile
@@ -608,9 +609,9 @@ def get_cached_smarter_admin_user_profile(invalidate: bool = False) -> UserProfi
         )
 
     return (
-        _in_memory_smarter_admin_user_profile(smarter_account.id)
+        cached_smarter_admin_user_profile(smarter_account.id)
         if not invalidate
-        else _in_memory_smarter_admin_user_profile.invalidate(smarter_account.id)
+        else cached_smarter_admin_user_profile.invalidate(smarter_account.id)
     )
 
 

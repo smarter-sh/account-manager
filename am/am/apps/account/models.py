@@ -589,9 +589,13 @@ class UserProfile(TimestampedModel):
     :param account: ForeignKey to :class:`Account`. The related Account.
     :param is_test: Boolean. Indicates if this profile is for testing purposes.
 
-    .. important::
+    .. note::
 
-        The combination of `user` and `account` must be unique. Duplicate profiles for the same user and account are not allowed.
+        Most users do not have a UserProfile. UserProfiles are created for users associated with Account
+        payments, billing, or resource ownership.
+
+        Contrastingly, most users exist in Account Manager solely for oauth authentication to downstream systems
+        and therefore do not have an associated Account or UserProfile.
 
     **Example usage**::
 
@@ -961,15 +965,19 @@ class Subscription(TimestampedModel):
         (AMHostingPlanTypeEnum.MANAGED_PLATFORM, "Managed Platform"),
     ]
 
-    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="subscriptions")
+    account = models.ForeignKey(
+        Account, on_delete=models.CASCADE, related_name="subscriptions", blank=False, null=False
+    )
     plan_type = models.IntegerField(
         choices=PLAN_TYPE_CHOICES,
         default=AMHostingPlanTypeEnum.MULTITENANT,
+        blank=False,
+        null=False,
         help_text="The type of hosting plan for the subscription.",
     )
     active = models.BooleanField(default=True, help_text="Indicates if the subscription is currently active.")
-    start_date = models.DateField(help_text="The start date of the subscription.")
-    end_date = models.DateField(help_text="The end date of the subscription.")
+    start_date = models.DateField(help_text="The start date of the subscription.", blank=False, null=False)
+    end_date = models.DateField(help_text="The end date of the subscription.", blank=False, null=False)
 
     def clean(self):
         super().clean()
@@ -980,8 +988,13 @@ class Subscription(TimestampedModel):
         self.clean()
         super().save(*args, **kwargs)
 
+    def get_plan_type_display(self):
+        val = dict(self.PLAN_TYPE_CHOICES).get(self.plan_type, "unknown")
+        return str(val)
+
     def __str__(self):
-        return f"{self.account.account_number} - {self.plan_type} - {self.end_date}"
+        end_date_iso = self.end_date.isoformat() if self.end_date else ""
+        return f"{self.account.account_number} - {self.get_plan_type_display()} - {end_date_iso}"
 
 
 class SubscriptionHosts(TimestampedModel):
@@ -1008,8 +1021,20 @@ class SubscriptionHosts(TimestampedModel):
     class Meta:
         unique_together = ("subscription", "host_name")
 
-    subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name="hosts")
-    host_name = models.CharField(max_length=255, help_text="The name of the host associated with the subscription.")
+    subscription = models.ForeignKey(
+        Subscription, on_delete=models.CASCADE, related_name="hosts", blank=False, null=False
+    )
+    host_name = models.CharField(
+        max_length=255, help_text="The name of the host associated with the subscription.", blank=False, null=False
+    )
+
+    def save(self, *args, **kwargs):
+        """
+        Save the SubscriptionHosts instance, ensuring a valid hostname.
+        """
+        self.host_name = self.host_name.lower()
+        AMValidator.is_valid_hostname(self.host_name)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.subscription.account.account_number} - {self.host_name}"
@@ -1034,9 +1059,16 @@ class SubscriptionUser(TimestampedModel):
     class Meta:
         unique_together = ("subscription", "user")
 
-    subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name="subscription_users")
+    subscription = models.ForeignKey(
+        Subscription, on_delete=models.CASCADE, related_name="subscription_users", blank=False, null=False
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="user_subscriptions",
+        blank=False,
+        null=False,
     )
+
+    def __str__(self):
+        return f"{self.subscription.account.account_number} - {self.user.email}"
