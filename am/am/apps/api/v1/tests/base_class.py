@@ -13,7 +13,7 @@ from typing import Any, Optional
 from rest_framework.test import APIClient
 
 from am.apps.account.tests.mixins import TestAccountMixin
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.lib import json
 from am.lib.django import waffle
 from am.lib.django.waffle import AMWaffleSwitches
@@ -23,7 +23,7 @@ from am.lib.logging import WaffleSwitchedLoggerWrapper
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.API_LOGGING) and level >= account_settings.log_level
+    return waffle.switch_is_active(AMWaffleSwitches.API_LOGGING) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)

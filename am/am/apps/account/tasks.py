@@ -15,7 +15,7 @@ from django.conf import settings
 from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Sum
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.helpers.console_helpers import formatted_text
 from am.lib.django import waffle
 from am.lib.django.waffle import AMWaffleSwitches
@@ -38,7 +38,7 @@ def should_log(level):
     return (
         waffle.switch_is_active(AMWaffleSwitches.TASK_LOGGING)
         and waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING)
-        and level >= account_settings.log_level
+        and level >= am_settings.log_level
     )
 
 

@@ -8,7 +8,7 @@ from typing import List, Union
 
 from django.conf import settings
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.exceptions import AMException
 from am.lib.django.validators import AMValidator
 
@@ -122,7 +122,7 @@ class EmailHelper(metaclass=Singleton):
         - Logs information about emails that would have been sent in quiet mode.
         - Logs errors if sending fails due to SMTP or unexpected exceptions.
         """
-        if not account_settings.smtp_is_configured:
+        if not am_settings.smtp_is_configured:
             if not quiet:
                 logger.warning(
                     "EmailHelper.send_email() quiet mode. SMTP not configured, would have sent subject '%s' to: %s",
@@ -142,16 +142,16 @@ class EmailHelper(metaclass=Singleton):
         if not mail_to:
             return
 
-        if not account_settings.smtp_from_email:
+        if not am_settings.smtp_from_email:
             raise EmailHelperException("smtp_from_email not configured")
-        if account_settings.smtp_host is None or account_settings.smtp_port is None:
+        if am_settings.smtp_host is None or am_settings.smtp_port is None:
             raise EmailHelperException("SMTP host or port not configured")
-        if account_settings.smtp_username is None or account_settings.smtp_password is None:
+        if am_settings.smtp_username is None or am_settings.smtp_password is None:
             raise EmailHelperException("SMTP username or password not configured")
 
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = from_email or account_settings.smtp_from_email
+        msg["From"] = from_email or am_settings.smtp_from_email
         msg["To"] = ", ".join(mail_to)
         msg["Bcc"] = settings.ACCOUNT_EMAIL_ADMIN
 
@@ -159,10 +159,10 @@ class EmailHelper(metaclass=Singleton):
         msg.attach(part2)
 
         try:
-            with smtplib.SMTP(account_settings.smtp_host, account_settings.smtp_port) as server:
-                if account_settings.smtp_use_tls:
+            with smtplib.SMTP(am_settings.smtp_host, am_settings.smtp_port) as server:
+                if am_settings.smtp_use_tls:
                     server.starttls()
-                server.login(account_settings.smtp_username, account_settings.smtp_password)
+                server.login(am_settings.smtp_username, am_settings.smtp_password)
                 server.sendmail(msg["From"], [msg["To"]], msg.as_string())
                 logger.info("smtp email sent to %s: %s", to, subject)
         except (
@@ -178,14 +178,14 @@ class EmailHelper(metaclass=Singleton):
             logger.error(
                 "smtp error while attempting to send email. error: %s from: %s to. %s", e, msg["From"], msg["To"]
             )
-            if account_settings.developer_mode:
+            if am_settings.developer_mode:
                 raise EmailHelperException(f"Error sending email: {e}") from e
         # pylint: disable=broad-except
         except Exception as e:
             logger.error(
                 "unexpected error while attempting to send email. error: %s from: %s to. %s", e, msg["From"], msg["To"]
             )
-            if account_settings.developer_mode:
+            if am_settings.developer_mode:
                 raise EmailHelperException(f"Error sending email: {e}") from e
 
 

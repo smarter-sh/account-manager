@@ -19,7 +19,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 
 from am.common.classes import AMHelperMixin
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.utils import mask_string
 from am.lib.django import waffle
 from am.lib.django.validators import AMValidator
@@ -40,7 +40,7 @@ from .token_authentication import (
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.MIDDLEWARE_LOGGING) and level >= account_settings.log_level
+    return waffle.switch_is_active(AMWaffleSwitches.MIDDLEWARE_LOGGING) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)
@@ -173,13 +173,13 @@ class AMTokenAuthenticationMiddleware(MiddlewareMixin, AMHelperMixin):
                     try:
                         token = AMAuthToken.objects.get(digest=auth_obj.digest)
                         if token.created < timezone.now() - timedelta(
-                            days=account_settings.smarter_api_key_max_lifetime_days
+                            days=am_settings.smarter_api_key_max_lifetime_days
                         ):
                             logger.warning(
                                 "%s token for user %s has exceeded max lifetime of %d days",
                                 self.formatted_class_name,
                                 user,
-                                account_settings.smarter_api_key_max_lifetime_days,
+                                am_settings.smarter_api_key_max_lifetime_days,
                             )
                     except AMAuthToken.DoesNotExist:
                         logger.warning("%s token digest not found in AuthToken table", self.formatted_class_name)

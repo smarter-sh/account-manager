@@ -9,7 +9,7 @@ from typing import Optional
 from django.core.handlers.wsgi import WSGIRequest
 from django.dispatch import receiver
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.helpers.console_helpers import formatted_json, formatted_text
 from am.lib import json
 from am.lib.django import waffle
@@ -21,7 +21,7 @@ from .signals import api_request_completed, api_request_initiated
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.RECEIVER_LOGGING) and level >= account_settings.log_level
+    return waffle.switch_is_active(AMWaffleSwitches.RECEIVER_LOGGING) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)

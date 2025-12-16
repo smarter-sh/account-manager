@@ -1,6 +1,6 @@
 # pylint: disable=unused-wildcard-import, wildcard-import, unused-import, wrong-import-position
 """
-Account Manager base settings module, shared by all environments. See account_settings
+Account Manager base settings module, shared by all environments. See am_settings
 for strongly-typed, project-specific settings overrides.
 
 notes:
@@ -29,12 +29,12 @@ from django import get_version
 from oscar.defaults import *
 
 from am.__version__ import __version__ as smarter_version
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.const import ACCOUNT_MANAGER_SUBDOMAIN
 from am.common.helpers.aws_helpers import aws_helper
 
 # Add proprietary settings for the project
-from .account import *  # noqa: E402, F401, W0401
+from .account_manager import *  # noqa: E402, F401, W0401
 
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ Default: ["*"]
 See: https://docs.djangoproject.com/en/stable/ref/settings/#allowed-hosts
 """
 
-LOCAL_HOSTS = account_settings.local_hosts
+LOCAL_HOSTS = am_settings.local_hosts
 """
 Supplemental list of local host/domain names that this Django site can serve.
 This is specicific to Account Manager and not officially part of Django settings.
@@ -107,11 +107,25 @@ Account Manager uses this setting to restrict allowed origins for CORS requests 
 See `React Integration <https://docs.smarter.sh/en/latest/developers/architecture/lib/react-integration.html#django-react-integration>`__
 """
 
-CORS_ALLOWED_ORIGINS = []
+CORS_ALLOWED_ORIGINS = [
+    f"http://{host}"
+    for host in [am_settings.environment_domain, am_settings.environment_api_domain, am_settings.environment_cdn_domain]
+]
+CORS_ALLOWED_ORIGINS.extend(
+    [
+        f"https://{host}"
+        for host in [
+            am_settings.environment_domain,
+            am_settings.environment_api_domain,
+            am_settings.environment_cdn_domain,
+        ]
+    ]
+)
+
 """
 A list of origins that are allowed to make cross-site HTTP requests. This is initialized here as an empty list
 because base_aws.py and other environment-specific settings files will append to this list based on derived
-settings values in account_settings.
+settings values in am_settings.
 
 See `React Integration <https://docs.smarter.sh/en/latest/developers/architecture/lib/react-integration.html#django-react-integration>`__
 """
@@ -166,10 +180,10 @@ See:
 - https://docs.djangoproject.com/en/5.0/ref/settings/#csrf-cookie-age
 """
 
-CSRF_COOKIE_DOMAIN = account_settings.environment_account_manager_domain
+CSRF_COOKIE_DOMAIN = am_settings.environment_domain
 """
 The domain to use for the CSRF cookie. This is set to the Account Manager domain derived
-from account_settings.
+from am_settings.
 
 See:
 
@@ -206,15 +220,13 @@ See:
 - https://docs.djangoproject.com/en/5.0/ref/settings/#csrf-header-name
 """
 
-CSRF_TRUSTED_ORIGINS = [
-    account_settings.root_domain,
-    account_settings.root_api_domain,
-    account_settings.environment_account_manager_domain,
-    account_settings.environment_api_domain,
-]
+# (4_0.E001) As of Django 4.0, the values in the CSRF_TRUSTED_ORIGINS setting must start with a scheme
+# (usually http:// or https://) but found am.smarter.sh. See the release notes for details.
+CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ACCOUNT_ALLOWED_HOSTS]
+
 """
 A list of trusted origins for cross-site request forgery protection. This is initialized
-here with the Account Manager and API domains derived from account_settings.
+here with the Account Manager and API domains derived from am_settings.
 
 See:
 
@@ -229,6 +241,16 @@ a cookie. Default is False because smarter-chat React frontends rely on the CSRF
 See:
 
 - https://docs.djangoproject.com/en/5.0/ref/settings/#csrf-use-sessions
+"""
+
+ENVIRONMENT_DOMAIN = am_settings.environment_domain
+"""
+The Account Manager environment domain derived from am_settings.
+"""
+
+ENVIRONMENT_API_DOMAIN = am_settings.environment_api_domain
+"""
+The Account Manager API domain derived from am_settings.
 """
 
 
@@ -274,10 +296,10 @@ The age of the session cookie, in seconds. Default is 1209600 (2 weeks). Here it
 the CSRF cookie age. This is a placeholder.
 """
 
-SESSION_COOKIE_DOMAIN = account_settings.environment_account_manager_domain
+SESSION_COOKIE_DOMAIN = am_settings.environment_domain
 """
 The domain to use for the session cookie. This is set to the Account Manager domain derived
-from account_settings.
+from am_settings.
 
 See:
 
@@ -321,15 +343,15 @@ BASE_DIR = Path(os.path.join(PROJECT_ROOT, "am")).resolve()
 # Django storages settings for AWS S3
 # -------------------------------
 # See https://django-storages.readthedocs.io/en/latest/backends/amazon
-if account_settings.aws_is_configured:
+if am_settings.aws_is_configured:
     STORAGES = {
         "default": {
             "BACKEND": "storages.backends.s3.S3Storage",
             "OPTIONS": {
-                "access_key": account_settings.aws_access_key_id.get_secret_value(),
-                "secret_key": account_settings.aws_secret_access_key.get_secret_value(),
-                "bucket_name": account_settings.aws_s3_bucket_name,
-                "region_name": account_settings.aws_region,
+                "access_key": am_settings.aws_access_key_id.get_secret_value(),
+                "secret_key": am_settings.aws_secret_access_key.get_secret_value(),
+                "bucket_name": am_settings.aws_s3_bucket_name,
+                "region_name": am_settings.aws_region,
                 "default_acl": "public-read",
                 "querystring_auth": False,
             },
@@ -355,47 +377,47 @@ otherwise uses local filesystem storage.
 See: https://docs.djangoproject.com/en/5.0/ref/settings/#std:setting-STORAGES
 """
 
-DEFAULT_FILE_STORAGE = account_settings.django_default_file_storage
+DEFAULT_FILE_STORAGE = am_settings.django_default_file_storage
 """
 The default file storage backend for Django. Uses AWS S3 if AWS is configured,
-otherwise uses local filesystem storage. account_settings determines the appropriate
+otherwise uses local filesystem storage. am_settings determines the appropriate
 value based on whether or not it detects AWS authentication configuration in
 the running environment.
 
 See: https://docs.djangoproject.com/en/5.0/ref/settings/#default-file-storage
 """
 
-AWS_ACCESS_KEY_ID = account_settings.aws_access_key_id.get_secret_value()
+AWS_ACCESS_KEY_ID = am_settings.aws_access_key_id.get_secret_value()
 """
 Supplemental setting for configuring AWS support. The AWS access key ID
-is retrieved and validated in account_settings.
+is retrieved and validated in am_settings.
 
 For production deployments the chain of custody should be:
 
-GitHub Secrets -> GitHub Actions -> environment variable -> account_settings -> Django AWS_ACCESS_KEY_ID.
+GitHub Secrets -> GitHub Actions -> environment variable -> am_settings -> Django AWS_ACCESS_KEY_ID.
 
 """
 
-AWS_SECRET_ACCESS_KEY = account_settings.aws_secret_access_key.get_secret_value()
+AWS_SECRET_ACCESS_KEY = am_settings.aws_secret_access_key.get_secret_value()
 """
 Supplemental setting for configuring AWS support. The AWS secret access key
-is retrieved and validated in account_settings.
+is retrieved and validated in am_settings.
 
 For production deployments the chain of custody should be:
 
-GitHub Secrets -> GitHub Actions -> environment variable -> account_settings -> Django AWS_SECRET_ACCESS_KEY.
+GitHub Secrets -> GitHub Actions -> environment variable -> am_settings -> Django AWS_SECRET_ACCESS_KEY.
 """
 
-AWS_STORAGE_BUCKET_NAME = account_settings.aws_s3_bucket_name
+AWS_STORAGE_BUCKET_NAME = am_settings.aws_s3_bucket_name
 """
 Supplemental setting for configuring AWS S3 storage support. The S3 bucket name
-is derived in account_settings.
+is derived in am_settings.
 """
 
-AWS_S3_REGION_NAME = account_settings.aws_region
+AWS_S3_REGION_NAME = am_settings.aws_region
 """
 Supplemental setting for configuring AWS support. The AWS region is
-retrieved and validated in account_settings.
+retrieved and validated in am_settings.
 """
 
 AWS_QUERYSTRING_AUTH = False  # disable querystring auth for public files
@@ -413,19 +435,19 @@ See:
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
-SECRET_KEY = account_settings.secret_key
+SECRET_KEY = am_settings.secret_key
 """
 The secret key for this Django installation. This is retrieved and validated
-from account_settings. If not set, a random key is generated and logged as a warning.
+from am_settings. If not set, a random key is generated and logged as a warning.
 
 For production deployments the chain of custody should be:
 
-GitHub Secrets -> GitHub Actions -> environment variable -> account_settings -> Django SECRET_KEY.
+GitHub Secrets -> GitHub Actions -> environment variable -> am_settings -> Django SECRET_KEY.
 
 See: https://docs.djangoproject.com/en/5.0/ref/settings/#secret-key
 """
 
-if SECRET_KEY == account_settings.default_missing_value:
+if SECRET_KEY == am_settings.default_missing_value:
     random_string = secrets.token_urlsafe(64)
     random_bytes = random_string.encode("utf-8")
     hash_object = hashlib.sha256(random_bytes)
@@ -437,7 +459,7 @@ logger.debug("BASE_DIR: %s", BASE_DIR)
 logger.debug("SECRET_KEY: %s", SECRET_KEY)
 
 
-DEBUG = account_settings.debug_mode
+DEBUG = am_settings.debug_mode
 
 CACHES = {
     "default": {
@@ -736,7 +758,7 @@ the Account Manager.
 
 For cloud deployments the chain of custody for database credentials should be:
 
-Kubernetes Secret -> environment variable -> account_settings -> Django DATABASES.
+Kubernetes Secret -> environment variable -> am_settings -> Django DATABASES.
 
 See:
 
@@ -984,8 +1006,8 @@ LOGGING = {
 logging.config.dictConfig(LOGGING)
 
 # https://dj-stripe.dev/dj-stripe/2.7/installation/
-STRIPE_LIVE_SECRET_KEY = account_settings.stripe_live_secret_key
-STRIPE_TEST_SECRET_KEY = account_settings.stripe_test_secret_key
+STRIPE_LIVE_SECRET_KEY = am_settings.stripe_live_secret_key
+STRIPE_TEST_SECRET_KEY = am_settings.stripe_test_secret_key
 STRIPE_LIVE_MODE = False  # Change to True in production
 DJSTRIPE_WEBHOOK_SECRET = (
     "whsec_xxx"  # Get it from the section in the Stripe dashboard where you added the webhook endpoint
@@ -993,32 +1015,32 @@ DJSTRIPE_WEBHOOK_SECRET = (
 DJSTRIPE_USE_NATIVE_JSONFIELD = True  # We recommend setting to True for new installations
 DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"
 
-SMTP_SENDER = account_settings.smtp_sender
+SMTP_SENDER = am_settings.smtp_sender
 """
 The default sender email address for outgoing emails from account.
-This is derived from account_settings.
+This is derived from am_settings.
 
 See: https://docs.djangoproject.com/en/5.0/topics/email/
 """
 
-SMTP_FROM_EMAIL = account_settings.smtp_from_email
+SMTP_FROM_EMAIL = am_settings.smtp_from_email
 """
 The default "from" email address for outgoing emails from account.
-This is derived from account_settings.
+This is derived from am_settings.
 
 See: https://docs.djangoproject.com/en/5.0/topics/email/
 """
 
-SMTP_HOST = account_settings.smtp_host
+SMTP_HOST = am_settings.smtp_host
 """
-The SMTP host for outgoing emails from account. This is derived from account_settings.
+The SMTP host for outgoing emails from account. This is derived from am_settings.
 
 See: https://docs.djangoproject.com/en/5.0/topics/email/
 """
 
-SMTP_PASSWORD = account_settings.smtp_password
+SMTP_PASSWORD = am_settings.smtp_password
 """
-The SMTP password for outgoing emails from account. This is derived from account_settings.
+The SMTP password for outgoing emails from account. This is derived from am_settings.
 When using AWS SES as the SMTP service, this is the SMTP password generated from the AWS SES console.
 Note that this is NOT the AWS secret access key, nor is it the AWS IAM user password.
 
@@ -1027,7 +1049,7 @@ the Smarter cloud platform with AWS SES as the SMTP service.
 
 For production deployments the chain of custody should be:
 
-Kubernetes Secret -> environment variable -> account_settings -> Django SMTP_PASSWORD.
+Kubernetes Secret -> environment variable -> am_settings -> Django SMTP_PASSWORD.
 
 See:
 
@@ -1035,30 +1057,30 @@ See:
 - https://github.com/smarter-sh/smarter-infrastructure
 """
 
-SMTP_PORT = account_settings.smtp_port
+SMTP_PORT = am_settings.smtp_port
 """
-The SMTP port for outgoing emails from account. This is derived from account_settings.
+The SMTP port for outgoing emails from account. This is derived from am_settings.
 
 See: https://docs.djangoproject.com/en/5.0/topics/email/
 """
 
-SMTP_USE_SSL = account_settings.smtp_use_ssl
+SMTP_USE_SSL = am_settings.smtp_use_ssl
 """
-A boolean that specifies whether to use SSL for SMTP connections in Account Manager. This is derived from account_settings.
+A boolean that specifies whether to use SSL for SMTP connections in Account Manager. This is derived from am_settings.
 
 See: https://docs.djangoproject.com/en/5.0/topics/email/
 """
 
-SMTP_USE_TLS = account_settings.smtp_use_tls
+SMTP_USE_TLS = am_settings.smtp_use_tls
 """
-A boolean that specifies whether to use TLS for SMTP connections in Account Manager. This is derived from account_settings.
+A boolean that specifies whether to use TLS for SMTP connections in Account Manager. This is derived from am_settings.
 
 See: https://docs.djangoproject.com/en/5.0/topics/email/
 """
 
-SMTP_USERNAME = account_settings.smtp_username
+SMTP_USERNAME = am_settings.smtp_username
 """
-The SMTP username for outgoing emails from account. This is derived from account_settings.
+The SMTP username for outgoing emails from account. This is derived from am_settings.
 When using AWS SES as the SMTP service, this is the SMTP password generated from the AWS SES console.
 Note that this is NOT the AWS secret access key, nor is it the AWS IAM user password.
 
@@ -1067,7 +1089,7 @@ the Smarter cloud platform with AWS SES as the SMTP service.
 
 For production deployments the chain of custody should be:
 
-Kubernetes Secret -> environment variable -> account_settings -> Django SMTP_PASSWORD.
+Kubernetes Secret -> environment variable -> am_settings -> Django SMTP_PASSWORD.
 
 See:
 
@@ -1158,11 +1180,11 @@ if ACCOUNT_SETTINGS_OUTPUT or "manage.py" not in sys.argv[0]:
     if cache_backend != "django_redis.cache.RedisCache":
         logger.warning("Recommended cache backend is django_redis.cache.RedisCache")
 
-    if account_settings.smtp_is_configured:
+    if am_settings.smtp_is_configured:
         logger.info("SMTP server configured: %s:%s (SSL=%s, TLS=%s)", SMTP_HOST, SMTP_PORT, SMTP_USE_SSL, SMTP_USE_TLS)
     else:
         logger.warning("SMTP server not configured")
-    if account_settings.aws_is_configured:
+    if am_settings.aws_is_configured:
         logger.info("AWS credentials detected")
     else:
         logger.warning("AWS credentials not found.")

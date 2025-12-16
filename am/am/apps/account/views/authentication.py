@@ -9,7 +9,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 
 from am.apps.account.models import User, get_resolved_user
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.helpers.email_helpers import email_helper
 from am.lib.django import waffle
 from am.lib.django.http.shortcuts import (
@@ -39,7 +39,7 @@ def should_log(level):
     return (
         waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING)
         and waffle.switch_is_active(AMWaffleSwitches.VIEW_LOGGING)
-        and level >= account_settings.log_level
+        and level >= am_settings.log_level
     )
 
 

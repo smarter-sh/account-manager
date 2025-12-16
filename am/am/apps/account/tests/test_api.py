@@ -7,7 +7,7 @@ from http import HTTPStatus
 from django.test import Client
 from django.urls import reverse
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.lib.django import waffle
 from am.lib.django.waffle import AMWaffleSwitches
 from am.lib.logging import WaffleSwitchedLoggerWrapper
@@ -22,7 +22,7 @@ def should_log(level):
     return (
         waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING)
         and waffle.switch_is_active(AMWaffleSwitches.PLUGIN_LOGGING)
-        and level >= account_settings.log_level
+        and level >= am_settings.log_level
     )
 
 

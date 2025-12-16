@@ -3,7 +3,7 @@
 from django.urls import include, path
 from django.views.generic.base import RedirectView
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.const import AMEnvironments
 
 from .const import namespace
@@ -76,7 +76,7 @@ urlpatterns = [
     ),
 ]
 
-if account_settings.environment == AMEnvironments.LOCAL:
+if am_settings.environment == AMEnvironments.LOCAL:
     from .views.email import EmailWelcomeView
 
     urlpatterns.append(path("email/welcome/<first_name>/", EmailWelcomeView.as_view(), name="welcome"))

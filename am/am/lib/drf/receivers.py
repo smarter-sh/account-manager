@@ -6,7 +6,7 @@ import logging
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.helpers.console_helpers import formatted_text
 from am.lib.django import waffle
 from am.lib.django.waffle import AMWaffleSwitches
@@ -22,7 +22,7 @@ from .signals import (
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.RECEIVER_LOGGING) and level >= account_settings.log_level
+    return waffle.switch_is_active(AMWaffleSwitches.RECEIVER_LOGGING) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)

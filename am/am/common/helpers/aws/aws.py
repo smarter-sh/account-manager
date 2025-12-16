@@ -10,7 +10,7 @@ import boto3  # AWS SDK for Python https://boto3.amazonaws.com/v1/documentation/
 from botocore.exceptions import ProfileNotFound
 
 from am.common.classes import AMHelperMixin
-from am.common.conf import Services, account_settings
+from am.common.conf import Services, am_settings
 
 # our stuff
 from am.common.const import (
@@ -58,7 +58,7 @@ class AWSBase(AMHelperMixin):
     maintaining consistent security and configuration practices across the codebase.
     """
 
-    LOCAL_HOSTS = account_settings.local_hosts
+    LOCAL_HOSTS = am_settings.local_hosts
 
     _aws_access_key_id: Optional[str] = None
     _aws_secret_access_key: Optional[str] = None
@@ -71,8 +71,8 @@ class AWSBase(AMHelperMixin):
     _initialized: bool = False
     _domain = None
     _aws_session = None
-    _root_domain: str = account_settings.root_domain
-    _environment: str = account_settings.environment
+    _root_domain: str = am_settings.root_domain
+    _environment: str = am_settings.environment
     _environment_domain: Optional[str] = None
     _shared_resource_identifier: Optional[str] = None
     _debug_mode: bool = False
@@ -96,12 +96,12 @@ class AWSBase(AMHelperMixin):
     ):
         Services.raise_error_on_disabled(Services.AWS_CLI)
 
-        self._shared_resource_identifier = shared_resource_identifier or account_settings.shared_resource_identifier
-        self._environment = environment or account_settings.environment
+        self._shared_resource_identifier = shared_resource_identifier or am_settings.shared_resource_identifier
+        self._environment = environment or am_settings.environment
 
-        self._root_domain = root_domain or account_settings.root_domain
-        self._environment_domain = environment_domain or account_settings.environment_account_manager_domain
-        self._debug_mode = debug_mode or account_settings.debug_mode
+        self._root_domain = root_domain or am_settings.root_domain
+        self._environment_domain = environment_domain or am_settings.environment_domain
+        self._debug_mode = debug_mode or am_settings.debug_mode
 
         if init_info:
             logger.debug(init_info)
@@ -120,11 +120,11 @@ class AWSBase(AMHelperMixin):
             self._aws_session = boto3.Session(region_name=self.aws_region)
             self._initialized = True
 
-        # initialize creentials from account_settings unless any of these were passed as parameters
-        self._aws_access_key_id = aws_access_key_id or account_settings.aws_access_key_id.get_secret_value()
-        self._aws_secret_access_key = aws_secret_access_key or account_settings.aws_secret_access_key.get_secret_value()
-        self._aws_region = aws_region or account_settings.aws_region
-        self._aws_profile = aws_profile or account_settings.aws_profile
+        # initialize creentials from am_settings unless any of these were passed as parameters
+        self._aws_access_key_id = aws_access_key_id or am_settings.aws_access_key_id.get_secret_value()
+        self._aws_secret_access_key = aws_secret_access_key or am_settings.aws_secret_access_key.get_secret_value()
+        self._aws_region = aws_region or am_settings.aws_region
+        self._aws_profile = aws_profile or am_settings.aws_profile
 
         # priority 2: aws_profile
         if not self.initialized:
@@ -245,7 +245,7 @@ class AWSBase(AMHelperMixin):
         :return: True if AWS is configured
         :rtype: bool
         """
-        return account_settings.aws_is_configured
+        return am_settings.aws_is_configured
 
     @property
     def aws_profile(self):
@@ -452,12 +452,10 @@ class AWSBase(AMHelperMixin):
         """
         if self.environment == AMEnvironments.LOCAL:
             proxy_domain: Optional[str] = None
-            if account_settings.environment_account_manager_domain in domain:
-                proxy_domain = domain.replace(
-                    account_settings.environment_account_manager_domain, self.environment_domain
-                )
-            if account_settings.environment_api_domain in domain:
-                proxy_domain = domain.replace(account_settings.environment_api_domain, self.environment_api_domain)
+            if am_settings.environment_domain in domain:
+                proxy_domain = domain.replace(am_settings.environment_domain, self.environment_domain)
+            if am_settings.environment_api_domain in domain:
+                proxy_domain = domain.replace(am_settings.environment_api_domain, self.environment_api_domain)
             if proxy_domain:
                 AMValidator.validate_domain(domain)
                 logger.info("replacing %s with proxy domain %s", domain, proxy_domain)
@@ -486,7 +484,7 @@ class AWSBase(AMHelperMixin):
         :return: True if ready
         :rtype: bool
         """
-        return bool(self.connected()) and bool(account_settings.environment in AMEnvironments.all)
+        return bool(self.connected()) and bool(am_settings.environment in AMEnvironments.all)
 
     def connected(self) -> bool:
         """

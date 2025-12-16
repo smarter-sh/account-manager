@@ -2,7 +2,7 @@
 
 # python stuff
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 
 from .aws import AMAWSException, AWSBase
 
@@ -50,7 +50,7 @@ class AWSIdentifyAccessManagement(AWSBase):
         policies = self.client.list_policies()["Policies"]
         retval = {}
         for policy in policies:
-            if account_settings.shared_resource_identifier in policy["PolicyName"]:
+            if am_settings.shared_resource_identifier in policy["PolicyName"]:
                 policy_version = self.client.get_policy(PolicyArn=policy["Arn"])["Policy"]["DefaultVersionId"]
                 policy_document = self.client.get_policy_version(PolicyArn=policy["Arn"], VersionId=policy_version)[
                     "PolicyVersion"
@@ -68,7 +68,7 @@ class AWSIdentifyAccessManagement(AWSBase):
         roles = self.client.list_roles()["Roles"]
         retval = {}
         for role in roles:
-            if account_settings.shared_resource_identifier in role["RoleName"]:
+            if am_settings.shared_resource_identifier in role["RoleName"]:
                 attached_policies = self.client.list_attached_role_policies(RoleName=role["RoleName"])[
                     "AttachedPolicies"
                 ]

@@ -28,7 +28,7 @@ import logging
 import os  # library for interacting with the operating system
 import re
 import warnings
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from typing import Any, List, Optional, Tuple, Union
 
 # 3rd party stuff
@@ -168,21 +168,6 @@ class SettingsDefaults:
         "SHARED_RESOURCE_IDENTIFIER", TFVARS.get("shared_resource_identifier", "am")
     )
 
-    # -------------------------------------------------------------------------
-    # see: https://console.cloud.google.com/apis/credentials/oauthclient/231536848926-egabg8jas321iga0nmleac21ccgbg6tq.apps.googleusercontent.com?project=smarter-sh
-    # -------------------------------------------------------------------------
-    SOCIAL_AUTH_GOOGLE_OAUTH2_KEY: SecretStr = SecretStr(
-        os.environ.get("SOCIAL_AUTH_GOOGLE_OAUTH2_KEY", DEFAULT_MISSING_VALUE)
-    )
-    SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET: SecretStr = SecretStr(
-        os.environ.get("SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET", DEFAULT_MISSING_VALUE)
-    )
-    # -------------------------------------------------------------------------
-    # see: https://github.com/settings/applications/2620957
-    # -------------------------------------------------------------------------
-    SOCIAL_AUTH_GITHUB_KEY: SecretStr = SecretStr(os.environ.get("SOCIAL_AUTH_GITHUB_KEY", DEFAULT_MISSING_VALUE))
-    SOCIAL_AUTH_GITHUB_SECRET: SecretStr = SecretStr(os.environ.get("SOCIAL_AUTH_GITHUB_SECRET", DEFAULT_MISSING_VALUE))
-
     SECRET_KEY = os.getenv("SECRET_KEY", DEFAULT_MISSING_VALUE)
 
     SMTP_SENDER = os.environ.get("SMTP_SENDER", DEFAULT_MISSING_VALUE)
@@ -307,7 +292,7 @@ def empty_str_to_int_default(v: str, default: int) -> int:
 class Settings(BaseSettings):
     """
     Account Manager derived settings. This is intended to be instantiated as
-    an immutable singleton object called `account_settings`. account_settings
+    an immutable singleton object called `am_settings`. am_settings
     contains superseding, validated, and derived settings values for the platform.
 
     This class implements a consistent set of rules for initializing configuration
@@ -315,24 +300,24 @@ class Settings(BaseSettings):
     and default values defined in this class. It additionally ensures that all
     configuration values are strongly typed and validated.
 
-    Where applicable, account_settings supersede Django settings values. That is,
-    account_settings should be used in preference to Django settings wherever
-    possible. Django settings are initialized from account_settings values where
+    Where applicable, am_settings supersede Django settings values. That is,
+    am_settings should be used in preference to Django settings wherever
+    possible. Django settings are initialized from am_settings values where
     applicable.
 
     Notes:
     -----------------
-    - account_settings values are immutable after instantiation.
-    - Every property/attribute in account_settings has a value.
+    - am_settings values are immutable after instantiation.
+    - Every property/attribute in am_settings has a value.
     - Sensitive values are stored as pydantic SecretStr types.
-    - account_settings values are initialized according to the following prioritization sequence:
+    - am_settings values are initialized according to the following prioritization sequence:
         1. constructor. This is discouraged. prefer to use .env file or environment variables.
         2. SettingsDefaults
         3. `.env` file
         4. environment variables. If present and not already consumed by SettingsDefaults, these are overridden by .env file values.
         5. default values defined in this class.
     - The dump property returns a dictionary of all configuration values.
-    - account_settings values should be accessed via the account_settings singleton instance when possible.
+    - am_settings values should be accessed via the am_settings singleton instance when possible.
     """
 
     # pylint: disable=too-few-public-methods
@@ -446,26 +431,6 @@ class Settings(BaseSettings):
     init_info: Optional[str] = Field(
         None,
     )
-    social_auth_google_oauth2_key: SecretStr = Field(
-        SettingsDefaults.SOCIAL_AUTH_GOOGLE_OAUTH2_KEY,
-        description="The OAuth2 key for Google social authentication. Masked by pydantic SecretStr.",
-        examples=["your-google-oauth2-key"],
-    )
-    social_auth_google_oauth2_secret: SecretStr = Field(
-        SettingsDefaults.SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET,
-        description="The OAuth2 secret for Google social authentication. Masked by pydantic SecretStr.",
-        examples=["your-google-oauth2-secret"],
-    )
-    social_auth_github_key: SecretStr = Field(
-        SettingsDefaults.SOCIAL_AUTH_GITHUB_KEY,
-        description="The OAuth2 key for GitHub social authentication. Masked by pydantic SecretStr.",
-        examples=["your-github-oauth2-key"],
-    )
-    social_auth_github_secret: SecretStr = Field(
-        SettingsDefaults.SOCIAL_AUTH_GITHUB_SECRET,
-        description="The OAuth2 secret for GitHub social authentication. Masked by pydantic SecretStr.",
-        examples=["your-github-oauth2-secret"],
-    )
     logo: Optional[str] = Field(SettingsDefaults.LOGO)
     mailchimp_api_key: Optional[SecretStr] = Field(SettingsDefaults.MAILCHIMP_API_KEY)
     mailchimp_list_id: Optional[str] = Field(SettingsDefaults.MAILCHIMP_LIST_ID)
@@ -528,21 +493,21 @@ class Settings(BaseSettings):
         examples=["your-smtp-username"],
     )
 
-    @property
+    @cached_property
     def smtp_is_configured(self) -> bool:
         """
         Return True if SMTP is configured. All required smtp fields must be set.
 
         Example:
-            >>> print(account_settings.smtp_is_configured)
+            >>> print(am_settings.smtp_is_configured)
             True
 
         See Also:
-            - account_settings.smtp_host
-            - account_settings.smtp_port
-            - account_settings.smtp_username
-            - account_settings.smtp_password
-            - account_settings.smtp_from_email
+            - am_settings.smtp_host
+            - am_settings.smtp_port
+            - am_settings.smtp_username
+            - am_settings.smtp_password
+            - am_settings.smtp_from_email
         """
         required_fields = [
             self.smtp_host,
@@ -553,17 +518,17 @@ class Settings(BaseSettings):
         ]
         return all(field not in [None, "", DEFAULT_MISSING_VALUE] for field in required_fields)
 
-    @property
+    @cached_property
     def protocol(self) -> str:
         """
         Return the protocol: http or https.
 
         Example:
-            >>> print(account_settings.protocol)
+            >>> print(am_settings.protocol)
             'https'
 
         See Also:
-            - account_settings.environment
+            - am_settings.environment
             - AMEnvironments()
         """
         if self.environment in AMEnvironments.aws_environments:
@@ -576,60 +541,60 @@ class Settings(BaseSettings):
         Return the path to the data directory:
 
         Example:
-            >>> print(account_settings.data_directory)
-            '/home/smarter_user/data'
+            >>> print(am_settings.data_directory)
+            '/home/am_user/data'
 
         Note:
             This is based on the Dockerfile located in the root of the repository.
             See https://github.com/smarter-sh/account-manager/blob/main/Dockerfile
         """
-        return "/home/smarter_user/data"
+        return "/home/am_user/data"
 
-    @property
+    @cached_property
     def environment_is_local(self) -> bool:
         """
         Return True if the environment is local.
 
         Example:
-            >>> print(account_settings.environment_is_local)
+            >>> print(am_settings.environment_is_local)
             True
 
         See Also:
-            - account_settings.environment
+            - am_settings.environment
             - AMEnvironments()
         """
         return self.environment == AMEnvironments.LOCAL
 
-    @property
+    @cached_property
     def environment_cdn_domain(self) -> str:
         """
         Return the CDN domain based on the environment domain.
 
         Examples:
-            >>> print(account_settings.environment_cdn_domain)
-            'cdn.alpha.platform.example.com'
-            >>> print(account_settings.environment_cdn_domain)
+            >>> print(am_settings.environment_cdn_domain)
+            'cdn.alpha.am.example.com'
+            >>> print(am_settings.environment_cdn_domain)
             'cdn.localhost:8000'
 
         See Also:
-            - account_settings.account_manager_subdomain
-            - account_settings.environment_account_manager_domain
-            - account_settings.environment
+            - am_settings.am_subdomain
+            - am_settings.environment_domain
+            - am_settings.environment
             - AMEnvironments()
         """
         if self.environment == AMEnvironments.LOCAL:
-            return f"cdn.{AMEnvironments.ALPHA}.{self.account_manager_subdomain}.{self.root_domain}"
-        return f"cdn.{self.environment_account_manager_domain}"
+            return f"cdn.{AMEnvironments.ALPHA}.{self.am_subdomain}.{self.root_domain}"
+        return f"cdn.{self.environment_domain}"
 
-    @property
+    @cached_property
     def environment_cdn_url(self) -> str:
         """
         Return the CDN URL for the environment.
 
         Example:
-            >>> print(account_settings.environment_cdn_url)
-            https://cdn.alpha.platform.example.com
-            >>> print(account_settings.environment_cdn_url)
+            >>> print(am_settings.environment_cdn_url)
+            https://cdn.alpha.am.example.com
+            >>> print(am_settings.environment_cdn_url)
             https://cdn.localhost:8000
 
         Raises:
@@ -644,8 +609,8 @@ class Settings(BaseSettings):
 
         See Also:
             - AMValidator.urlify()
-            - account_settings.environment_cdn_domain
-            - account_settings.environment
+            - am_settings.environment_cdn_domain
+            - am_settings.environment
         """
         if self.environment == AMEnvironments.LOCAL:
             retval = AMValidator.urlify(self.environment_cdn_domain, environment=AMEnvironments.ALPHA)
@@ -659,12 +624,12 @@ class Settings(BaseSettings):
         return retval
 
     @property
-    def account_manager_subdomain(self) -> str:
+    def am_subdomain(self) -> str:
         """
         Return the platform subdomain.
 
         Example:
-            >>> print(account_settings.account_manager_subdomain)
+            >>> print(am_settings.am_subdomain)
             'platform'
 
         See Also:
@@ -672,192 +637,145 @@ class Settings(BaseSettings):
         """
         return ACCOUNT_MANAGER_SUBDOMAIN
 
-    @property
-    def account_manager_domain(self) -> str:
+    @cached_property
+    def am_domain(self) -> str:
         """
         Return the platform domain name for the root domain.
 
         Example:
-            >>> print(account_settings.account_manager_domain)
-            'platform.example.com'
+            >>> print(am_settings.am_domain)
+            'am.example.com'
 
         See Also:
-            - am.settings.account_manager_subdomain
-            - account_settings.root_domain
+            - am.settings.am_subdomain
+            - am_settings.root_domain
         """
-        return f"{self.account_manager_subdomain}.{self.root_domain}"
+        return f"{self.am_subdomain}.{self.root_domain}"
 
-    @property
-    def account_manager_url(self) -> str:
+    @cached_property
+    def am_api_domain(self) -> str:
         """
-        Return the platform URL for the root platform domain and environment.
+        Return the Account Manager API base domain name.
 
         Example:
-            >>> print(account_settings.account_manager_url)
-            https://platform.example.com
+            >>> print(am_settings.am_api_domain)
+            'api.am.example.com'
+        See Also:
+            - am.settings.api_subdomain
+            - am_settings.root_domain
+        """
+        return f"{self.api_subdomain}.{self.am_subdomain}.{self.root_domain}"
+
+    @cached_property
+    def am_url(self) -> str:
+        """
+        Return the Account Manager base URL.
+
+        Example:
+            >>> print(am_settings.am_url)
+            https://am.example.com
 
         Raises:
             AMConfigurationError: If the constructed URL is invalid.
 
         See Also:
             - AMValidator.urlify()
-            - account_settings.account_manager_domain
-            - account_settings.environment
+            - am_settings.am_domain
+            - am_settings.environment
         """
-        retval = AMValidator.urlify(self.account_manager_domain, environment=self.environment)
+        retval = AMValidator.urlify(self.am_domain, environment=self.environment)
         if retval is None:
             raise AMConfigurationError(
-                f"Invalid account_manager_domain: {self.account_manager_domain}. "
-                "Please check your environment settings."
+                f"Invalid am_domain: {self.am_domain}. " "Please check your environment settings."
             )
         return retval
 
-    @property
-    def environment_account_manager_domain(self) -> str:
+    @cached_property
+    def environment_domain(self) -> str:
         """
         Return the complete domain name, including environment prefix if applicable.
 
         Examples:
-            >>> print(account_settings.environment_account_manager_domain)
-            'alpha.platform.example.com'
-            >>> print(account_settings.environment_account_manager_domain)
+            >>> print(am_settings.environment_domain)
+            'alpha.am.example.com'
+            >>> print(am_settings.environment_domain)
             'localhost:8000'
 
-        Note:
-            Returns the root domain for the production environment. Otherwise,
-            the returned domain is based on the environment and platform configuration.
-
         See Also:
-            - account_settings.account_manager_domain
+            - am_settings.am_domain
             - AMEnvironments()
             - self.environment
         """
         if self.environment == AMEnvironments.PROD:
-            return self.account_manager_domain
+            return self.am_domain
         if self.environment in AMEnvironments.aws_environments:
-            return f"{self.environment}.{self.account_manager_domain}"
+            return f"{self.environment}.{self.am_domain}"
         if self.environment == AMEnvironments.LOCAL:
-            return "localhost:8000"
+            return f"{self.am_subdomain}.localhost:8000"
         # default domain format
-        return f"{self.environment}.{self.account_manager_domain}"
+        return f"{self.environment}.{self.am_domain}"
 
-    @property
-    def all_domains(self) -> List[str]:
-        """
-        Return all domains for the environment. Domains are
-        generated from the root domain, subdomains, and environments and
-        are returned as a sorted list.
-
-        Example::
-
-            [
-                'api.example.com',
-                'api.alpha.platform.example.com',
-                'api.beta.platform.example.com',
-                'api.localhost:8000',
-                'api.next.platform.example.com',
-                'example.com',
-                'platform.example.com',
-                'alpha.platform.example.com',
-                'beta.platform.example.com',
-                'localhost:8000',
-                'next.platform.example.com'
-            ]
-
-        See Also:
-            - AMEnvironments()
-            - account_settings.account_manager_subdomain
-            - account_settings.api_subdomain
-            - account_settings.root_domain
-            - account_settings.root_api_domain
-            - account_settings.account_manager_domain
-        """
-        environments = [
-            None,  # for root domains (no environment prefix)
-            AMEnvironments.ALPHA,
-            AMEnvironments.BETA,
-            AMEnvironments.NEXT,
-        ]
-        subdomains = [
-            self.account_manager_subdomain,
-            self.api_subdomain,
-        ]
-        domains = set()
-        # Add root domains
-        domains.add(self.root_domain)
-        domains.add(self.root_api_domain)
-        domains.add(self.account_manager_domain)
-        # Add environment/subdomain combinations
-        for subdomain in subdomains:
-            # example: platform.example.com, api.platform.example.com
-            domains.add(f"{subdomain}.{self.root_domain}")
-            for environment in environments[1:]:  # skip None for env-prefixed
-                # example: alpha.platform.example.com, alpha.api.platform.example.com
-                domains.add(f"{environment}.{subdomain}.{self.root_domain}")
-        return sorted(domains)
-
-    @property
+    @cached_property
     def environment_url(self) -> str:
         """
-        Return the environment URL, derived from the environment platform domain.
+        Return the environment URL, derived from the environment domain.
 
         Example:
-            >>> print(account_settings.environment_url)
-            https://alpha.platform.example.com
+            >>> print(am_settings.environment_url)
+            https://alpha.am.example.com
 
         Raises:
             AMConfigurationError: If the constructed URL is invalid.
 
         See Also:
             - AMValidator.urlify()
-            - account_settings.environment_account_manager_domain
-            - account_settings.environment
+            - am_settings.environment_domain
+            - am_settings.environment
         """
-        retval = AMValidator.urlify(self.environment_account_manager_domain, environment=self.environment)
+        retval = AMValidator.urlify(self.environment_domain, environment=self.environment)
         if retval is None:
             raise AMConfigurationError(
-                f"Invalid environment_account_manager_domain: {self.environment_account_manager_domain}. "
-                "Please check your environment settings."
+                f"Invalid environment_domain: {self.environment_domain}. " "Please check your environment settings."
             )
         return retval
 
-    @property
+    @cached_property
     def platform_name(self) -> str:
         """
         Return the platform name, derived from the root domain.
 
         Example:
-            >>> print(account_settings.platform_name)
+            >>> print(am_settings.platform_name)
             'smarter'
 
         See Also:
-            - account_settings.root_domain
+            - am_settings.root_domain
         """
         return self.root_domain.split(".")[0]
 
-    @property
+    @cached_property
     def environment_namespace(self) -> str:
         """
         Return the Kubernetes namespace for the environment.
 
         Example:
-            >>> print(account_settings.environment_namespace)
-            'smarter-platform-alpha'
+            >>> print(am_settings.environment_namespace)
+            'smarter-am-alpha'
 
         See Also:
-            - account_settings.account_manager_subdomain
-            - account_settings.platform_name
-            - account_settings.environment
+            - am_settings.am_subdomain
+            - am_settings.platform_name
+            - am_settings.environment
         """
-        return f"{self.platform_name}-{self.account_manager_subdomain}-{settings.environment}"
+        return f"{self.platform_name}-{self.am_subdomain}-{self.environment}"
 
     @property
     def api_subdomain(self) -> str:
         """
-        Return the API subdomain for the platform.
+        Return the API subdomain.
 
         Example:
-            >>> print(account_settings.api_subdomain)
+            >>> print(am_settings.api_subdomain)
             'api'
         return ACCOUNT_API_SUBDOMAIN
         See Also:
@@ -865,74 +783,44 @@ class Settings(BaseSettings):
         """
         return ACCOUNT_API_SUBDOMAIN
 
-    @property
-    def root_api_domain(self) -> str:
-        """
-        Return the root API domain name, generated
-        from the system constant `ACCOUNT_API_SUBDOMAIN` and the root platform domain.
-
-        Example:
-            >>> print(account_settings.root_api_domain)
-            'api.example.com'
-
-        See Also:
-            - ACCOUNT_API_SUBDOMAIN
-            - account_settings.root_domain
-            - account_settings.api_subdomain
-        """
-        return f"{self.api_subdomain}.{self.root_domain}"
-
-    @property
+    @cached_property
     def environment_api_domain(self) -> str:
         """
         Return the API domain name for the current environment.
 
         Example:
-            >>> print(account_settings.environment_api_domain)
-            'alpha.api.platform.example.com'
-            >>> print(account_settings.environment_api_domain)
+            >>> print(am_settings.environment_api_domain)
+            'alpha.api.am.example.com'
+            >>> print(am_settings.environment_api_domain)
             'api.localhost:8000'
 
-        Note:
-            Returns the root domain for the production environment. Otherwise,
-            the returned domain is based on the environment and platform configuration.
-            In production, this will be the root API domain; in local or other environments,
-            it will be prefixed accordingly.
-
         See Also:
-            - account_settings.root_api_domain
-            - account_settings.aws_environments
+            - am_settings.aws_environments
             - AMEnvironments()
             - ACCOUNT_API_SUBDOMAIN
         """
         if self.environment == AMEnvironments.PROD:
-            return self.root_api_domain
-        if self.environment in AMEnvironments.aws_environments:
-            return f"{self.environment}.{self.root_api_domain}"
+            return self.am_api_domain
         if self.environment == AMEnvironments.LOCAL:
-            return f"{ACCOUNT_API_SUBDOMAIN}.localhost:8000"
-        # default domain format
-        return f"{self.environment}.{self.root_api_domain}"
+            return f"{self.api_subdomain}.{self.am_subdomain}.localhost:8000"
+        return f"{self.environment}.{self.am_api_domain}"
 
-    @property
+    @cached_property
     def environment_api_url(self) -> str:
         """
-        Creates a valid url from account_settings.environment_api_domain.
-        Based on the Account Manager shared resource identifier and the root platform domain.
-        Uses urlify() to ensure consistency in http protocol and formatting and
-        trailing slash.
+        Creates a valid url from am_settings.environment_api_domain.
 
         Example:
-            >>> print(account_settings.environment_api_url)
-            'https://alpha.api.platform.example.com'
+            >>> print(am_settings.environment_api_url)
+            'https://alpha.api.am.example.com/'
 
         Raises:
             AMConfigurationError: If the constructed URL is invalid.
 
         See Also:
             - AMValidator.urlify()
-            - account_settings.environment_api_domain
-            - account_settings.environment
+            - am_settings.environment_api_domain
+            - am_settings.environment
         """
         retval = AMValidator.urlify(self.environment_api_domain, environment=self.environment)
         if retval is None:
@@ -942,7 +830,7 @@ class Settings(BaseSettings):
             )
         return retval
 
-    @property
+    @cached_property
     def aws_s3_bucket_name(self) -> str:
         """
         Returns the AWS S3 bucket name for the current environment.
@@ -950,32 +838,32 @@ class Settings(BaseSettings):
         and the root platform domain.
 
         Example:
-            >>> print(account_settings.aws_s3_bucket_name)
+            >>> print(am_settings.aws_s3_bucket_name)
             'alpha.am.smarter.sh'
 
         Note:
             In local environments, this returns 'alpha.am.smarter.sh' as a proxy.
 
         See Also:
-            - account_settings.shared_resource_identifier
-            - account_settings.account_manager_domain
+            - am_settings.shared_resource_identifier
+            - am_settings.am_domain
             - AMEnvironments()
-            - account_settings.environment_account_manager_domain
+            - am_settings.environment_domain
         """
         if self.environment == AMEnvironments.LOCAL:
-            return f"{AMEnvironments.ALPHA}.{self.account_manager_domain}"
-        return self.environment_account_manager_domain
+            return f"{AMEnvironments.ALPHA}.{self.am_domain}"
+        return self.environment_domain
 
-    @property
+    @cached_property
     def is_using_dotenv_file(self) -> bool:
         """
-        Indicates whether a `.env` file was loaded for this instance of account_settings.
+        Indicates whether a `.env` file was loaded for this instance of am_settings.
 
         Returns:
             bool: True if a `.env` file was loaded, False otherwise.
 
         Example:
-            >>> print(account_settings.is_using_dotenv_file)
+            >>> print(am_settings.is_using_dotenv_file)
             True
 
         Note:
@@ -987,7 +875,7 @@ class Settings(BaseSettings):
         """
         return DOT_ENV_LOADED
 
-    @property
+    @cached_property
     def environment_variables(self) -> List[str]:
         """
         Lists all environment variables.
@@ -1018,12 +906,6 @@ class Settings(BaseSettings):
                 'TOGETHERAI_API_KEY',
                 'GOOGLE_SERVICE_ACCOUNT_B64',
                 'GOOGLE_MAPS_API_KEY',
-                'SOCIAL_AUTH_GOOGLE_OAUTH2_KEY',
-                'SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET',
-                'SOCIAL_AUTH_GITHUB_KEY',
-                'SOCIAL_AUTH_GITHUB_SECRET',
-                'SOCIAL_AUTH_LINKEDIN_OAUTH2_KEY',
-                'SOCIAL_AUTH_LINKEDIN_OAUTH2_SECRET',
                 'MAILCHIMP_API_KEY',
                 'MAILCHIMP_LIST_ID',
                 'PINECONE_API_KEY',
@@ -1048,7 +930,7 @@ class Settings(BaseSettings):
         """
         return list(os.environ.keys())
 
-    @property
+    @cached_property
     def smarter_api_key_max_lifetime_days(self) -> int:
         """Maximum lifetime for Account Manager API keys in days.
 
@@ -1056,7 +938,7 @@ class Settings(BaseSettings):
             int: The number of days.
 
         Example:
-            >>> print(account_settings.smarter_api_key_max_lifetime_days)
+            >>> print(am_settings.smarter_api_key_max_lifetime_days)
             90
 
         Warning:
@@ -1068,7 +950,7 @@ class Settings(BaseSettings):
         """
         return ACCOUNT_API_KEY_MAX_LIFETIME_DAYS
 
-    @property
+    @cached_property
     def version(self) -> str:
         """
         Current version of the Account Manager codebase
@@ -1076,7 +958,7 @@ class Settings(BaseSettings):
         to smarter.__version__.py.
 
         Example:
-            >>> print(account_settings.version)
+            >>> print(am_settings.version)
             '0.13.35'
 
         Note:
@@ -1340,72 +1222,6 @@ class Settings(BaseSettings):
             return v.lower() in ["true", "1", "t", "y", "yes"]
 
         raise AMConfigurationError("could not validate debug_mode")
-
-    @field_validator("social_auth_google_oauth2_key")
-    def check_social_auth_google_oauth2_key(cls, v: Optional[SecretStr]) -> SecretStr:
-        """Validates the `social_auth_google_oauth2_key` field.
-
-        Args:
-            v (Optional[SecretStr]): The Google OAuth2 key value to validate.
-        Returns:
-            SecretStr: The validated Google OAuth2 key.
-        """
-        if str(v) in [None, ""] and SettingsDefaults.SOCIAL_AUTH_GOOGLE_OAUTH2_KEY:
-            return SettingsDefaults.SOCIAL_AUTH_GOOGLE_OAUTH2_KEY
-
-        if not isinstance(v, SecretStr):
-            raise AMConfigurationError("social_auth_google_oauth2_key is not a SecretStr.")
-        return v
-
-    @field_validator("social_auth_google_oauth2_secret")
-    def check_social_auth_google_oauth2_secret(cls, v: Optional[SecretStr]) -> SecretStr:
-        """Validates the `social_auth_google_oauth2_secret` field.
-
-        Args:
-            v (Optional[SecretStr]): The Google OAuth2 secret value to validate.
-
-        Returns:
-            SecretStr: The validated Google OAuth2 secret.
-        """
-        if str(v) in [None, ""] and SettingsDefaults.SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET is not None:
-            return SettingsDefaults.SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET
-
-        if not isinstance(v, SecretStr):
-            raise AMConfigurationError("social_auth_google_oauth2_secret is not a SecretStr.")
-        return v
-
-    @field_validator("social_auth_github_key")
-    def check_social_auth_github_key(cls, v: Optional[SecretStr]) -> SecretStr:
-        """Validates the `social_auth_github_key` field.
-
-        Args:
-            v (Optional[SecretStr]): The GitHub OAuth2 key value to validate.
-        Returns:
-            SecretStr: The validated GitHub OAuth2 key.
-        """
-        if str(v) in [None, ""] and SettingsDefaults.SOCIAL_AUTH_GITHUB_KEY is not None:
-            return SettingsDefaults.SOCIAL_AUTH_GITHUB_KEY
-
-        if not isinstance(v, SecretStr):
-            raise AMConfigurationError("social_auth_github_key is not a SecretStr")
-
-        return v
-
-    @field_validator("social_auth_github_secret")
-    def check_social_auth_github_secret(cls, v: Optional[SecretStr]) -> SecretStr:
-        """Validates the `social_auth_github_secret` field.
-
-        Args:
-            v (Optional[SecretStr]): The GitHub OAuth2 secret value to validate.
-        Returns:
-            SecretStr: The validated GitHub OAuth2 secret.
-        """
-        if str(v) in [None, ""] and SettingsDefaults.SOCIAL_AUTH_GITHUB_SECRET is not None:
-            return SettingsDefaults.SOCIAL_AUTH_GITHUB_SECRET
-
-        if not isinstance(v, SecretStr):
-            raise AMConfigurationError("social_auth_github_secret is not a SecretStr.")
-        return v
 
     @field_validator("logo")
     def check_logo(cls, v: Optional[str]) -> str:
@@ -1676,4 +1492,4 @@ def get_settings() -> Settings:
         raise AMConfigurationError("Invalid configuration: " + str(e)) from e
 
 
-account_settings = get_settings()
+am_settings = get_settings()

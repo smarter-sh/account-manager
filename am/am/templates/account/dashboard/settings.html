@@ -53,11 +53,11 @@ dashboard_title_breadcrumbs %} {{ block.super }}
           <!--begin::Col-->
           <div class="col-lg-8 fv-row">
             <input
-              id="input_{{ account_settings.account_form.account_number.name }}"
+              id="input_{{ am_settings.account_form.account_number.name }}"
               type="text"
-              name="{{ account_settings.account_form.account_number.name }}"
+              name="{{ am_settings.account_form.account_number.name }}"
               class="form-control"
-              value="{% if account_settings.account_form.account_number.value != None %}{{ account_settings.account_form.account_number.value }}{% endif %}"
+              value="{% if am_settings.account_form.account_number.value != None %}{{ am_settings.account_form.account_number.value }}{% endif %}"
               readonly
             />
           </div>
@@ -87,12 +87,12 @@ dashboard_title_breadcrumbs %} {{ block.super }}
           <!--begin::Col-->
           <div class="col-lg-8 fv-row">
             <input
-              id="input_{{ account_settings.account_form.company_name.name }}"
+              id="input_{{ am_settings.account_form.company_name.name }}"
               type="text"
-              name="{{ account_settings.account_form.company_name.name }}"
+              name="{{ am_settings.account_form.company_name.name }}"
               class="form-control form-control-lg form-control-solid"
               placeholder="Company name"
-              value="{% if account_settings.account_form.company_name.value != None %}{{ account_settings.account_form.company_name.value }}{% endif %}"
+              value="{% if am_settings.account_form.company_name.value != None %}{{ am_settings.account_form.company_name.value }}{% endif %}"
             />
             <!--begin::Hint-->
             <div class="form-text">
@@ -119,24 +119,24 @@ dashboard_title_breadcrumbs %} {{ block.super }}
               <!--begin::Col-->
               <div class="col-lg-12 fv-row pb-4">
                 <input
-                  id="input_{{ account_settings.account_form.address1.name }}"
+                  id="input_{{ am_settings.account_form.address1.name }}"
                   type="text"
-                  name="{{ account_settings.account_form.address1.name }}"
+                  name="{{ am_settings.account_form.address1.name }}"
                   class="form-control form-control-lg form-control-solid mb-3 mb-lg-0"
                   placeholder="Address 1"
-                  value="{% if account_settings.account_form.address1.value != None %}{{ account_settings.account_form.address1.value }}{% endif %}"
+                  value="{% if am_settings.account_form.address1.value != None %}{{ am_settings.account_form.address1.value }}{% endif %}"
                 />
               </div>
               <!--end::Col-->
               <!--begin::Col-->
               <div class="col-lg-12 fv-row pb-4">
                 <input
-                  id="input_{{ account_settings.account_form.address2.name }}"
+                  id="input_{{ am_settings.account_form.address2.name }}"
                   type="text"
-                  name="{{ account_settings.account_form.address2.name }}"
+                  name="{{ am_settings.account_form.address2.name }}"
                   class="form-control form-control-lg form-control-solid mb-3 mb-lg-0"
                   placeholder="Address 2"
-                  value="{% if account_settings.account_form.address2.value != None %}{{ account_settings.account_form.address2.value }}{% endif %}"
+                  value="{% if am_settings.account_form.address2.value != None %}{{ am_settings.account_form.address2.value }}{% endif %}"
                 />
               </div>
               <!--end::Col-->
@@ -144,57 +144,57 @@ dashboard_title_breadcrumbs %} {{ block.super }}
               <!--begin::Col-->
               <div class="col-lg-6 fv-row pb-4">
                 <input
-                  id="input_{{ account_settings.account_form.city.name }}"
+                  id="input_{{ am_settings.account_form.city.name }}"
                   type="text"
-                  name="{{ account_settings.account_form.city.name }}"
+                  name="{{ am_settings.account_form.city.name }}"
                   class="form-control form-control-lg form-control-solid mb-3 mb-lg-0"
                   placeholder="City"
-                  value="{% if account_settings.account_form.city.value != None %}{{ account_settings.account_form.city.value }}{% endif %}"
+                  value="{% if am_settings.account_form.city.value != None %}{{ am_settings.account_form.city.value }}{% endif %}"
                 />
               </div>
               <!--end::Col-->
               <!--begin::Col-->
               <div class="col-lg-3 fv-row pb-4">
                 <input
-                  id="input_{{ account_settings.account_form.state.name }}"
+                  id="input_{{ am_settings.account_form.state.name }}"
                   type="text"
-                  name="{{ account_settings.account_form.state.name }}"
+                  name="{{ am_settings.account_form.state.name }}"
                   class="form-control form-control-lg form-control-solid mb-3 mb-lg-0"
                   placeholder="State"
-                  value="{% if account_settings.account_form.state.value != None %}{{ account_settings.account_form.state.value }}{% endif %}"
+                  value="{% if am_settings.account_form.state.value != None %}{{ am_settings.account_form.state.value }}{% endif %}"
                 />
               </div>
               <!--end::Col-->
               <!--begin::Col-->
               <div class="col-lg-3 fv-row pb-4">
                 <input
-                  id="input_{{ account_settings.account_form.postal_code.name }}"
+                  id="input_{{ am_settings.account_form.postal_code.name }}"
                   type="text"
-                  name="{{ account_settings.account_form.postal_code.name }}"
+                  name="{{ am_settings.account_form.postal_code.name }}"
                   class="form-control form-control-lg form-control-solid mb-3 mb-lg-0"
                   placeholder="Postal Code"
-                  value="{% if account_settings.account_form.postal_code.value != None %}{{ account_settings.account_form.postal_code.value }}{% endif %}"
+                  value="{% if am_settings.account_form.postal_code.value != None %}{{ am_settings.account_form.postal_code.value }}{% endif %}"
                 />
               </div>
               <!--end::Col-->
               <!--begin::Col-->
               <div class="col-lg-12 fv-row">
                 <select
-                  id="select_{{ account_settings.account_form.country.name }}"
-                  name="{{ account_settings.account_form.country.name }}"
+                  id="select_{{ am_settings.account_form.country.name }}"
+                  name="{{ am_settings.account_form.country.name }}"
                   aria-label="Select a Country"
                   data-control="select2"
                   data-placeholder="Select a country..."
                   class="form-select form-select-solid form-select-lg fw-semibold"
                 >
                   <option value="">Select a Country...</option>
-                  {% for country in account_settings.countries %}
+                  {% for country in am_settings.countries %}
                   <option
                     data-kt-flag="{% static 'images/flags/' %}{{ country.flag }}"
                     value="{{ country.code }}"
                     {%
                     if
-                    account_settings.account_form.country.value=""
+                    am_settings.account_form.country.value=""
                     ="country.code"
                     %}selected{%
                     endif
@@ -223,12 +223,12 @@ dashboard_title_breadcrumbs %} {{ block.super }}
           <!--begin::Col-->
           <div class="col-lg-8 fv-row">
             <input
-              id="input_{{ account_settings.account_form.phone_number.name }}"
+              id="input_{{ am_settings.account_form.phone_number.name }}"
               type="tel"
-              name="{{ account_settings.account_form.phone_number.name }}"
+              name="{{ am_settings.account_form.phone_number.name }}"
               class="form-control form-control-lg form-control-solid"
               placeholder="Phone number"
-              value="{% if account_settings.account_form.phone_number.value != None %}{{ account_settings.account_form.phone_number.value }}{% endif %}"
+              value="{% if am_settings.account_form.phone_number.value != None %}{{ am_settings.account_form.phone_number.value }}{% endif %}"
             />
           </div>
           <!--end::Col-->
@@ -245,21 +245,21 @@ dashboard_title_breadcrumbs %} {{ block.super }}
           <div class="col-lg-8 fv-row">
             <!--begin::Input-->
             <select
-              id="select_{{ account_settings.account_form.language.name }}"
-              name="{{ account_settings.account_form.language.name }}"
+              id="select_{{ am_settings.account_form.language.name }}"
+              name="{{ am_settings.account_form.language.name }}"
               aria-label="Select a Language"
               data-control="select2"
               data-placeholder="Select a language..."
               class="form-select form-select-solid form-select-lg"
             >
               <option value="">Select a Language...</option>
-              {% for language in account_settings.languages %}
+              {% for language in am_settings.languages %}
               <option
                 data-kt-flag="{% static 'images/flags/' %}{{ language.flag }}"
                 value="{{ language.value }}"
                 {%
                 if
-                account_settings.account_form.language.value=""
+                am_settings.account_form.language.value=""
                 ="language.value"
                 %}selected{%
                 endif
@@ -284,21 +284,21 @@ dashboard_title_breadcrumbs %} {{ block.super }}
           <!--begin::Col-->
           <div class="col-lg-8 fv-row">
             <select
-              id="select_{{ account_settings.account_form.timezone.name }}"
-              name="{{ account_settings.account_form.timezone.name }}"
+              id="select_{{ am_settings.account_form.timezone.name }}"
+              name="{{ am_settings.account_form.timezone.name }}"
               aria-label="Select a Timezone"
               data-control="select2"
               data-placeholder="Select a timezone.."
               class="form-select form-select-solid form-select-lg"
             >
               <option value="">Select a Timezone..</option>
-              {% for timezone in account_settings.timezones %}
+              {% for timezone in am_settings.timezones %}
               <option
                 data-bs-offset="{{ timezone.offset }}"
                 value="{{ timezone.value }}"
                 {%
                 if
-                account_settings.account_form.timezone.value=""
+                am_settings.account_form.timezone.value=""
                 ="timezone.value"
                 %}selected{%
                 endif
@@ -322,21 +322,21 @@ dashboard_title_breadcrumbs %} {{ block.super }}
           <!--begin::Col-->
           <div class="col-lg-8 fv-row">
             <select
-              id="select_{{ account_settings.account_form.currency.name }}"
-              name="{{ account_settings.account_form.currency.name }}"
+              id="select_{{ am_settings.account_form.currency.name }}"
+              name="{{ am_settings.account_form.currency.name }}"
               aria-label="Select a Currency"
               data-control="select2"
               data-placeholder="Select a currency.."
               class="form-select form-select-solid form-select-lg"
             >
               <option value="">Select a currency..</option>
-              {% for currency in account_settings.currencies %}
+              {% for currency in am_settings.currencies %}
               <option
                 data-kt-flag="{{ currency.flag }}"
                 value="{{ currency.value }}"
                 {%
                 if
-                account_settings.account_form.currency.value=""
+                am_settings.account_form.currency.value=""
                 ="currency.value"
                 %}selected{%
                 endif

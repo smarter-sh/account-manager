@@ -5,7 +5,7 @@ import logging
 import mailchimp_marketing as MailchimpMarketing
 from mailchimp_marketing.api_client import ApiClientError
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ class MailchimpHelper:
     """Mailchimp API helper functions"""
 
     client = MailchimpMarketing.Client()
-    client.set_config({"api_key": account_settings.mailchimp_api_key.get_secret_value(), "server": MAILCHIMP_SERVER})
+    client.set_config({"api_key": am_settings.mailchimp_api_key.get_secret_value(), "server": MAILCHIMP_SERVER})
 
     def ping(self) -> bool:
         try:
@@ -43,20 +43,20 @@ class MailchimpHelper:
             return False
         try:
             mailchimp_api_response = self.client.lists.add_list_member(
-                account_settings.mailchimp_list_id, {"email_address": email_address, "status": "subscribed"}
+                am_settings.mailchimp_list_id, {"email_address": email_address, "status": "subscribed"}
             )
             if mailchimp_api_response.get("status") == "subscribed":
                 logger.info(
                     "Added %s to list %s, response: %s",
                     email_address,
-                    account_settings.mailchimp_list_id,
+                    am_settings.mailchimp_list_id,
                     mailchimp_api_response,
                 )
                 return True
             logger.warning(
                 "Failed to add %s to list %s, response: %s",
                 email_address,
-                account_settings.mailchimp_list_id,
+                am_settings.mailchimp_list_id,
                 mailchimp_api_response,
             )
             return False
@@ -68,8 +68,8 @@ class MailchimpHelper:
             )
             logger.error(
                 "API key: %s, List ID: %s, Intended email addition: %s, MailChimp server: %s",
-                account_settings.mailchimp_api_key.get_secret_value(),
-                account_settings.mailchimp_list_id,
+                am_settings.mailchimp_api_key.get_secret_value(),
+                am_settings.mailchimp_list_id,
                 email_address,
                 MAILCHIMP_SERVER,
             )

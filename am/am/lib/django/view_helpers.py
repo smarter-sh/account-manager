@@ -14,7 +14,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.cache import cache_control, cache_page, never_cache
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.lib.django import waffle
 from am.lib.django.request import AMRequestMixin
 from am.lib.django.waffle import AMWaffleSwitches
@@ -23,7 +23,7 @@ from am.lib.logging import WaffleSwitchedLoggerWrapper
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.VIEW_LOGGING) and level >= account_settings.log_level
+    return waffle.switch_is_active(AMWaffleSwitches.VIEW_LOGGING) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)

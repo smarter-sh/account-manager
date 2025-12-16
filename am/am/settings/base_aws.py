@@ -3,7 +3,7 @@
 
 import os
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 
 from .base import *
 
@@ -46,8 +46,8 @@ DATABASES = {
 }
 
 
-STRIPE_LIVE_SECRET_KEY = account_settings.stripe_live_secret_key
-STRIPE_TEST_SECRET_KEY = account_settings.stripe_test_secret_key
+STRIPE_LIVE_SECRET_KEY = am_settings.stripe_live_secret_key
+STRIPE_TEST_SECRET_KEY = am_settings.stripe_test_secret_key
 STRIPE_LIVE_MODE = False  # Change to True in production
 DJSTRIPE_WEBHOOK_SECRET = (
     "whsec_xxx"  # Get it from the section in the Stripe dashboard where you added the webhook endpoint
@@ -75,20 +75,5 @@ SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_HTTPONLY = True
 
-ENVIRONMENT_DOMAIN = account_settings.environment_account_manager_domain
-ENVIRONMENT_API_DOMAIN = account_settings.environment_api_domain
-ACCOUNT_ALLOWED_HOSTS = [ENVIRONMENT_DOMAIN, ENVIRONMENT_API_DOMAIN, f"*.{ENVIRONMENT_API_DOMAIN}"]
-SMTP_SENDER = account_settings.smtp_sender or ENVIRONMENT_DOMAIN
-SMTP_FROM_EMAIL = account_settings.smtp_from_email or "no-reply@" + SMTP_SENDER
-
-CORS_ALLOWED_ORIGINS += [
-    f"http://{host}" for host in [ENVIRONMENT_DOMAIN, ENVIRONMENT_API_DOMAIN, account_settings.environment_cdn_domain]
-]
-CORS_ALLOWED_ORIGINS += [
-    f"https://{host}" for host in [ENVIRONMENT_DOMAIN, ENVIRONMENT_API_DOMAIN, account_settings.environment_cdn_domain]
-]
-
-
-# (4_0.E001) As of Django 4.0, the values in the CSRF_TRUSTED_ORIGINS setting must start with a scheme
-# (usually http:// or https://) but found account.smarter.sh. See the release notes for details.
-CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ACCOUNT_ALLOWED_HOSTS]
+SMTP_SENDER = am_settings.smtp_sender or am_settings.environment_domain
+SMTP_FROM_EMAIL = am_settings.smtp_from_email or "no-reply@" + SMTP_SENDER

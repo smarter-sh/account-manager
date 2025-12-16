@@ -5,7 +5,7 @@ import string
 from urllib.parse import urljoin
 
 from am.apps.account.models import Account, AccountContact, User, UserProfile
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.helpers.email_helpers import email_helper
 from am.lib.django.management.base import AMCommand
 
@@ -69,7 +69,7 @@ class Command(AMCommand):
             self.handle_completed_success(msg=f"User {username} {email} has been created.")
 
             # Send email to user
-            login_url = urljoin(account_settings.environment_url, "login")
+            login_url = urljoin(am_settings.environment_url, "login")
             body = f"""Your Smarter user account has been created. Do not share your account credentials with anyone.
 
             Url: {login_url}

@@ -17,13 +17,13 @@ AM_ROOT = os.path.abspath(os.path.join(HERE, "../../am/"))
 sys.path.insert(0, AM_ROOT)
 
 from am.__version__ import __version__  # noqa: F401
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 
 
-if not account_settings.environment:
-    raise RuntimeError("The 'account_settings.environment' variable is not set.")
+if not am_settings.environment:
+    raise RuntimeError("The 'am_settings.environment' variable is not set.")
 
-os.environ["DJANGO_SETTINGS_MODULE"] = "am.settings." + account_settings.environment
+os.environ["DJANGO_SETTINGS_MODULE"] = "am.settings." + am_settings.environment
 
 import django
 

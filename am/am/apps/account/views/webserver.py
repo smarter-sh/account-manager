@@ -8,7 +8,7 @@ from datetime import datetime
 from django.http import FileResponse, HttpResponse
 from django.views import View
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.lib.django.view_helpers import AMWebTxtView, AMWebXmlView
 
 
@@ -23,7 +23,7 @@ class SitemapXmlView(AMWebXmlView):
 
     template_path = "sitemap.xml"
     context = {
-        "base_url": account_settings.environment_url,
+        "base_url": am_settings.environment_url,
         "lastmod": datetime.now().strftime("%Y-%m-01"),
         "changefreq": "monthly",
     }

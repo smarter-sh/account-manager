@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from am.apps.account.models import User, UserProfile, get_resolved_user
 from am.apps.account.serializers import UserSerializer
 from am.apps.api.signals import api_request_completed
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.utils import is_authenticated_request, smarter_build_absolute_uri
 from am.lib import json
 from am.lib.django import waffle
@@ -26,7 +26,7 @@ from .base import AccountListViewBase, AccountViewBase
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.API_LOGGING) and level >= account_settings.log_level
+    return waffle.switch_is_active(AMWaffleSwitches.API_LOGGING) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)

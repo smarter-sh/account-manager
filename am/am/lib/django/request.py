@@ -11,7 +11,6 @@ known url patterns. key features include:
 - logging.
 """
 
-import hashlib
 import inspect
 import logging
 import re
@@ -28,16 +27,10 @@ from django.http import HttpRequest, QueryDict
 from rest_framework.request import Request as RestFrameworkRequest
 
 from am.apps.account.mixins import AccountMixin
-from am.apps.account.utils import (
-    account_number_from_url,
-    get_cached_account,
-    get_cached_admin_user_for_account,
-)
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.exceptions import AMValueError
 from am.common.utils import (
     mask_string,
-    rfc1034_compliant_to_snake,
     smarter_build_absolute_uri,
 )
 from am.lib import json
@@ -49,13 +42,13 @@ from am.lib.logging import WaffleSwitchedLoggerWrapper
 
 # Match netloc: chatbot_name.account_number.api.environment_api_domain
 netloc_pattern_named_url = re.compile(
-    rf"^(?P<chatbot_name>[a-zA-Z0-9\-]+)\.(?P<account_number>\d{{4}}-\d{{4}}-\d{{4}})\.api\.{re.escape(account_settings.environment_account_manager_domain)}(:\d+)?$"
+    rf"^(?P<chatbot_name>[a-zA-Z0-9\-]+)\.(?P<account_number>\d{{4}}-\d{{4}}-\d{{4}})\.api\.{re.escape(am_settings.environment_domain)}(:\d+)?$"
 )
 
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.REQUEST_MIXIN_LOGGING) and level >= account_settings.log_level
+    return waffle.switch_is_active(AMWaffleSwitches.REQUEST_MIXIN_LOGGING) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)
@@ -631,10 +624,7 @@ class AMRequestMixin(AccountMixin):
             return False
         if not self.parsed_url:
             return False
-        return (
-            self.parsed_url.netloc == account_settings.environment_account_manager_domain
-            and self.parsed_url.path == "/"
-        )
+        return self.parsed_url.netloc == am_settings.environment_domain and self.parsed_url.path == "/"
 
     @cached_property
     def is_smarter_api(self) -> bool:
@@ -671,7 +661,7 @@ class AMRequestMixin(AccountMixin):
             return False
         if not self.url:
             return False
-        return account_settings.environment_api_domain in self.url
+        return am_settings.environment_api_domain in self.url
 
     @cached_property
     def path(self) -> Optional[str]:
@@ -714,7 +704,7 @@ class AMRequestMixin(AccountMixin):
             return None
         if not self.url:
             return None
-        url = AMValidator.urlify(self.url, environment=account_settings.environment)  # type: ignore
+        url = AMValidator.urlify(self.url, environment=am_settings.environment)  # type: ignore
         if url:
             extracted = tldextract.extract(url)
             if extracted.domain and extracted.suffix:

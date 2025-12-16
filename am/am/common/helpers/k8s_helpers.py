@@ -14,7 +14,7 @@ from am.common.utils import get_readonly_yaml_file
 from am.lib import json
 
 from ..classes import AMHelperMixin, Singleton
-from ..conf import account_settings
+from ..conf import am_settings
 
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class KubernetesHelper(AMHelperMixin, metaclass=Singleton):
         :return: The kubeconfig file path.
         :rtype: str
         """
-        return os.path.join(account_settings.data_directory, ".kube", "config")
+        return os.path.join(am_settings.data_directory, ".kube", "config")
 
     @property
     def kubeconfig(self) -> dict:
@@ -111,16 +111,16 @@ class KubernetesHelper(AMHelperMixin, metaclass=Singleton):
         logger.info(
             "%s.update_kubeconfig() updating kubeconfig for Kubernetes cluster %s",
             prefix,
-            account_settings.aws_eks_cluster_name,
+            am_settings.aws_eks_cluster_name,
         )
         command = [
             "aws",
             "eks",
             "update-kubeconfig",
             "--region",
-            account_settings.aws_region,
+            am_settings.aws_region,
             "--name",
-            account_settings.aws_eks_cluster_name,
+            am_settings.aws_eks_cluster_name,
         ]
         subprocess.check_call(command)
         self._configured = True
@@ -140,7 +140,7 @@ class KubernetesHelper(AMHelperMixin, metaclass=Singleton):
         logger.info(
             "%s applying Kubernetes manifest to cluster %s:\n%s",
             prefix,
-            account_settings.aws_eks_cluster_name,
+            am_settings.aws_eks_cluster_name,
             manifest,
         )
         self.update_kubeconfig()
@@ -175,7 +175,7 @@ class KubernetesHelper(AMHelperMixin, metaclass=Singleton):
         logger.info(
             "%s.verify_ingress_resources() verifying ingress resources in cluster %s, hostname %s, namespace %s",
             prefix,
-            account_settings.aws_eks_cluster_name,
+            am_settings.aws_eks_cluster_name,
             hostname,
             namespace,
         )
@@ -229,7 +229,7 @@ class KubernetesHelper(AMHelperMixin, metaclass=Singleton):
         logger.info(
             "%s verifying ingress in cluster %s, name %s, namespace %s",
             prefix,
-            account_settings.aws_eks_cluster_name,
+            am_settings.aws_eks_cluster_name,
             name,
             namespace,
         )
@@ -269,7 +269,7 @@ class KubernetesHelper(AMHelperMixin, metaclass=Singleton):
         logger.info(
             "%s verifying certificate in cluster %s, name %s, namespace %s",
             prefix,
-            account_settings.aws_eks_cluster_name,
+            am_settings.aws_eks_cluster_name,
             name,
             namespace,
         )
@@ -337,7 +337,7 @@ class KubernetesHelper(AMHelperMixin, metaclass=Singleton):
         logger.info(
             "%s verifying secret in cluster %s, name %s, namespace %s",
             prefix,
-            account_settings.aws_eks_cluster_name,
+            am_settings.aws_eks_cluster_name,
             name,
             namespace,
         )
@@ -375,7 +375,7 @@ class KubernetesHelper(AMHelperMixin, metaclass=Singleton):
         logger.info(
             "%s.delete_ingress_resources() deleting ingress resources from cluster %s, hostname %s, namespace %s",
             self.formatted_class_name,
-            account_settings.aws_eks_cluster_name,
+            am_settings.aws_eks_cluster_name,
             hostname,
             namespace,
         )
@@ -407,7 +407,7 @@ class KubernetesHelper(AMHelperMixin, metaclass=Singleton):
         logger.info(
             "%s.delete_ingress() deleting ingress from cluster %s, name %s, namespace %s",
             self.formatted_class_name,
-            account_settings.aws_eks_cluster_name,
+            am_settings.aws_eks_cluster_name,
             ingress_name,
             namespace,
         )
@@ -436,7 +436,7 @@ class KubernetesHelper(AMHelperMixin, metaclass=Singleton):
         logger.info(
             "%s.delete_ingress() deleting certificate from cluster %s, certificate_name %s, namespace %s",
             self.formatted_class_name,
-            account_settings.aws_eks_cluster_name,
+            am_settings.aws_eks_cluster_name,
             certificate_name,
             namespace,
         )
@@ -465,7 +465,7 @@ class KubernetesHelper(AMHelperMixin, metaclass=Singleton):
         logger.info(
             "%s.delete_ingress() deleting secret from cluster %s, secret_name %s, namespace %s",
             self.formatted_class_name,
-            account_settings.aws_eks_cluster_name,
+            am_settings.aws_eks_cluster_name,
             secret_name,
             namespace,
         )
@@ -485,7 +485,7 @@ class KubernetesHelper(AMHelperMixin, metaclass=Singleton):
         :return: A dictionary of namespaces.
         :rtype: dict
         """
-        logger.info("retrieving namespaces from Kubernetes cluster %s", account_settings.aws_eks_cluster_name)
+        logger.info("retrieving namespaces from Kubernetes cluster %s", am_settings.aws_eks_cluster_name)
         self.update_kubeconfig()
         output = subprocess.check_output(["kubectl", "get", "pods", "-n", "kube-system", "-o", "json"])
         output_dict = json.loads(output)

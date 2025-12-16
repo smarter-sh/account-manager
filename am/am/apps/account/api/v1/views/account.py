@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 
 from am.apps.account.models import Account, UserProfile
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.lib import json
 from am.lib.django import waffle
 from am.lib.django.waffle import AMWaffleSwitches
@@ -23,7 +23,7 @@ from .base import AccountListViewBase, AccountViewBase
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING) and level >= account_settings.log_level
+    return waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)

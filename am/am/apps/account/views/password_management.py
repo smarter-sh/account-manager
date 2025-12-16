@@ -10,7 +10,7 @@ from django.shortcuts import redirect
 
 from am.apps.account.models import User
 from am.common.classes import AMHelperMixin
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.helpers.email_helpers import email_helper
 from am.lib.django import waffle
 from am.lib.django.http.shortcuts import (
@@ -32,7 +32,7 @@ from am.lib.logging import WaffleSwitchedLoggerWrapper
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING) and level >= account_settings.log_level
+    return waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)

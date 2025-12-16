@@ -14,7 +14,7 @@ from am.apps.account.models import User
 from am.apps.account.serializers import UserMiniSerializer
 from am.apps.account.utils import get_cached_user_profile
 from am.common.classes import AMHelperMixin
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.exceptions import AMBusinessRuleViolation
 from am.common.utils import mask_string
 from am.lib.django import waffle
@@ -43,7 +43,7 @@ RequestType = Union[WSGIRequest, HttpRequest, Request]
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING) and level >= account_settings.log_level
+    return waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)

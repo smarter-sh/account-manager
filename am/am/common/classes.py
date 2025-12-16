@@ -9,7 +9,7 @@ from django.core.exceptions import AppRegistryNotReady
 from django.http import HttpRequest
 from django.utils.deprecation import MiddlewareMixin
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.exceptions import AMValueError
 from am.common.helpers.console_helpers import formatted_text
 from am.common.utils import (
@@ -35,7 +35,7 @@ except AppRegistryNotReady as e:
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return mixin_logging_is_active and level >= account_settings.log_level
+    return mixin_logging_is_active and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)
@@ -266,7 +266,7 @@ class AMMiddlewareMixin(MiddlewareMixin, AMHelperMixin):
             )
             return remote_addr
 
-        if request.path.replace("/", "") not in self.amnesty_urls and not account_settings.environment_is_local:
+        if request.path.replace("/", "") not in self.amnesty_urls and not am_settings.environment_is_local:
             logger.warning(
                 "%s __call()__ - Could not determine client IP: %s",
                 self.formatted_class_name,

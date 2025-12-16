@@ -16,7 +16,7 @@ from django.template.loader import render_to_string
 from django.utils.functional import SimpleLazyObject
 
 # our stuff
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.exceptions import AMConfigurationError, AMValueError
 from am.common.helpers.email_helpers import email_helper
 from am.lib.django import waffle
@@ -37,7 +37,7 @@ HERE = os.path.abspath(os.path.dirname(__file__))
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING) and level >= account_settings.log_level
+    return waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ def welcome_email_context(first_name: str) -> dict:
 
     first_name = first_name.capitalize()
     return {
-        "base_url": account_settings.environment_url,
+        "base_url": am_settings.environment_url,
         "first_name": first_name,
         "corporate_name": settings.ACCOUNT_BRANDING_CORPORATE_NAME,
         "support_phone": settings.ACCOUNT_BRANDING_SUPPORT_PHONE_NUMBER,
@@ -978,6 +978,7 @@ class Subscription(TimestampedModel):
     active = models.BooleanField(default=True, help_text="Indicates if the subscription is currently active.")
     start_date = models.DateField(help_text="The start date of the subscription.", blank=False, null=False)
     end_date = models.DateField(help_text="The end date of the subscription.", blank=False, null=False)
+    comment = models.TextField(help_text="Optional comments about the subscription.", blank=True, null=True)
 
     def clean(self):
         super().clean()

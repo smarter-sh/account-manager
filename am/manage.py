@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 
 
 logger = logging.getLogger(__name__)
@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 
 def main():
     """Run administrative tasks."""
-    if not account_settings.environment:
-        raise RuntimeError("The 'account_settings.environment' variable is not set.")
-    logger.info("Environment variable 'account_settings.environment': %s", account_settings.environment)
+    if not am_settings.environment:
+        raise RuntimeError("The 'am_settings.environment' variable is not set.")
+    logger.info("Environment variable 'am_settings.environment': %s", am_settings.environment)
 
-    os.environ["DJANGO_SETTINGS_MODULE"] = "am.settings." + account_settings.environment
+    os.environ["DJANGO_SETTINGS_MODULE"] = "am.settings." + am_settings.environment
     logger.info("Using Django settings module: %s", os.environ["DJANGO_SETTINGS_MODULE"])
 
     if os.getenv("DEBUG", "false").lower() == "true":

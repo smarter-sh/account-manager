@@ -1,6 +1,6 @@
 """AWS RDS helper class."""
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 
 from .aws import AMAWSException, AWSBase
 
@@ -43,7 +43,7 @@ class AWSRds(AWSBase):
         :return: MySQL server information
         :rtype: dict
         """
-        response = self.client.describe_db_instances(DBInstanceIdentifier=account_settings.aws_db_instance_identifier)
+        response = self.client.describe_db_instances(DBInstanceIdentifier=am_settings.aws_db_instance_identifier)
         response = response["DBInstances"][0]
         retval = {
             "Engine": response.get("Engine"),

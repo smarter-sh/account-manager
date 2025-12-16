@@ -15,7 +15,7 @@ import time
 from string import Template
 from unittest.mock import MagicMock, patch
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.const import ACCOUNT_ACCOUNT_NUMBER, AMEnvironments
 from am.common.helpers.aws_helpers import aws_helper
 from am.common.helpers.k8s_helpers import (
@@ -36,11 +36,11 @@ class Testk8sHelpers(AMTestBase):
         """Set up test fixtures."""
         super().setUp()
         self.environment = AMEnvironments.ALPHA
-        self.api_domain = f"{self.environment}.api.{account_settings.root_domain}"
+        self.api_domain = f"{self.environment}.api.{am_settings.root_domain}"
         self.cluster_issuer = self.api_domain
         self.account_number = ACCOUNT_ACCOUNT_NUMBER
         self.hostname = f"test-k8s-helpers.{self.account_number}.{self.cluster_issuer}"
-        self.namespace = f"{account_settings.platform_name}-platform-{self.environment}"
+        self.namespace = f"{am_settings.platform_name}-platform-{self.environment}"
         self.helper = KubernetesHelper()
 
         # get-or-create the subdomain for the test: ty7xlk2i.alpha.api.smarter.sh
@@ -50,7 +50,7 @@ class Testk8sHelpers(AMTestBase):
         # assuming you're not inside the aws vpc. Subsequent runs are near-immediate.
         aws_helper.route53.verify_dns_record(self.hostname)
 
-    @patch("am.common.helpers.k8s_helpers.account_settings")
+    @patch("am.common.helpers.k8s_helpers.am_settings")
     @patch("am.common.helpers.k8s_helpers.formatted_text")
     @patch("am.common.helpers.k8s_helpers.logger")
     @patch("am.common.helpers.k8s_helpers.subprocess.Popen")
@@ -64,7 +64,7 @@ class Testk8sHelpers(AMTestBase):
         self.helper.apply_manifest("apiVersion: v1\nkind: Pod\n")
         process.communicate.assert_called()
 
-    @patch("am.common.helpers.k8s_helpers.account_settings")
+    @patch("am.common.helpers.k8s_helpers.am_settings")
     @patch("am.common.helpers.k8s_helpers.formatted_text")
     @patch("am.common.helpers.k8s_helpers.logger")
     @patch("am.common.helpers.k8s_helpers.subprocess.Popen")
@@ -78,7 +78,7 @@ class Testk8sHelpers(AMTestBase):
         with self.assertRaises(Exception):
             self.helper.apply_manifest("apiVersion: v1\nkind: Pod\n")
 
-    @patch("am.common.helpers.k8s_helpers.account_settings")
+    @patch("am.common.helpers.k8s_helpers.am_settings")
     @patch("am.common.helpers.k8s_helpers.formatted_text")
     @patch("am.common.helpers.k8s_helpers.logger")
     @patch("am.common.helpers.k8s_helpers.subprocess.check_output")
@@ -89,7 +89,7 @@ class Testk8sHelpers(AMTestBase):
         result = self.helper.verify_ingress("ingress", "ns")
         self.assertTrue(result)
 
-    @patch("am.common.helpers.k8s_helpers.account_settings")
+    @patch("am.common.helpers.k8s_helpers.am_settings")
     @patch("am.common.helpers.k8s_helpers.formatted_text")
     @patch("am.common.helpers.k8s_helpers.logger")
     @patch("am.common.helpers.k8s_helpers.subprocess.check_output")
@@ -100,7 +100,7 @@ class Testk8sHelpers(AMTestBase):
         result = self.helper.verify_ingress("ingress", "ns")
         self.assertFalse(result)
 
-    @patch("am.common.helpers.k8s_helpers.account_settings")
+    @patch("am.common.helpers.k8s_helpers.am_settings")
     @patch("am.common.helpers.k8s_helpers.formatted_text")
     @patch("am.common.helpers.k8s_helpers.logger")
     @patch("am.common.helpers.k8s_helpers.subprocess.check_output")
@@ -162,7 +162,7 @@ class Testk8sHelpers(AMTestBase):
             "cluster_issuer": self.cluster_issuer,
             "environment_namespace": self.namespace,
             "domain": self.hostname,
-            "service_name": account_settings.platform_name,
+            "service_name": am_settings.platform_name,
         }
 
         # create and apply the ingress manifest
@@ -185,7 +185,7 @@ class Testk8sHelpers(AMTestBase):
             "cluster_issuer": self.cluster_issuer,
             "environment_namespace": self.namespace,
             "domain": bad_hostname,
-            "service_name": account_settings.platform_name,
+            "service_name": am_settings.platform_name,
         }
 
         # create and apply the ingress manifest

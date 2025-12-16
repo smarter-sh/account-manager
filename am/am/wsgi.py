@@ -8,10 +8,10 @@ from django.conf import settings
 from django.core.wsgi import get_wsgi_application
 from whitenoise import WhiteNoise
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 
 
-os.environ["DJANGO_SETTINGS_MODULE"] = "am.settings." + account_settings.environment
+os.environ["DJANGO_SETTINGS_MODULE"] = "am.settings." + am_settings.environment
 
 application = get_wsgi_application()
 application = WhiteNoise(application, root=settings.STATIC_ROOT)

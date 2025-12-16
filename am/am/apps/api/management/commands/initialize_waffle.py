@@ -3,7 +3,7 @@
 from django.core.management import call_command
 from waffle.models import Switch
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.const import AMEnvironments
 from am.lib.django.management.base import AMCommand
 from am.lib.django.waffle import AMWaffleSwitches
@@ -40,7 +40,7 @@ class Command(AMCommand):
 
         :py:class:`waffle.models.Switch` - The Django Waffle model representing feature switches.
         :py:class:`account.lib.django.waffle.AMWaffleSwitches` - The class defining all Account Manager-specific Waffle switches.
-        :py:data:`account.common.conf.settings.account_settings` - The Account Manager settings module for environment detection.
+        :py:data:`account.common.conf.settings.am_settings` - The Account Manager settings module for environment detection.
 
     """
 
@@ -67,7 +67,7 @@ class Command(AMCommand):
                 self.stdout.write(self.style.NOTICE(f"Deleting orphaned switch {switch.name}."))
                 switch.delete()
 
-        if account_settings.environment == AMEnvironments.LOCAL:
+        if am_settings.environment == AMEnvironments.LOCAL:
             call_command("waffle_switch", AMWaffleSwitches.REACTAPP_DEBUG_MODE, "on")
 
         self.handle_completed_success()

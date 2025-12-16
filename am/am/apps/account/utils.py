@@ -28,7 +28,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.utils import timezone
 
 from am.apps.account.models import User, get_resolved_user
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.const import ACCOUNT_ACCOUNT_NUMBER
 from am.common.exceptions import AMConfigurationError, AMValueError
 from am.common.helpers.console_helpers import formatted_text
@@ -53,7 +53,7 @@ def should_log(level):
     return (
         waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING)
         or waffle.switch_is_active(AMWaffleSwitches.CACHE_LOGGING)
-    ) and level >= account_settings.log_level
+    ) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)

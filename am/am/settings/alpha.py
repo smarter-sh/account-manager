@@ -2,6 +2,9 @@
 """Django settings for alpha.account.smarter.sh"""
 import os
 
+from am.common.const import AMEnvironments
+from am.common.exceptions import AMConfigurationError
+
 from .base_aws import *
 
 

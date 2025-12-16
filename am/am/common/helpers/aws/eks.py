@@ -1,6 +1,6 @@
 """AWS EKS helper class."""
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 
 from .aws import AMAWSException, AWSBase
 
@@ -43,7 +43,7 @@ class AWSEks(AWSBase):
         :return: Kubernetes cluster information
         :rtype: dict
         """
-        response = self.client.describe_cluster(name=account_settings.aws_eks_cluster_name)
+        response = self.client.describe_cluster(name=am_settings.aws_eks_cluster_name)
         response = response["cluster"]
         retval = {
             "health": response.get("health"),

@@ -11,12 +11,12 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 import os
 
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 
 from .base import *
 
 
-if account_settings.developer_mode:
+if am_settings.developer_mode:
     # dev only:
     # Bootstrap theme source files and static assets.
     STATICFILES_STORAGE = "whitenoise.storage.StaticFilesStorage"
@@ -32,33 +32,29 @@ if account_settings.developer_mode:
     #         "debug_toolbar.middleware.DebugToolbarMiddleware",
     #     ]
 
-ENVIRONMENT_DOMAIN = account_settings.environment_account_manager_domain
-ENVIRONMENT_API_DOMAIN = account_settings.environment_api_domain
+ENVIRONMENT_DOMAIN = am_settings.environment_domain
+ENVIRONMENT_API_DOMAIN = am_settings.environment_api_domain
 
-ACCOUNT_ALLOWED_HOSTS = LOCAL_HOSTS
+ACCOUNT_ALLOWED_HOSTS.extend(LOCAL_HOSTS)
 
 MIDDLEWARE += [
     "am.lib.django.middleware.cors.SmarterCorsMiddleware",
 ]
 CORS_ALLOWED_ORIGINS += [
-    "http://127.0.0.1:5173",  # Django
-    "http://127.0.0.1:3000",  # React
     "http://127.0.0.1:8000",  # Django
-    "http://localhost:5173",
     "http://localhost:8000",
-    "http://localhost:3000",
 ]
-CORS_ALLOWED_ORIGINS.append(f"http://{account_settings.environment_cdn_domain}")
-CORS_ALLOWED_ORIGINS.append(f"https://{account_settings.environment_cdn_domain}")
+CORS_ALLOWED_ORIGINS.append(f"http://{am_settings.environment_cdn_domain}")
+CORS_ALLOWED_ORIGINS.append(f"https://{am_settings.environment_cdn_domain}")
 
-CSRF_TRUSTED_ORIGINS = [f"http://{host}" for host in account_settings.local_hosts]
+CSRF_TRUSTED_ORIGINS.extend([f"http://{host}" for host in am_settings.local_hosts])
 CSRF_COOKIE_DOMAIN = ENVIRONMENT_DOMAIN.split(":")[0]
 CSRF_COOKIE_SAMESITE = "lax"
 
 
 # https://dj-stripe.dev/dj-stripe/2.7/installation/
-STRIPE_LIVE_SECRET_KEY = account_settings.stripe_live_secret_key
-STRIPE_TEST_SECRET_KEY = account_settings.stripe_test_secret_key
+STRIPE_LIVE_SECRET_KEY = am_settings.stripe_live_secret_key
+STRIPE_TEST_SECRET_KEY = am_settings.stripe_test_secret_key
 STRIPE_LIVE_MODE = False  # Change to True in production
 DJSTRIPE_WEBHOOK_SECRET = (
     "whsec_xxx"  # Get it from the section in the Stripe dashboard where you added the webhook endpoint
@@ -69,8 +65,8 @@ DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"
 # Disable Django template caching in development environment.
 TEMPLATES[0]["OPTIONS"]["debug"] = True
 
-SMTP_SENDER = account_settings.smtp_sender or ENVIRONMENT_DOMAIN
-SMTP_FROM_EMAIL = account_settings.smtp_from_email or "no-reply@" + SMTP_SENDER
+SMTP_SENDER = am_settings.smtp_sender or ENVIRONMENT_DOMAIN
+SMTP_FROM_EMAIL = am_settings.smtp_from_email or "no-reply@" + SMTP_SENDER
 SESSION_COOKIE_DOMAIN = ENVIRONMENT_DOMAIN.split(":")[0]
 SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_SAMESITE = "lax"

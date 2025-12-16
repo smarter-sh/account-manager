@@ -63,7 +63,7 @@ class TestSmarterCsrfViewMiddleware(AMTestBase):
         result = self.middleware.process_request(self.request)
         self.assertIsNone(result)
 
-    @patch("am.lib.django.middleware.csrf.account_settings")
+    @patch("am.lib.django.middleware.csrf.am_settings")
     @patch("am.lib.django.middleware.csrf.waffle")
     def test_process_view_local_env(self, mock_waffle, mock_smarter_settings):
         mock_smarter_settings.environment = "local"

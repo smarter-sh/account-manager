@@ -16,7 +16,7 @@ from django.utils.functional import cached_property
 
 from am.apps.account.utils import get_cached_smarter_admin_user_profile
 from am.common.classes import AMHelperMixin
-from am.common.conf import account_settings
+from am.common.conf import am_settings
 from am.common.utils import is_authenticated_request
 from am.lib.django import waffle
 from am.lib.django.http.shortcuts import AMHttpResponseServerError
@@ -27,7 +27,7 @@ from am.lib.logging import WaffleSwitchedLoggerWrapper
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.MIDDLEWARE_LOGGING) and level >= account_settings.log_level
+    return waffle.switch_is_active(AMWaffleSwitches.MIDDLEWARE_LOGGING) and level >= am_settings.log_level
 
 
 base_logger = logging.getLogger(__name__)
@@ -167,7 +167,7 @@ class SmarterCsrfViewMiddleware(CsrfViewMiddleware, AMHelperMixin):
         return super().process_request(request)
 
     def process_view(self, request, callback, callback_args, callback_kwargs):
-        if account_settings.environment == "local":
+        if am_settings.environment == "local":
             logger.debug("%s._accept: environment is local. ignoring csrf checks", self.formatted_class_name)
             return None
         response = super().process_view(request, callback, callback_args, callback_kwargs)

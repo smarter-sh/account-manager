@@ -2,7 +2,7 @@
 
 import re
 
-from am.common.conf import account_settings, bool_environment_variable
+from am.common.conf import am_settings, bool_environment_variable
 
 
 ACCOUNT_SETTINGS_OUTPUT = bool_environment_variable("ACCOUNT_SETTINGS_OUTPUT", False)
@@ -14,7 +14,11 @@ Kubernetes pods running Smarter services.
 
 # Supplements to Django settings
 # -----------------------------------------------------------------------------
-ACCOUNT_ALLOWED_HOSTS = []
+ACCOUNT_ALLOWED_HOSTS = [
+    am_settings.environment_domain,
+    am_settings.environment_api_domain,
+    f"*.{am_settings.environment_api_domain}",
+]
 """
 Supplemental list of allowed host/domain names for Smarter ChatBots/Agents.
 This is specicific to Smarter and not officially part of Django settings.
@@ -32,7 +36,7 @@ by default unless otherwise configured.
 
 # SMARTER platform settings
 # -----------------------------------------------------------------------------
-ACCOUNT_ROOT_DOMAIN = account_settings.root_domain
+ACCOUNT_ROOT_DOMAIN = am_settings.root_domain
 """
 Account Manager root domain. This is not currently used.
 """
