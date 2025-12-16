@@ -15,9 +15,12 @@ Kubernetes pods running Smarter services.
 # Supplements to Django settings
 # -----------------------------------------------------------------------------
 ACCOUNT_ALLOWED_HOSTS = [
-    am_settings.environment_domain,
-    am_settings.environment_api_domain,
-    f"*.{am_settings.environment_api_domain}",
+    host[:-5] if host.endswith(":8000") else host
+    for host in [
+        am_settings.environment_domain,
+        am_settings.environment_api_domain,
+        f"*.{am_settings.environment_api_domain}",
+    ]
 ]
 """
 Supplemental list of allowed host/domain names for Smarter ChatBots/Agents.

@@ -37,8 +37,12 @@ host_patterns = patterns(
     # -------------------------------------------------------------------------
     # Admin console
     # -------------------------------------------------------------------------
-    host(r"localhost:8000", console_urls, name="localhost"),  # for http://localhost:8000/
-    host(r"127.0.0.1:8000", console_urls, name="127001"),  # for http://127.0.0.1:8000/
+    host(
+        rf"{am_settings.am_subdomain}.localhost:8000", console_urls, name=f"{am_settings.am_subdomain}.localhost"
+    ),  # for http://am.localhost:8000/
+    host(
+        rf"{am_settings.am_subdomain}.127.0.0.1:8000", console_urls, name=f"{am_settings.am_subdomain}.127001"
+    ),  # for http://am.127.0.0.1:8000/
     host(
         rf"{am_settings.am_subdomain}.{am_settings.root_domain}",
         console_urls,
@@ -62,8 +66,16 @@ host_patterns = patterns(
     # -------------------------------------------------------------------------
     # API subdomains
     # -------------------------------------------------------------------------
-    host(r"api.localhost:8000", api_urls, name="api_localhost"),  # for http://api.localhost:8000/
-    host(r"api.127.0.0.1:8000", api_urls, name="api_127001"),  # for http://api.127.0.0.1:8000/
+    host(
+        rf"{am_settings.api_subdomain}.{am_settings.am_subdomain}.localhost:8000",
+        api_urls,
+        name=f"{am_settings.api_subdomain}.{am_settings.am_subdomain}.localhost",
+    ),  # for http://api.am.localhost:8000/
+    host(
+        rf"{am_settings.api_subdomain}.{am_settings.am_subdomain}.127.0.0.1:8000",
+        api_urls,
+        name=f"{am_settings.api_subdomain}.{am_settings.am_subdomain}.127001",
+    ),  # for http://api.am.127.0.0.1:8000/
     host(
         rf"{am_settings.api_subdomain}.{am_settings.root_domain}",
         api_urls,

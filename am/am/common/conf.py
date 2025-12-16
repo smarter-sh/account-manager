@@ -54,7 +54,7 @@ from .exceptions import AMConfigurationError, AMValueError
 
 
 logger = logging.getLogger(__name__)
-LOCALHOST = "localhost"
+LOCALHOST = "localhost:8000"
 DEFAULT_MISSING_VALUE = "SET-ME-PLEASE"
 TFVARS = TFVARS or {}
 DOT_ENV_LOADED = load_dotenv()

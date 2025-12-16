@@ -14,6 +14,7 @@ known url patterns. key features include:
 import inspect
 import logging
 import re
+import socket
 from datetime import datetime
 from functools import cached_property
 from typing import Any, Optional, Union
@@ -93,6 +94,7 @@ class AMRequestMixin(AccountMixin):
         "_session_key",
         "_data",
         "_cache_key",
+        "_requester_domain",
     )
 
     # pylint: disable=W0613
@@ -106,6 +108,7 @@ class AMRequestMixin(AccountMixin):
         self._params: Optional[QueryDict] = None
         self._data: Optional[dict] = None
         self._cache_key: Optional[str] = None
+        self._requester_domain: Optional[str] = None
 
         if request:
             self.am_request = request
@@ -243,6 +246,44 @@ class AMRequestMixin(AccountMixin):
                 smarter_build_absolute_uri(request),
             )
             self.init(request)
+
+    @property
+    def requester_domain(self) -> Optional[str]:
+        """
+        Get the requester domain from the parsed URL.
+
+        :return: The requester domain as a string if available, otherwise None.
+
+        Example::
+
+            request_mixin = AMRequestMixin(request)
+            domain = request_mixin.requester_domain
+            print(domain)  # e.g., 'example.com'
+        """
+        if self._requester_domain:
+            return self._requester_domain
+
+        meta = self.am_request.META if self.am_request and hasattr(self.am_request, "META") else {}
+        client_ip = meta.get("HTTP_X_FORWARDED_FOR", meta.get("REMOTE_ADDR"))
+        if client_ip is None:
+            return None
+        try:
+            self._requester_domain = socket.gethostbyaddr(client_ip)[0]
+        # pylint: disable=broad-except
+        except Exception:
+            self._requester_domain = client_ip  # fallback to IP if lookup fails
+
+        return self._requester_domain
+
+    @requester_domain.setter
+    def requester_domain(self, domain: str):
+        self._requester_domain = domain
+        if domain:
+            logger.info(
+                "%s.requester_domain setter called with domain: %s",
+                self.formatted_class_name,
+                domain,
+            )
 
     @cached_property
     def auth_header(self) -> Optional[str]:
@@ -624,7 +665,7 @@ class AMRequestMixin(AccountMixin):
             return False
         if not self.parsed_url:
             return False
-        return self.domain == am_settings.platform_domain
+        return self.requester_domain == am_settings.platform_domain
 
     @cached_property
     def is_environment_root_domain(self) -> bool:

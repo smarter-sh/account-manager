@@ -7,7 +7,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.shortcuts import redirect
-from django.urls import include, path
+from django.urls import include, path, re_path
 
 from am.apps.account.views.authentication import (
     LoginView,
@@ -20,6 +20,7 @@ from am.apps.account.views.webserver import (
     RobotsTxtView,
 )
 from am.apps.api.const import namespace as api_namespace
+from am.apps.api.v1.views.openapi import schema_view
 
 
 admin.autodiscover()
@@ -57,6 +58,10 @@ urlpatterns = [
     # -----------------------------------
     # path("stripe/", include("djstripe.urls", namespace="djstripe")),
     # -----------------------------------
+    # -------------------------------------------------------------------------
+    # Documentation generators
+    # -------------------------------------------------------------------------
+    re_path(r"^swagger/$", schema_view.with_ui("swagger", cache_timeout=0), name="schema-swagger-ui"),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 if settings.DEBUG:
