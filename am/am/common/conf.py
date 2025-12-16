@@ -54,6 +54,7 @@ from .exceptions import AMConfigurationError, AMValueError
 
 
 logger = logging.getLogger(__name__)
+LOCALHOST = "localhost"
 DEFAULT_MISSING_VALUE = "SET-ME-PLEASE"
 TFVARS = TFVARS or {}
 DOT_ENV_LOADED = load_dotenv()
@@ -152,7 +153,7 @@ class SettingsDefaults:
 
     FERNET_ENCRYPTION_KEY: str = os.environ.get("FERNET_ENCRYPTION_KEY", DEFAULT_MISSING_VALUE)
 
-    LOCAL_HOSTS = ["localhost", "127.0.0.1"]
+    LOCAL_HOSTS = [LOCALHOST, "127.0.0.1"]
     LOCAL_HOSTS += [host + ":8000" for host in LOCAL_HOSTS]
     LOCAL_HOSTS.append("testserver")
 
@@ -711,7 +712,7 @@ class Settings(BaseSettings):
         if self.environment in AMEnvironments.aws_environments:
             return f"{self.environment}.{self.am_domain}"
         if self.environment == AMEnvironments.LOCAL:
-            return f"{self.am_subdomain}.localhost:8000"
+            return f"{self.am_subdomain}.{LOCALHOST}"
         # default domain format
         return f"{self.environment}.{self.am_domain}"
 
@@ -792,7 +793,7 @@ class Settings(BaseSettings):
             >>> print(am_settings.environment_api_domain)
             'alpha.api.am.example.com'
             >>> print(am_settings.environment_api_domain)
-            'api.localhost:8000'
+            'api.localhost'
 
         See Also:
             - am_settings.aws_environments
@@ -802,7 +803,7 @@ class Settings(BaseSettings):
         if self.environment == AMEnvironments.PROD:
             return self.am_api_domain
         if self.environment == AMEnvironments.LOCAL:
-            return f"{self.api_subdomain}.{self.am_subdomain}.localhost:8000"
+            return f"{self.api_subdomain}.{self.am_subdomain}.{LOCALHOST}"
         return f"{self.environment}.{self.am_api_domain}"
 
     @cached_property

@@ -14,9 +14,8 @@ if environment_name != AMEnvironments.NEXT:
 
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https?://[\w-]+\.(\d+-\d+-\d+)\.next\.api\.smarter\.sh$",
-    r"^https?://[\w-]+\.next\.platform\.smarter\.sh$",
-    r"^https?://[\w-]+\.next\.api\.smarter\.sh$",
+    r"^https?://[\w-]+\.next\.am\.smarter\.sh$",
+    r"^https?://[\w-]+\.next\.api\.am\.smarter\.sh$",
 ]
 
 # see: https://python-social-auth.readthedocs.io/en/latest/configuration/settings.html

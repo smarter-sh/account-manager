@@ -64,7 +64,7 @@ SECURE_PROXY_SSL_HEADER = None
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https?://[\w-]+\.(\d+-\d+-\d+)\.api\.smarter\.sh$",
-    r"^https?://[\w-]+\.platform\.smarter\.sh$",
+    r"^https?://[\w-]+\.am\.smarter\.sh$",
     r"^https?://[\w-]+\.api\.smarter\.sh$",
 ]
 # settings that affect whether the browser saves cookies

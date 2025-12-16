@@ -13,9 +13,8 @@ if environment_name != AMEnvironments.BETA:
     raise AMConfigurationError(f"Inconsistent environment name: .env {environment_name} does not {AMEnvironments.BETA}")
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https?://[\w-]+\.(\d+-\d+-\d+)\.beta\.api\.smarter\.sh$",
-    r"^https?://[\w-]+\.beta\.platform\.smarter\.sh$",
-    r"^https?://[\w-]+\.beta\.api\.smarter\.sh$",
+    r"^https?://[\w-]+\.beta\.am\.smarter\.sh$",
+    r"^https?://[\w-]+\.beta\.api\.am\.smarter\.sh$",
 ]
 
 # see: https://python-social-auth.readthedocs.io/en/latest/configuration/settings.html

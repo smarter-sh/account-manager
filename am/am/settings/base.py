@@ -1,4 +1,4 @@
-# pylint: disable=unused-wildcard-import, wildcard-import, unused-import, wrong-import-position
+# pylint: disable=C0302,unused-wildcard-import, wildcard-import, unused-import, wrong-import-position
 """
 Account Manager base settings module, shared by all environments. See am_settings
 for strongly-typed, project-specific settings overrides.
@@ -10,7 +10,6 @@ notes:
 - For the full list of settings and their values, see https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
-import glob
 import hashlib
 import json
 import logging
@@ -26,7 +25,7 @@ from pathlib import Path
 
 from corsheaders.defaults import default_headers
 from django import get_version
-from oscar.defaults import *
+from oscar.defaults import *  # pyright: ignore[reportWildcardImportFromLibrary]
 
 from am.__version__ import __version__ as smarter_version
 from am.common.conf import am_settings
@@ -40,7 +39,7 @@ from .account_manager import *  # noqa: E402, F401, W0401
 logger = logging.getLogger(__name__)
 
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ACCOUNT_ALLOWED_HOSTS
 """
 A list of strings representing the host/domain names that this Django site can serve.
 Account Manager implements its own middleware to validate host names.
