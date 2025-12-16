@@ -22,7 +22,7 @@ Two caching strategies are used:
 import logging
 import re
 import uuid
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from django.contrib.auth.models import AnonymousUser
 from django.utils import timezone
@@ -58,10 +58,11 @@ def should_log(level):
 
 base_logger = logging.getLogger(__name__)
 logger = WaffleSwitchedLoggerWrapper(base_logger, should_log)
+UserType = Union[AnonymousUser, User, None]
 
 
 def get_cached_subscription(
-    user: Optional[User] = None,
+    user: Optional[UserType] = None,
     host: Optional[str] = None,
     account: Optional[Account] = None,
     plan_type: Optional[AMHostingPlanTypeEnum] = None,

@@ -13,9 +13,7 @@ logger.info("Loading am.settings.base_aws")
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv(
-            "CACHES_LOCATION", "redis://:am@am-redis-master.smarter-platform-dev.svc.cluster.local:6379/1"
-        ),
+        "LOCATION": os.getenv("CACHES_LOCATION", "redis://:am@am-redis-master.smarter-am-dev.svc.cluster.local:6379/1"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
@@ -26,7 +24,7 @@ SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 
 # Celery Configuration
 CELERY_BROKER_URL = os.getenv(
-    "CELERY_BROKER_URL", "redis://:am@am-redis-master.smarter-platform-dev.svc.cluster.local:6379/1"
+    "CELERY_BROKER_URL", "redis://:am@am-redis-master.smarter-am-dev.svc.cluster.local:6379/1"
 )
 CELERY_REDBEAT_REDIS_URL = CELERY_BROKER_URL
 CELERY_BEAT_SCHEDULER = "redbeat.RedBeatScheduler"

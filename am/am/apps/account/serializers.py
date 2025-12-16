@@ -4,10 +4,34 @@ from am.apps.account.models import (
     Account,
     AccountContact,
     PaymentMethod,
+    Subscription,
     User,
     UserProfile,
 )
 from am.lib.drf.serializers import AMCamelCaseSerializer
+
+
+class SubscriptionSerializer(AMCamelCaseSerializer):
+    """
+    Serializer for the `Subscription` model in the Account Manager API.
+
+    This serializer exposes all fields of the `Subscription` model, making it suitable for
+    creating, updating, and retrieving subscription details via API endpoints.
+
+    :param ...: All fields as defined in the `Subscription` model.
+
+    **Example usage**::
+
+        from am.apps.account.serializers import SubscriptionSerializer
+        serializer = SubscriptionSerializer(subscription_instance)
+        data = serializer.data
+
+    """
+
+    # pylint: disable=missing-class-docstring
+    class Meta:
+        model = Subscription
+        fields = "__all__"
 
 
 class UserSerializer(AMCamelCaseSerializer):

@@ -5,6 +5,7 @@ from django.urls import path
 from .const import namespace
 from .views.account import AccountListView, AccountView
 from .views.payment_methods import PaymentMethodsListView, PaymentMethodView
+from .views.subscription_status import SubscriptionStatusView
 from .views.user import UserListView, UserView
 
 
@@ -12,6 +13,11 @@ app_name = namespace
 
 urlpatterns = [
     path("", AccountListView.as_view(), name="account_list_view"),
+    path(
+        "subscription-status/",
+        SubscriptionStatusView.as_view(),
+        name="subscription_status_view",
+    ),
     # account
     # -----------------------------------------------------------------------
     path("<int:account_id>/", AccountView.as_view(), name="account_view"),

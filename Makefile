@@ -132,7 +132,7 @@ docker-prune:
 	docker system prune -a --volumes && \
 	docker volume prune -f && \
 	docker network prune -f && \
-	images=$$(docker images -q) && [ -n "$$images" ] && docker rmi $$images -f || echo "No images to remove" && \
+	images=$$(docker images -q) && [ -n "$$images" ] && docker rmi $$images -f || echo "No images to remove"
 
 # ---------------------------------------------------------
 # Python

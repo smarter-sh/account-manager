@@ -667,7 +667,7 @@ MIDDLEWARE = [
 ROOT_HOSTCONF = "am.hosts"
 """
 The root host configuration module for django-hosts. Account Manager hosts multiple subdomains
-for platform, API, and chatbot apps. These are defined in account.hosts.
+for web console, API, and chatbot apps. These are defined in account.hosts.
 
 See: https://django-hosts.readthedocs.io/en/latest/
 """
@@ -675,7 +675,7 @@ See: https://django-hosts.readthedocs.io/en/latest/
 ROOT_URLCONF = "am.urls.console"
 """
 The root URL configuration module for Account Manager. This points to account.urls.console,
-which defines the URL patterns for the Account Manager web platform console.
+which defines the URL patterns for the Account Manager web console.
 
 See: https://docs.djangoproject.com/en/5.0/ref/settings/#root-urlconf
 """

@@ -613,6 +613,20 @@ class AMRequestMixin(AccountMixin):
         return None
 
     @cached_property
+    def is_multitenant_domain(self) -> bool:
+        """
+        Returns True if the URL resolves to a multi-tenant domain.
+
+        Returns:
+            bool: True if the URL is a multi-tenant domain, otherwise False.
+        """
+        if not self.am_request:
+            return False
+        if not self.parsed_url:
+            return False
+        return self.domain == am_settings.platform_domain
+
+    @cached_property
     def is_environment_root_domain(self) -> bool:
         """
         Returns True if the URL resolves to the environment root domain.

@@ -335,7 +335,6 @@ class Settings(BaseSettings):
 
         logger.setLevel(SettingsDefaults.LOG_LEVEL)
 
-        # pylint: disable=logging-fstring-interpolation
         logger.debug("Settings initialized")
 
     shared_resource_identifier: str = Field(
@@ -367,7 +366,7 @@ class Settings(BaseSettings):
     )
     log_level: int = Field(
         SettingsDefaults.LOG_LEVEL,
-        description="The logging level for the platform based on Python logging levels: logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL",
+        description="The logging level based on Python logging levels: logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL",
         examples=[logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL],
     )
     aws_profile: Optional[str] = Field(
@@ -387,7 +386,7 @@ class Settings(BaseSettings):
     )
     aws_regions: List[str] = Field(
         AWS_REGIONS,
-        description="A list of AWS regions considered valid for this platform.",
+        description="A list of AWS regions considered valid.",
         examples=["us-east-1", "us-west-2", "eu-west-1"],
     )
     aws_region: str = Field(
@@ -406,12 +405,12 @@ class Settings(BaseSettings):
     )
     aws_db_instance_identifier: str = Field(
         SettingsDefaults.AWS_RDS_DB_INSTANCE_IDENTIFIER,
-        description="The RDS database instance identifier used for the platform's primary database.",
+        description="The RDS database instance identifier used for the environment's primary database.",
         examples=["apps-hosting-service"],
     )
     environment: str = Field(
         SettingsDefaults.ENVIRONMENT,
-        description="The deployment environment for the platform.",
+        description="The deployment environment. eg 'alpha', 'beta', 'prod', 'local', etc.",
         examples=AMEnvironments.all,
     )
     fernet_encryption_key: str = Field(
@@ -426,7 +425,7 @@ class Settings(BaseSettings):
     )
     root_domain: str = Field(
         SettingsDefaults.ROOT_DOMAIN,
-        description="The root domain for the platform.",
+        description="The root internet domain name. eg 'example.com'",
         examples=["example.com"],
     )
     init_info: Optional[str] = Field(
@@ -627,11 +626,11 @@ class Settings(BaseSettings):
     @property
     def am_subdomain(self) -> str:
         """
-        Return the platform subdomain.
+        Return the Account Manager subdomain.
 
         Example:
             >>> print(am_settings.am_subdomain)
-            'platform'
+            'am'
 
         See Also:
             - ACCOUNT_MANAGER_SUBDOMAIN
@@ -641,7 +640,7 @@ class Settings(BaseSettings):
     @cached_property
     def am_domain(self) -> str:
         """
-        Return the platform domain name for the root domain.
+        Return the base Account Manager domain name.
 
         Example:
             >>> print(am_settings.am_domain)
@@ -690,6 +689,33 @@ class Settings(BaseSettings):
                 f"Invalid am_domain: {self.am_domain}. " "Please check your environment settings."
             )
         return retval
+
+    @property
+    def platform_subdomain(self) -> str:
+        """
+        Return the platform subdomain.
+
+        Example:
+            >>> print(am_settings.platform_subdomain)
+            'platform'
+
+        """
+        return "platform"
+
+    @property
+    def platform_domain(self) -> str:
+        """
+        Return the platform domain name.
+
+        Example:
+            >>> print(am_settings.platform_domain)
+            'platform.example.com'
+
+        See Also:
+            - am_settings.platform_subdomain
+            - am_settings.root_domain
+        """
+        return f"{self.platform_subdomain}.{self.root_domain}"
 
     @cached_property
     def environment_domain(self) -> str:
@@ -836,7 +862,7 @@ class Settings(BaseSettings):
         """
         Returns the AWS S3 bucket name for the current environment.
         The bucket name is constructed from the Account Manager shared resource identifier
-        and the root platform domain.
+        and the environment domain.
 
         Example:
             >>> print(am_settings.aws_s3_bucket_name)
@@ -943,7 +969,7 @@ class Settings(BaseSettings):
             90
 
         Warning:
-            Changing this value requires a platform rebuild/redeploy.
+            Changing this value requires a rebuild/redeploy.
             Expired API keys still function but will log warnings.
 
         See Also:
@@ -1494,3 +1520,4 @@ def get_settings() -> Settings:
 
 
 am_settings = get_settings()
+logger.info("am_settings Singleton is initialized.")
