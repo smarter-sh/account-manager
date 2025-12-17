@@ -1,0 +1,73 @@
+---
+#------------------------------------------------------------------------------
+# - Deploy to AWS Elastic Kubernetes Service (EKS)
+#
+# IMPORTANT: Before running this workflow, ensure that you have first built your
+# AWS infrastructure using the [Smarter Infrastructure repository](https://github.com/smarter-sh/smarter-infrastructure).
+# Additionally, make sure the following secrets are configured in your
+# [GitHub repository settings](https://github.com/smarter-sh/smarter/settings/secrets/actions):
+#
+# AWS_ACCESS_KEY_ID
+# AWS_REGION
+# AWS_SECRET_ACCESS_KEY
+# FERNET_ENCRYPTION_KEY
+# MAILCHIMP_API_KEY
+# MAILCHIMP_LIST_ID
+# PAT
+# SMTP_PASSWORD
+# SMTP_USERNAME
+#------------------------------------------------------------------------------
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-2
+  ROOT_DOMAIN: "smarter.sh"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        id: checkout_code
+        uses: actions/checkout@v5
+
+      - name: Set environment variable
+        id: setenv
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/alpha" ]]; then
+            echo "ENVIRONMENT=alpha" >> $GITHUB_ENV
+          elif [[ "${{ github.ref }}" == "refs/heads/beta" ]]; then
+            echo "ENVIRONMENT=beta" >> $GITHUB_ENV
+          elif [[ "${{ github.ref }}" == "refs/heads/next" ]]; then
+            echo "ENVIRONMENT=next" >> $GITHUB_ENV
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+          else
+            echo "This workflow can only run on alpha, beta, next, or main branches"
+            exit 1
+          fi
+
+      - name: Deploy
+        uses: ./.github/actions/deploy
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          fernet-encryption-key: ${{ secrets.FERNET_ENCRYPTION_KEY }}
+          root-domain: ${{ env.ROOT_DOMAIN }}
+          mailchimp-api-key: ${{ secrets.MAILCHIMP_API_KEY }}
+          mailchimp-list-id: ${{ secrets.MAILCHIMP_LIST_ID }}
+
+      - name: Send Email
+        uses: ./.github/actions/send-mail
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          subject: "GHA - Deployed ${{ env.ENVIRONMENT }}.am.smarter.sh"
+          body: "${{ env.ENVIRONMENT }}.am.smarter.sh was deployed successfully."
