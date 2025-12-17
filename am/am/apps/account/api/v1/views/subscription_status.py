@@ -15,22 +15,23 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from am.apps.account.enum import AMHostingPlanTypeEnum
-from am.apps.account.models import Subscription
 from am.apps.account.serializers import SubscriptionSerializer
-from am.apps.account.utils import get_cached_subscription
+from am.apps.account.utils import get_cached_subscription, get_cached_user_for_username
 from am.lib.django.request import AMRequestMixin
 
 
 logger = logging.getLogger(__name__)
-REFERRER = "referrer"
-REFERRER_HEADER = "X-Client-Domain"
+REQUESTER = "requester"
+REQUESTER_HEADER = "X-Client-Domain"
+USERNAME = "username"
+USERNAME_HEADER = "X-Client-Username"
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SubscriptionStatusView(APIView):
     r"""
     API view to check the subscription status of a user.
-    Clients can provide a 'referrer' in any of the following ways:
+    Clients can provide a 'requester' in any of the following ways:
     - In the request body (for POST, PUT, PATCH requests) as JSON
     - As a query parameter (for GET requests)
     - In the request headers X-Client-Domain
@@ -38,50 +39,76 @@ class SubscriptionStatusView(APIView):
 
     Example request:
 
-        curl -X 'GET' http://api.am.localhost:8000/accounts/subscription-status/\?referrer\=platform.smarter.sh
+        curl -X 'GET' http://api.am.localhost:8000/accounts/subscription-status/\?requester\=platform.smarter.sh
 
     Supported methods: GET, POST, PUT, PATCH
     200 OK: Subscription found and returned.
-    404 Not Found: No active subscription found.
-    401 Unauthorized: User is not authenticated.
-    403 Forbidden: User does not have permission to access this resource.
+    403 Forbidden: User does not have an active subscription.
+    404 Not Found: User not found.
 
     .. note::
 
         - This view is exempt from CSRF verification to allow access from external clients.
-        - Requests from multitenant domains require authentication.
     """
 
     permission_classes = [AllowAny]
 
-    def get_referrer_from_request(self, request: "AMRequestMixin") -> str | None:
+    def get_from_request_body(self, request: "AMRequestMixin", key: str) -> str | None:
         """
-        Extract the referrer from the request in the following order:
-        1. From the request data (body)
-        2. From the query parameters
-        3. From the request headers
+        Extract a value from the request body.
         """
         data = request.data
-        if isinstance(data, dict) and data.get(REFERRER):
-            return str(data.get(REFERRER))
-
-        params = request.params
-        if isinstance(params, QueryDict) and params.get(REFERRER):
-            return str(params.get(REFERRER))
-
-        meta = request.am_request.META if request.am_request and hasattr(request.am_request, "META") else {}
-        header_referrer = meta.get(REFERRER_HEADER)
-        if header_referrer:
-            return str(header_referrer)
-
+        if isinstance(data, dict) and data.get(key):
+            logger.info("Found %s in request body: %s", key, data.get(key))
+            return str(data.get(key))
         return None
+
+    def get_from_request_params(self, request: "AMRequestMixin", key: str) -> str | None:
+        """
+        Extract a value from the request query parameters.
+        """
+        params = request.params
+        if isinstance(params, QueryDict) and params.get(key):
+            logger.info("Found %s in request params: %s", key, params.get(key))
+            return str(params.get(key))
+        return None
+
+    def get_from_request_headers(self, request: "AMRequestMixin", key: str) -> str | None:
+        """
+        Extract a value from the request headers. The header keys arrive differently in Django's META.
+        example: 'X-Client-Domain' becomes 'HTTP_X_CLIENT_DOMAIN'
+        """
+        key = f"HTTP_{key.upper().replace('-', '_')}"
+        meta = request.am_request.META if request.am_request and hasattr(request.am_request, "META") else {}
+        header_value = meta.get(key)
+        if header_value:
+            logger.info("Found %s in request headers: %s", key, header_value)
+            return str(header_value)
+        return None
+
+    def get_from_request(self, request: "AMRequestMixin", key: str) -> str | None:
+        """
+        Extract a value from the request in the following order:
+        1. Request body
+        2. Query parameters
+        3. Request headers
+        """
+        logger.info("Attempting to retrieve %s from request", key)
+        return self.get_from_request_body(request, key) or self.get_from_request_params(request, key)
 
     @swagger_auto_schema(
         manual_parameters=[
             openapi.Parameter(
-                REFERRER_HEADER,
+                REQUESTER_HEADER,
                 openapi.IN_HEADER,
-                description="Client domain name",
+                description=f"Client {REQUESTER} domain",
+                type=openapi.TYPE_STRING,
+                required=False,
+            ),
+            openapi.Parameter(
+                USERNAME_HEADER,
+                openapi.IN_HEADER,
+                description=f"Client {USERNAME}",
                 type=openapi.TYPE_STRING,
                 required=False,
             ),
@@ -92,37 +119,45 @@ class SubscriptionStatusView(APIView):
         Handle GET requests to retrieve subscription status.
         """
         request_mixin = AMRequestMixin(request=request)
-        requester_domain = self.get_referrer_from_request(request_mixin)
+        requester_domain = (
+            self.get_from_request(request_mixin, REQUESTER)
+            or self.get_from_request_headers(request_mixin, REQUESTER_HEADER)
+            or request_mixin.requester_domain
+        )
+
+        requester_username = self.get_from_request(request_mixin, USERNAME) or self.get_from_request_headers(
+            request_mixin, USERNAME_HEADER
+        )
+        logger.info("SubscriptionStatusView GET called from: %s for user: %s", requester_domain, requester_username)
+        user = get_cached_user_for_username(requester_username) if requester_username else None
+        if not user:
+            logger.warning(
+                "User not found for domain: %s, username: %s",
+                requester_domain,
+                requester_username,
+            )
+            return Response(status=HTTPStatus.NOT_FOUND)
+
         if requester_domain:
             request_mixin.requester_domain = requester_domain
 
-        if request_mixin.is_multitenant_domain and not request_mixin.is_authenticated:
-            logger.warning(
-                "Unauthorized access attempt to multitenant domain: %s from %s",
-                request.get_host(),
-                request_mixin.requester_domain,
-            )
-            return Response(status=HTTPStatus.UNAUTHORIZED)
-
-        logger.info("SubscriptionStatusView GET called from: %s", request_mixin.requester_domain)
         plan_type = AMHostingPlanTypeEnum.MULTITENANT if request_mixin.is_multitenant_domain else None
         subscription = get_cached_subscription(
-            user=request_mixin.user,
+            user=user,
             host=request_mixin.requester_domain,
             account=request_mixin.account,
             plan_type=plan_type,
         )
+        if not subscription:
+            logger.warning(
+                "No active subscription found for user: %s on host: %s",
+                requester_username,
+                request_mixin.requester_domain,
+            )
+            return Response(status=HTTPStatus.FORBIDDEN)
 
-        retval = {
-            "user": request_mixin.user,
-            "account": subscription.account if isinstance(subscription, Subscription) else request_mixin.account,
-            "subscription": (
-                SubscriptionSerializer(subscription).data if isinstance(subscription, Subscription) else None
-            ),
-        }
-
-        logger.info("No active subscription found for host: %s, %s", request_mixin.domain, retval)
-        return Response(data=retval)
+        data = SubscriptionSerializer(subscription).data
+        return Response(data)
 
     def post(self, request, *args, **kwargs):
         """

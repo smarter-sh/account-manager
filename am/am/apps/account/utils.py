@@ -101,7 +101,7 @@ def get_cached_subscription(
         if subscription_user:
             return subscription_user.subscription
         logger.warning(
-            "cached_subscription_by_user() subscription does not exist for user %s",
+            "cached_subscription_by_user() no active subscription exists for user %s",
             user,
         )
         return None
@@ -122,7 +122,7 @@ def get_cached_subscription(
         if subscription_host:
             return subscription_host.subscription
         logger.warning(
-            "cached_subscription_by_host() subscription does not exist for host %s",
+            "cached_subscription_by_host() no active subscription exists for host %s",
             host,
         )
         return None
@@ -144,7 +144,7 @@ def get_cached_subscription(
         if subscription:
             return subscription
         logger.warning(
-            "cached_subscription_by_account_and_plan() subscription does not exist for account ID %s and plan type %s",
+            "cached_subscription_by_account_and_plan() no active subscription exists for account ID %s and plan type %s",
             account_id,
             plan_type,
         )
@@ -479,6 +479,49 @@ def get_cached_user_for_user_id(user_id: int, invalidate: bool = False) -> Optio
     user = cached_user(user_id) if not invalidate else cached_user.invalidate(user_id)
     if user:
         logger.info("get_cached_user_for_user_id() retrieving and caching user %s", user)
+    return user
+
+
+def get_cached_user_for_username(username: str, invalidate: bool = False) -> Optional[User]:
+    """
+    Retrieve a User instance by its username, using caching for performance.
+
+    :param username: String. The username of the user to retrieve.
+    :param invalidate: Boolean, optional. If True, invalidates the cache before fetching.
+    :returns: User instance if found, otherwise None.
+
+    .. warning::
+
+           If no user exists for the given username, None is returned and an error is logged.
+
+    .. tip::
+
+           Use ``invalidate=True`` after updating user data to ensure cache consistency.
+
+    **Example usage**::
+
+        # Retrieve user by username
+        user = get_cached_user_for_username("johndoe")
+
+        # Invalidate cache before fetching
+        user = get_cached_user_for_username("johndoe", invalidate=True)
+    """
+
+    @cache_results()
+    def cached_user(username) -> Optional[User]:
+        """
+        cache for user objects.
+        """
+        try:
+            user = User.objects.get(username=username)
+            logger.info("cached_user() retrieving and caching user %s", user)
+            return user  # type: ignore[return-value]
+        except User.DoesNotExist:
+            logger.error("get_cached_user_for_username() user with username %s does not exist", username)
+
+    user = cached_user(username) if not invalidate else cached_user.invalidate(username)
+    if user:
+        logger.info("get_cached_user_for_username() retrieving and caching user %s", user)
     return user
 
 

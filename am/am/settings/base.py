@@ -77,6 +77,7 @@ See `React Integration <https://docs.smarter.sh/en/latest/developers/architectur
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-api-key",
     "x-client-domain",
+    "x-client-username",
     "accept-encoding",
     "dnt",
     "origin",
