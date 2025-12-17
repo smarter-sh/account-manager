@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/smarter-sh/account-manager/compare/v1.0.0...v1.0.1) (2025-12-17)
+
+
+### Bug Fixes
+
+* ALLOWED_HOSTS = ['*'] ([31296dc](https://github.com/smarter-sh/account-manager/commit/31296dc69cb7f4fd9c386e25383a661235cee059))
+
 # 1.0.0 (2025-12-17)
 
 
