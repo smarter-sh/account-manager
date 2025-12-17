@@ -22,7 +22,7 @@ LABEL maintainer="Lawrence McDaniel <lpm0073@gmail.com>" \
   description="Docker image for Account Manager" \
   vcs-url="https://github.com/smarter-sh/account-manager" \
   org.opencontainers.image.title="Account Manager" \
-  org.opencontainers.image.version="0.1.0" \
+  org.opencontainers.image.version="1.0.0" \
   org.opencontainers.image.authors="Lawrence McDaniel <lpm0073@gmail.com>" \
   org.opencontainers.image.source="https://github.com/smarter-sh/account-manager"
 
