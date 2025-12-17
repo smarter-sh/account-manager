@@ -63,7 +63,7 @@ def main():
     # Update helm/charts/account-manager/values.yaml
     # global:
     #   image:
-    #     pullPolicy: IfNotPresent
+    #     pullPolicy: Always
     #     repository: blah/blah
     #     tag: v0.13.38
     update_version_in_file(
