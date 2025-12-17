@@ -50,7 +50,7 @@ runs:
         echo "CELERY_BROKER_URL=${{ env.REDIS_URL }}" >> $GITHUB_ENV
         echo "CELERY_RESULT_BACKEND=${{ env.REDIS_URL }}" >> $GITHUB_ENV
       env:
-        REDIS_URL: redis://:am@am-redis-master.smarter-am-${{ inputs.environment }}.svc.cluster.local:6379/1
+        REDIS_URL: redis://:am@smarter-redis-master.smarter-am-${{ inputs.environment }}.svc.cluster.local:6379/1
         DJANGO_SETTINGS_BASE: am.settings
         NAMESPACE_BASE: smarter-am
 
