@@ -167,25 +167,6 @@ python-requirements:
 	pip-compile am/requirements/in/docker.in -o am/requirements/docker.txt
 
 
-# ---------------------------------------------------------
-# Keen
-# ---------------------------------------------------------
-keen-init:
-	cd keen_v3.0.6/tools && npm install --global yarn && \
-	npm install gulp@^4.0.2 && \
-	npm install gulp-cli && \
-	gulp --version
-
-keen-build:
-	cd keen_v3.0.6/tools && \
-	yarn && \
-	gulp --demo1
-
-keen-server:
-	cd keen_v3.0.6/tools && \
-	gulp localhost
-
-
 # -------------------------------------------------------------------------
 # AWS and deployment
 # -------------------------------------------------------------------------
@@ -231,9 +212,5 @@ help:
 	@echo 'docker-run             - Start all Docker containers using docker-compose'
 	@echo 'docker-compose-install - Install Docker Compose'
 	@echo 'docker-test            - Run Python-Django unit tests in Docker'
-	@echo '<************************** Keen **************************>'
-	@echo 'keen-init              - Install gulp, yarn and dependencies for Keen'
-	@echo 'keen-build             - Build Keen app using gulp'
-	@echo 'keen-server            - Start local Keen web server using gulp'
 	@echo '===================================================================='
 	@echo 'change-log             - update CHANGELOG.md file'
