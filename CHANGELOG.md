@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/smarter-sh/account-manager/compare/v1.0.1...v1.1.0) (2025-12-17)
+
+
+### Features
+
+* add AWS SES support ([4d37ff5](https://github.com/smarter-sh/account-manager/commit/4d37ff511fe5d1b6ecb9b125090decdb266a8487))
+
 ## [1.0.1](https://github.com/smarter-sh/account-manager/compare/v1.0.0...v1.0.1) (2025-12-17)
 
 
