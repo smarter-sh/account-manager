@@ -2,9 +2,9 @@
 # written by: Lawrence McDaniel
 #             https://lawrencemcdaniel.com/
 #
-# date:       sep-2023
+# date:       Dec-2025
 #
-# usage:      all Terraform variable declarations
+# usage:      Terraform variable declarations for Smarter Account Manager
 #------------------------------------------------------------------------------
 variable shared_resource_prefix {
   description = "A common prefix for resources created for this demo"

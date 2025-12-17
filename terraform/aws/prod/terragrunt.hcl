@@ -2,7 +2,7 @@
 # written by: Lawrence McDaniel
 #             https://www.linkedin.com/in/lawrencemcdaniel/
 #
-# date: Feb-2024
+# date: Dec-2025
 #
 # usage: create a new smarter environment
 #------------------------------------------------------------------------------

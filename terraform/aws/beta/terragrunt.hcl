@@ -2,17 +2,17 @@
 # written by: Lawrence McDaniel
 #             https://www.linkedin.com/in/lawrencemcdaniel/
 #
-# date: Feb-2024
+# date: Dec-2025
 #
-# usage: create a new smarter environment
+# usage: create a new smarter Account Manager environment
 #------------------------------------------------------------------------------
 locals {
   global_vars = read_terragrunt_config(find_in_parent_folders("global.hcl"))
 
   # environment vars
   environment           = "beta"
-  platform_subdomain    = "${local.environment}.${global_vars.locals.shared_resource_identifier}"
-  api_subdomain         = "${local.environment}.${global_vars.locals.api_subdomain}.${global_vars.locals.shared_resource_identifier}"
+  platform_subdomain    = "${local.environment}.${local.global_vars.locals.shared_resource_identifier}"
+  api_subdomain         = "${local.environment}.${local.global_vars.locals.api_subdomain}.${local.global_vars.locals.shared_resource_identifier}"
 }
 
 # Terragrunt will copy the Terraform configurations specified by the source parameter, along with any files in the

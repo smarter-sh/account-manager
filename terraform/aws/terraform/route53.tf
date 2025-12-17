@@ -1,3 +1,13 @@
+#------------------------------------------------------------------------------
+# written by: Lawrence McDaniel
+#             https://lawrencemcdaniel.com/
+#
+# date:   Dec-2025
+#
+# usage:  Smarter Account Manager AWS Route53 resources
+#------------------------------------------------------------------------------
+
+
 # -----------------------------------------------------------------------------
 # From Kubernetes shared infrastructure, managed by openedx_devops repo
 # -----------------------------------------------------------------------------

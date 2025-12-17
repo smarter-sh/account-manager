@@ -1,3 +1,12 @@
+#------------------------------------------------------------------------------
+# written by: Lawrence McDaniel
+#             https://lawrencemcdaniel.com/
+#
+# date:   Dec-2025
+#
+# usage:  Smarter Account Manager providers
+#------------------------------------------------------------------------------
+
 data "aws_eks_cluster" "eks" {
   name = var.eks_cluster_name
 }
