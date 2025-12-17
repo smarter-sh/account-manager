@@ -1,0 +1,23 @@
+apiVersion: v2
+appVersion: 0.1.0
+name: account-manager
+description: >
+  Smarter Account Manager is a rest api microservice for managing customers.
+type: application
+version: 0.1.0
+kubeVersion: ">=1.28.0-0"
+home: https://smarter.sh
+sources:
+  - https://github.com/smarter-sh/account-manager
+maintainers:
+  - name: Lawrence McDaniel
+    email: lpm0073@gmail.com
+    website: https://lawrencemcdaniel.com
+dependencies:
+  - name: redis
+    version: 23.2.12
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+icon: https://cdn.platform.smarter.sh/images/logo/smarter-crop.png
+annotations:
+  helm.sh/chart: account-manager-0.1.0
