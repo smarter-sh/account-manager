@@ -1,3 +1,11 @@
+#------------------------------------------------------------------------------
+# written by: Lawrence McDaniel
+#             https://lawrencemcdaniel.com/
+#
+# date:   Dec-2025
+#
+# usage:  AWS EKS secrets Kubernetes resources
+#------------------------------------------------------------------------------
 
 resource "random_password" "mysql_am" {
   length           = 16

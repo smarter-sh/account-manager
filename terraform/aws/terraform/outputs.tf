@@ -1,3 +1,12 @@
+#------------------------------------------------------------------------------
+# written by: Lawrence McDaniel
+#             https://lawrencemcdaniel.com/
+#
+# date:   Dec-2025
+#
+# usage:  Smarter Account Manager outputs
+#------------------------------------------------------------------------------
+
 output "root_domain" {
   value = var.root_domain
 }

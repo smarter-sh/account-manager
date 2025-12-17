@@ -2,7 +2,7 @@
 # written by: Lawrence McDaniel
 #             https://lawrencemcdaniel.com/
 #
-# date:   feb-2024
+# date:   Dec-2025
 #
 # usage:  AWS Elastic Container Registry (ECR)
 #------------------------------------------------------------------------------

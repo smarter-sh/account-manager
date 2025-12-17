@@ -2,9 +2,9 @@
 # written by: Lawrence McDaniel
 #             https://lawrencemcdaniel.com/
 #
-# date:       July-2023
+# date:       Dec-2025
 #
-# usage:      Terraform configuration
+# usage:      Terraform configuration for Smarter Account Manager
 #------------------------------------------------------------------------------
 
 terraform {

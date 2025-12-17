@@ -1,3 +1,11 @@
+#------------------------------------------------------------------------------
+# written by: Lawrence McDaniel
+#             https://lawrencemcdaniel.com/
+#
+# date:   Dec-2025
+#
+# usage:  AWS EKS ingress Kubernetes resources
+#------------------------------------------------------------------------------
 
 
 

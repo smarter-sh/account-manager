@@ -1,3 +1,11 @@
+#------------------------------------------------------------------------------
+# written by: Lawrence McDaniel
+#             https://lawrencemcdaniel.com/
+#
+# date:   Dec-2025
+#
+# usage:  AWS EKS cert-manager Kubernetes resources
+#------------------------------------------------------------------------------
 
 resource "kubernetes_manifest" "issuer_platform" {
   manifest = yamldecode(templatefile("${path.module}/templates/issuer.yml.tpl", {

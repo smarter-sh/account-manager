@@ -1,3 +1,12 @@
+#------------------------------------------------------------------------------
+# written by: Lawrence McDaniel
+#             https://lawrencemcdaniel.com/
+#
+# date:   Dec-2025
+#
+# usage:  Smarter Account Manager local variables
+#------------------------------------------------------------------------------
+
 locals {
   platform_domain               = "${var.shared_resource_identifier}.${var.root_domain}"
   api_domain                    = "api.${local.platform_domain}"
