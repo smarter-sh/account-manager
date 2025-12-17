@@ -50,24 +50,24 @@ def main():
     )
 
     print(
-        f"Version updated to {new_version} in __version__.py, pyproject.toml, Dockerfile and helm/charts/smarter/Chart.yaml"
+        f"Version updated to {new_version} in __version__.py, pyproject.toml, Dockerfile and helm/charts/account-manager/Chart.yaml"
     )
 
     # Update Helm chart
     update_version_in_file(
-        "helm/charts/smarter/Chart.yaml",
+        "helm/charts/account-manager/Chart.yaml",
         r'appVersion:\s*["\']?[\w\.\-]+["\']?',
         f"appVersion: {new_version}",
     )
 
-    # Update helm/charts/smarter/values.yaml
+    # Update helm/charts/account-manager/values.yaml
     # global:
     #   image:
     #     pullPolicy: IfNotPresent
-    #     repository: lpm0073/smarter
+    #     repository: blah/blah
     #     tag: v0.13.38
     update_version_in_file(
-        "helm/charts/smarter/values.yaml",
+        "helm/charts/account-manager/values.yaml",
         r"(global:\s*\n\s*image:\s*\n(?:.*\n)*?\s*tag:\s*)v\d+\.\d+\.\d+",
         f"\\1v{new_version}",
     )
