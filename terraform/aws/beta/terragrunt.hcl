@@ -11,8 +11,8 @@ locals {
 
   # environment vars
   environment           = "beta"
-  platform_subdomain    = "${local.global_vars.locals.shared_resource_identifier}"
-  api_subdomain         = "${local.global_vars.locals.api_subdomain}.${local.global_vars.locals.shared_resource_identifier}"
+  platform_subdomain    = "${local.environment}.${local.global_vars.locals.shared_resource_identifier}"
+  api_subdomain         = "${local.environment}.${local.global_vars.locals.api_subdomain}.${local.global_vars.locals.shared_resource_identifier}"
 }
 
 # Terragrunt will copy the Terraform configurations specified by the source parameter, along with any files in the
