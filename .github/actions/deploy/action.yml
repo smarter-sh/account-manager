@@ -168,23 +168,6 @@ runs:
         eks-namespace: ${{ env.NAMESPACE }}
         eks-secret-name: am-admin
 
-    # extract the Django SMTP email from the Kubernetes secret.
-    # these will be set as environment variables for the Helm deployment
-    #
-    # example:
-    # SMTP_HOST: email-smtp.us-east-2.amazonaws.com
-    # SMTP_PORT: "587"
-    # SMTP_USE_SSL: "false"
-    # SMTP_USE_TLS: "true"
-    # SMTP_USERNAME: an IAM key-pair id
-    # SMTP_PASSWORD: an IAM key-pair secret
-    - name: Configure SMTP email credentials from Kubernetes secret
-      id: get-aws-ses-secret
-      uses: ./.github/actions/k8s-get-secret
-      with:
-        eks-namespace: ${{ env.NAMESPACE }}
-        eks-secret-name: aws-ses-config
-
     # extract the Django application secret from the Kubernetes secret.
     # these will be set as environment variables for the Helm deployment
     #
@@ -275,14 +258,6 @@ runs:
           AM_ADMIN_PASSWORD: "${{ env.AM_ADMIN_PASSWORD }}"
           AM_ADMIN_USERNAME: "${{ env.AM_ADMIN_USERNAME }}"
           AM_ADMIN_EMAIL: "${{ env.AM_ADMIN_EMAIL }}"
-
-          # SMTP
-          SMTP_HOST: "${{ env.SMTP_HOST }}"
-          SMTP_PORT: "${{ env.SMTP_PORT }}"
-          SMTP_USE_SSL: "${{ env.SMTP_USE_SSL }}"
-          SMTP_USE_TLS: "${{ env.SMTP_USE_TLS }}"
-          SMTP_USERNAME: "${{ env.SMTP_USERNAME }}"
-          SMTP_PASSWORD: "${{ env.SMTP_PASSWORD }}"
 
           # Cache/Celery
           CACHES_LOCATION: "${{ env.CACHES_LOCATION }}"
