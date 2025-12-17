@@ -161,7 +161,6 @@ FROM venv AS application
 # do this last so that we can take advantage of Docker's caching mechanism.
 WORKDIR /home/am_user/
 COPY --chown=am_user:am_user ./am ./am
-RUN mkdir -p /home/am_user/data/manifests/example_manifests
 
 ################################# permissuions #######################################
 FROM application AS permissions
