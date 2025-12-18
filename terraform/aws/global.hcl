@@ -19,12 +19,12 @@ locals {
     mysql_root_username        = get_env("MYSQL_ROOT_USERNAME", "root")
     mysql_root_password        = get_env("MYSQL_ROOT_PASSWORD", "SET-ME-PLEASE")
 
-    shared_resource_prefix     = "smarter"
-    shared_resource_identifier = "am"
-    api_subdomain              = "api"
-    eks_cluster_name           = "apps-hosting-service"
-    mysql_host                 = "mysql.service.lawrencemcdaniel.com"
-    mysql_port                 = "3306"
+    shared_resource_prefix     = get_env("SHARED_RESOURCE_PREFIX", "smarter")
+    shared_resource_identifier = get_env("SHARED_RESOURCE_IDENTIFIER", "am")
+    api_subdomain              = get_env("API_SUBDOMAIN", "api")
+    eks_cluster_name           = get_env("EKS_CLUSTER_NAME", "apps-hosting-service")
+    mysql_host                 = get_env("MYSQL_HOST", "mysql.service.lawrencemcdaniel.com")
+    mysql_port                 = get_env("MYSQL_PORT", "3306")
     tags = {
       "terraform"                 = "true",
       "project"                   = "Smarter Account Manager"
