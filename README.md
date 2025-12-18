@@ -4,9 +4,7 @@
 ![Release Status](https://github.com/smarter-sh/account-manager/actions/workflows/deploy.yml/badge.svg?branch=main)
 ![Unit Tests](https://github.com/smarter-sh/account-manager/actions/workflows/test.yml/badge.svg?branch=main)
 [![codecov](https://codecov.io/gh/smarter-sh/account-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/smarter-sh/account-manager)
-![GHA pushMain Status](https://img.shields.io/github/actions/workflow/status/smarter-sh/account-manager/pushMain.yml?branch=main)
 ![Auto Assign](https://github.com/smarter-sh/account-manager/actions/workflows/auto-assign.yml/badge.svg)<br>
-[![Release Notes](https://img.shields.io/github/release/smarter-sh/account-manager)](https://github.com/smarter-sh/account-manager/releases)
 [![hack.d Lawrence McDaniel](https://img.shields.io/badge/hack.d-Lawrence%20McDaniel-orange.svg)](https://lawrencemcdaniel.com)
 
 Account user and payment management microservice for Smarter.
@@ -31,7 +29,7 @@ This is the local Docker startup. Smarter Account Manager runs on Linux, Windows
 
 1. Verify project requirements: [Python 3.12](https://www.python.org/), [Docker](https://www.docker.com/products/docker-desktop/), and [Docker Compose](https://docs.docker.com/compose/install/).
 
-2. Add your credentials to [.env](./docs/example-dot-env) in the root of this repo. You also need to add credentials to [terraform.tfvars](./terraform/aws/terraform/terraform.tfvars.example) for secrets that will utlimately be persisted as Kubernetes Secrets.
+2. Add your credentials to [.env](./.env.example) in the root of this repo. You also need to add credentials to [terraform.tfvars](./terraform/aws/terraform/terraform.tfvars.example) for secrets that will utlimately be persisted as Kubernetes Secrets.
 
 3. Initialize, build and run the application locally.
 
