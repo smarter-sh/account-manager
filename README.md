@@ -40,13 +40,12 @@ This is the local Docker startup. Smarter Account Manager runs on Linux, Windows
 
 ```console
 
-export AWS_PROFILE=lawrence   # Recommended.
+export AWS_PROFILE=lawrence                 # Recommended way
 
-# Alternative
-export AWS_REGION=us-east-2
-export AWS_ACCOUNT_ID=012345678901
-export AWS_ACCESS_KEY_ID=SET-ME-PLEASE
-export AWS_ACCESS_KEY_ID=SET-ME-PLEASE
+export AWS_REGION=us-east-2                 # -----------------------
+export AWS_ACCOUNT_ID=012345678901          # Alternative
+export AWS_ACCESS_KEY_ID=SET-ME-PLEASE      # way
+export AWS_ACCESS_KEY_ID=SET-ME-PLEASE      # -----------------------
 ```
 
 4. Initialize, build and run the application locally.
