@@ -17,6 +17,11 @@ else
     $(shell cp .env.example .env)
 endif
 
+ifneq ("$(wildcard terraform/aws/terraform/terraform.tfvars)","")
+else
+    $(shell cp terraform/aws/terraform/terraform.example.tfvars terraform/aws/terraform/terraform.tfvars)
+endif
+
 .PHONY: init activate build run test clean tear-down lint analyze coverage release pre-commit-init pre-commit-run python-init python-activate python-lint python-clean python-test docker-compose-install docker-init docker-build docker-run docker-test python-init python-lint python-clean keen-init keen-build keen-server change-log help
 
 # Default target executed when no arguments are given to make.

@@ -79,7 +79,7 @@ extensions = [
 
 templates_path = ["_templates"]
 exclude_patterns = []
-django_settings = "smarter.settings.prod"
+django_settings = "am.settings.prod"
 todo_include_todos = True
 
 intersphinx_mapping = {
