@@ -29,9 +29,27 @@ This is the local Docker startup. Smarter Account Manager runs on Linux, Windows
 
 1. Verify project requirements: [Python 3.12](https://www.python.org/), [Docker](https://www.docker.com/products/docker-desktop/), and [Docker Compose](https://docs.docker.com/compose/install/).
 
-2. Add your credentials to [.env](./.env.example) in the root of this repo. You also need to add credentials to [terraform.tfvars](./terraform/aws/terraform/terraform.tfvars.example) for secrets that will utlimately be persisted as Kubernetes Secrets.
+2. Add your credentials to [.env](./.env.example) in the root of this repo.
 
-3. Initialize, build and run the application locally.
+3. Terraform requires some manual setup.
+
+- Create an AWS S3 bucket in your AWS account for managing Terraform state: `s3://<AWS ACCOUNT NUMBER>-terraform-tfstate-<PROJECT-CODE>/`. Example: s3://012345678901-terraform-tfstate-am/
+- Create a DynamoDB table for managing Terraform locks during plan execution: `<PROJECT-CODE>-terraform-lock`. Example: am-terraform-lock.
+- Add credentials to [terraform.tfvars](./terraform/aws/terraform/terraform.tfvars.example) for production secrets that will be persisted as Kubernetes Secrets.
+- Terraform additionally requires admin access to your AWS account in order to manager resources. See [global.hcl](./terraform/aws/global.hcl). You can provide these by exporting environment variables to the console in either of the following schemes:
+
+```console
+
+export AWS_PROFILE=lawrence   # Recommended.
+
+# Alternative
+export AWS_REGION=us-east-2
+export AWS_ACCOUNT_ID=012345678901
+export AWS_ACCESS_KEY_ID=SET-ME-PLEASE
+export AWS_ACCESS_KEY_ID=SET-ME-PLEASE
+```
+
+4. Initialize, build and run the application locally.
 
 ```console
 git clone https://github.com/smarter-sh/account-manager
@@ -47,7 +65,7 @@ make init           # pulls Docker containers, creates and initializes a local M
 make run            # runs all docker containers and starts a local web server http://localhost:8000/
 ```
 
-4. Login at http://localhost:8000/login/ with user `admin` and password `am`.
+5. Login at http://localhost:8000/login/ with user `admin` and password `am`.
 
 ## Support
 
