@@ -24,7 +24,7 @@ python-dotenv==1.1.1                    # for reading environment variables from
 requests==2.32.5                        # HTTP requests library
 requests-cache==1.2.1                   # HTTP requests caching
 retry-requests==2.0.0                   # HTTP requests retry
-tldextract==5.3.0                       # Extracts the top-level domain from a URL
+tldextract==5.3.1                       # Extracts the top-level domain from a URL
 mailchimp-marketing==3.0.80             # Mailchimp API, for adding people to the mailing list
 
 # for working with data
