@@ -188,7 +188,7 @@ paramiko==4.0.0
     # via -r am/requirements/in/base.in
 phonenumbers==9.0.20
     # via django-oscar
-pillow==12.0.0
+pillow==13.0.0
     # via django-oscar
 platformdirs==4.5.1
     # via requests-cache
