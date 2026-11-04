@@ -335,7 +335,7 @@ pygments==2.19.2
     #   pytest
     #   rich
     #   sphinx
-pyjwt==2.10.1
+pyjwt==2.15.0
     # via djangorestframework-simplejwt
 pylint==3.3.4
     # via

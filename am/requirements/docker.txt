@@ -208,7 +208,7 @@ pydantic-core==2.41.1
     # via pydantic
 pydantic-settings==2.11.0
     # via -r am/requirements/in/base.in
-pyjwt==2.10.1
+pyjwt==2.15.0
     # via djangorestframework-simplejwt
 pynacl==1.6.1
     # via paramiko
