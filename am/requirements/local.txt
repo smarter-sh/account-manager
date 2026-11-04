@@ -104,7 +104,7 @@ distlib==0.4.0
     # via virtualenv
 dj-stripe==2.10.3
     # via -r am/requirements/in/base.in
-django==5.2.7
+django==5.2.17
     # via
     #   -r am/requirements/in/base.in
     #   dj-stripe
