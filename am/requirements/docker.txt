@@ -261,7 +261,7 @@ six==1.17.0
     #   python-dateutil
 sorl-thumbnail==12.11.0
     # via -r am/requirements/in/base.in
-sqlparse==0.5.4
+sqlparse==0.6.0
     # via django
 stripe==14.0.1
     # via dj-stripe
