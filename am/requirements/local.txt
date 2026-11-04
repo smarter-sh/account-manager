@@ -201,7 +201,7 @@ factory-boy==3.3.3
     # via django-oscar
 faker==38.2.0
     # via factory-boy
-filelock==3.20.0
+filelock==4.2.1
     # via
     #   tldextract
     #   tox
