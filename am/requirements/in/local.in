@@ -39,7 +39,7 @@ pytest_mock==3.14.0
 # Code linters, formatters, and security scanners
 # ------------
 bandit==1.8.6                       # security linter
-black==25.1.0                       # code formatter
+black==26.10.1                       # code formatter
 codespell==2.4.1                    # typo checker
 coverage==7.10.5                    # test coverage
 flake8==7.3.0                       # code linter

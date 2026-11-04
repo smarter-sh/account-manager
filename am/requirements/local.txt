@@ -32,7 +32,7 @@ bcrypt==5.0.0
     # via paramiko
 billiard==4.2.4
     # via celery
-black==25.1.0
+black==26.10.1
     # via -r am/requirements/in/local.in
 boto3==1.42.9
     # via -r am/requirements/in/base.in
