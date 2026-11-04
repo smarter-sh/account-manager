@@ -93,7 +93,7 @@ coverage==7.10.5
     # via -r am/requirements/in/local.in
 cron-descriptor==2.0.6
     # via django-celery-beat
-cryptography==46.0.3
+cryptography==50.0.0
     # via
     #   jwcrypto
     #   paramiko
