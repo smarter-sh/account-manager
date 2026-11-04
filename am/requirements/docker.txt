@@ -128,7 +128,7 @@ django-waffle==5.0.0
     # via -r am/requirements/in/base.in
 django-widget-tweaks==1.5.0
     # via django-oscar
-djangorestframework==3.16.1
+djangorestframework==3.18.2
     # via
     #   -r am/requirements/in/base.in
     #   django-rest-knox

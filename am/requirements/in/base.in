@@ -40,7 +40,7 @@ validators==0.35.0                      # Data validation library
 Django==5.2.7                           # web framework
 django-redis==6.0.0                     # object caching
 django-celery-beat==2.8.1               # scheduled asynchronous tasks
-djangorestframework==3.16.1             # for creating REST APIs on top of Django
+djangorestframework==3.18.2             # for creating REST APIs on top of Django
 djangorestframework-simplejwt==5.5.1    # JWT support for DRF
 django-filter==25.1                     # REST API filtering
 django-hosts==7.0.0                     # Dynamic and static host resolving for Django. Maps hostnames to URLconfs.
