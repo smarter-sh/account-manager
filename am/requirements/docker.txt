@@ -210,7 +210,7 @@ pydantic-settings==2.11.0
     # via -r am/requirements/in/base.in
 pyjwt==2.15.0
     # via djangorestframework-simplejwt
-pynacl==1.6.1
+pynacl==1.6.2
     # via paramiko
 python-crontab==3.3.0
     # via django-celery-beat
