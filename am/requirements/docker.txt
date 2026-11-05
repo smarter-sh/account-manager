@@ -152,7 +152,7 @@ filelock==4.2.1
     # via tldextract
 gunicorn==23.0.0
     # via -r am/requirements/in/docker.in
-idna==3.11
+idna==3.15
     # via
     #   email-validator
     #   requests
