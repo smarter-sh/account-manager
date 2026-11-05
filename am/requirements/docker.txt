@@ -220,7 +220,7 @@ python-dateutil==2.9.0.post0
     #   celery
     #   celery-redbeat
     #   mailchimp-marketing
-python-dotenv==1.1.1
+python-dotenv==1.2.2
     # via
     #   -r am/requirements/in/base.in
     #   pydantic-settings
