@@ -102,7 +102,7 @@ django-extra-views==0.16.0
     # via django-oscar
 django-filter==25.1
     # via -r am/requirements/in/base.in
-django-haystack==3.3.0
+django-haystack==3.4.0
     # via django-oscar
 django-hosts==7.0.0
     # via -r am/requirements/in/base.in
