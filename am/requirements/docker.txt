@@ -236,7 +236,7 @@ redis==7.1.0
     #   django-redis
 regex==2025.11.3
     # via python-hcl2
-requests==2.32.5
+requests==2.33.0
     # via
     #   -r am/requirements/in/base.in
     #   django-oauth-toolkit
