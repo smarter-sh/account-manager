@@ -307,7 +307,7 @@ vine==5.1.0
     #   kombu
 wcwidth==0.2.14
     # via prompt-toolkit
-wheel==0.45.1
+wheel==0.46.2
     # via -r am/requirements/in/constraints.in
 whitenoise==6.9.0
     # via -r am/requirements/in/base.in

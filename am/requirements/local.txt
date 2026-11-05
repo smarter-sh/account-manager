@@ -532,7 +532,7 @@ watchdog==6.0.0
     # via -r am/requirements/in/local.in
 wcwidth==0.2.14
     # via prompt-toolkit
-wheel==0.45.1
+wheel==0.46.2
     # via
     #   -r am/requirements/in/constraints.in
     #   pip-tools
