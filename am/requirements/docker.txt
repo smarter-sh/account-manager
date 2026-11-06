@@ -176,7 +176,7 @@ mailchimp-marketing==3.0.80
     # via -r am/requirements/in/base.in
 mysqlclient==2.2.7
     # via -r am/requirements/in/base.in
-oauthlib==4.0.0
+oauthlib==4.0.1
     # via django-oauth-toolkit
 packaging==25.0
     # via
