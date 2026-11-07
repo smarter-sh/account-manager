@@ -280,7 +280,7 @@ packaging==25.0
     #   pytest
     #   sphinx
     #   tox
-paramiko==4.0.0
+paramiko==5.0.0
     # via -r am/requirements/in/base.in
 pathspec==0.12.1
     # via black

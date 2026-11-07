@@ -18,7 +18,7 @@ celery==5.5.3                           # asynchronous task queue. works with re
 celery-redbeat==2.3.3                   # scheduled asynchronous tasks
 dnspython==2.9.0                        # DNS toolkit for Python
 mysqlclient==2.2.7                      # MySQL client
-paramiko==4.0.0                         # SSH2 protocol library
+paramiko==5.0.0                         # SSH2 protocol library
 python-hcl2==7.3.1                      # Terraform hcl parser for reading Terraform tfvars files
 python-dotenv==1.1.1                    # for reading environment variables from .env files
 requests==2.32.5                        # HTTP requests library
