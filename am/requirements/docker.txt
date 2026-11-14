@@ -136,7 +136,7 @@ djangorestframework==3.18.2
     #   drf-yasg
 djangorestframework-simplejwt==5.5.1
     # via -r am/requirements/in/base.in
-dnspython==2.9.0
+dnspython==2.9.2
     # via
     #   -r am/requirements/in/base.in
     #   email-validator
