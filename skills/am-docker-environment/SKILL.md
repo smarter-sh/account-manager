@@ -120,7 +120,7 @@ copy it into the repository.
 
 ## Safety
 
-The containers read `.env`, which holds real SMTP and Mailchimp credentials,
+The containers read `.env`, which holds real SMTP credentials,
 and whatever AWS or Stripe keys the developer added. A `manage.py` command or
 a test that reaches one of those services does it for real. See
 `am-python-testing`, "Mock every outside service". Don't run `docker system

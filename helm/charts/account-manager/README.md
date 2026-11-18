@@ -16,7 +16,6 @@ helm upgrade --install --force account-manager PATH-TO-HELM-CHART \
   --set env.MYSQL_HOST=your-mysql-host \
   --set env.MYSQL_PASSWORD=your-password \
   --set env.SECRET_KEY=your-django-secret \
-  --set env.FERNET_ENCRYPTION_KEY=your-fernet-key \
   --values values.yaml
 ```
 
@@ -72,7 +71,6 @@ env:
   # Django settings
   DJANGO_SETTINGS_MODULE: "smarter.settings.prod"
   ENVIRONMENT: "prod"
-  FERNET_ENCRYPTION_KEY: "your-fernet-key"
 
   # Database (required)
   MYSQL_HOST: "your-mysql-host"

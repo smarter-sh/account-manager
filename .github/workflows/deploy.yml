@@ -10,9 +10,6 @@
 # AWS_ACCESS_KEY_ID
 # AWS_REGION
 # AWS_SECRET_ACCESS_KEY
-# FERNET_ENCRYPTION_KEY
-# MAILCHIMP_API_KEY
-# MAILCHIMP_LIST_ID
 # PAT
 # SMTP_PASSWORD
 # SMTP_USERNAME
@@ -57,10 +54,7 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-          fernet-encryption-key: ${{ secrets.FERNET_ENCRYPTION_KEY }}
           root-domain: ${{ env.ROOT_DOMAIN }}
-          mailchimp-api-key: ${{ secrets.MAILCHIMP_API_KEY }}
-          mailchimp-list-id: ${{ secrets.MAILCHIMP_LIST_ID }}
 
       - name: Send Email
         uses: ./.github/actions/send-mail

@@ -112,9 +112,9 @@ These files change; read them before relying on a signature.
 
 ## Mock every outside service
 
-The containers read `.env`, which holds **real** credentials (SMTP and
-Mailchimp, and any AWS or Stripe keys a developer adds), so an unpatched call
-sends real email, changes a real mailing list, or reaches a real cloud or
+The containers read `.env`, which holds **real** credentials (SMTP, and
+any AWS or Stripe keys a developer adds), so an unpatched call
+sends real email, or reaches a real cloud or
 payment account. Every test patches:
 
 - **Stripe** (dj-stripe and the `stripe` package): fake ids such as

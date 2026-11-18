@@ -11,7 +11,7 @@
 # docker-compose.yml, as `make coverage` does locally. Coverage options are in
 # am/.coveragerc. The tests mock every external service (AWS, SMTP, Stripe), so
 # the .env this workflow writes holds placeholders only, plus a throwaway
-# Django secret key and Fernet key.
+# Django secret key.
 #
 # Secrets (organization): CODECOV_TOKEN, DOCKERHUB_USERNAME and DOCKERHUB_PAT.
 #------------------------------------------------------------------------------
@@ -51,7 +51,6 @@ jobs:
           {
             echo "ENVIRONMENT=local"
             echo "SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')"
-            echo "FERNET_ENCRYPTION_KEY=$(openssl rand -base64 32 | tr '+/' '-_')"
           } >> .env
 
       # Logged-in Docker Hub pulls: the python base image (see PYTHON_BASE_IMAGE

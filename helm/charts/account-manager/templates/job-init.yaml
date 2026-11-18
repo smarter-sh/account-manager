@@ -63,8 +63,6 @@ spec:
               value: "{{ .Values.env.DJANGO_SETTINGS_MODULE }}"
             - name: DUMP_DEFAULTS
               value: "{{ .Values.env.DUMP_DEFAULTS }}"
-            - name: FERNET_ENCRYPTION_KEY
-              value: "{{ .Values.env.FERNET_ENCRYPTION_KEY }}"
             - name: MYSQL_HOST
               value: "{{ .Values.env.MYSQL_HOST }}"
             - name: MYSQL_PORT
@@ -79,8 +77,6 @@ spec:
               value: "{{ .Values.env.MYSQL_ROOT_USERNAME }}"
             - name: MYSQL_ROOT_PASSWORD
               value: "{{ .Values.env.MYSQL_ROOT_PASSWORD }}"
-            - name: MAILCHIMP_API_KEY
-              value: "{{ .Values.env.MAILCHIMP_API_KEY }}"
             - name: SECRET_KEY
               value: "{{ .Values.env.SECRET_KEY }}"
             - name: CACHES_LOCATION

@@ -125,17 +125,6 @@ env:
   ## @param env.ENVIRONMENT Deployment environment (development, staging, production)
   ENVIRONMENT: "prod"
 
-  ## Encryption
-  ## @param env.FERNET_ENCRYPTION_KEY Fernet encryption key
-  FERNET_ENCRYPTION_KEY: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
-  ## Email Configuration
-  ## @param env.MAILCHIMP_API_KEY Mailchimp API key
-  MAILCHIMP_API_KEY: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
-  ## @param env.MAILCHIMP_LIST_ID Mailchimp list ID
-  MAILCHIMP_LIST_ID: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
   ## Database Configuration
   ## @param env.MYSQL_HOST MySQL host
   MYSQL_HOST: "mysql"

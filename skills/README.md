@@ -118,7 +118,7 @@ A skill is a set of instructions that an agent follows, often without asking.
 deploy script.**
 
 - **The local environment holds real credentials.** The containers read
-  `.env`, which holds working SMTP and Mailchimp credentials and whatever AWS
+  `.env`, which holds working SMTP credentials and whatever AWS
   or Stripe keys a developer adds. `am-python-testing` requires every test to
   mock those services; don't weaken it.
 - **Some rules forbid things on purpose.** `am-git-commits` tells the agent
