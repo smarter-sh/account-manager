@@ -65,8 +65,8 @@ apply`, `helm upgrade`); hand the user the command instead.
 8. **No secrets, credentials or PII in log entries.** Log ids and masked
    values, never the value, and never a whole request, settings object or
    exception that may carry one.
-9. **Migrations are append-only.** Add a new one; never edit, delete or
-   regenerate one that is on `main`. See `am-migrations`.
+9. **Each app keeps a single `0001_initial` migration.** A model change
+   regenerates it; Account Manager has no production data yet. See `am-migrations`.
 10. **`make docker-init` drops the local `am` database.** Don't run it unless
     the user asks. Bring a database up to date with `python manage.py migrate`.
 11. **The host shell is zsh, which doesn't word-split.** A file list in

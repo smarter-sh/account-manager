@@ -45,9 +45,11 @@ when this repository has no answer, copy what Smarter does.
    logs. Start it only with `run_in_background: true`.
 8. **No secrets, credentials or PII in log entries.** Log ids and masked
    values, never the value.
-9. **Migrations are append-only.** The app is deployed with production data:
-   add a new migration (`makemigrations` in the container, then copy it out);
-   never edit, delete or regenerate one that is on `main`.
+9. **Each app keeps a single `0001_initial` migration.** Account Manager has
+   never run in production, so, as in Smarter before a release, a model change
+   regenerates the app's `0001_initial.py` instead of adding a migration (see
+   `am-migrations`). Once it has production data, migrations become
+   append-only.
 10. **`make docker-init` drops the local `am` database.** Don't run it unless
     the user asks. To bring a database up to date, run `migrate`.
 
@@ -69,8 +71,11 @@ when this repository has no answer, copy what Smarter does.
 ## Containers
 
 Services in `docker-compose.yml`: `am-app` (gunicorn on `localhost:8000`),
-`am-worker`, `am-beat`, `am-mysql` (MySQL 8, user `am`, password `am`),
-`am-redis`.
+`am-worker`, `am-beat`, `am-mariadb` (MariaDB, user `am`, password `am`),
+`am-redis`. In Kubernetes there is no database of Account Manager's own: it
+uses its database and user on the shared MariaDB server of smarter's Helm
+chart (`AM_MYSQL_*` settings). The image, docker-compose and Helm chart are
+modeled on smarter's; when in doubt, copy what smarter does.
 
 - The image holds a copy of `am/` at `/home/am_user/am` (the compose bind mount
   at `/am` is not on the app's path). To test host edits without rebuilding,

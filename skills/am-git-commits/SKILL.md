@@ -107,5 +107,45 @@ terse four-bullet body is too brief.
 3. Measure the header with `wc -c`.
 4. Start the response with a one-line `Written for:` audience note.
 
+## Check every commit before handing it over
+
+A commit you write must pass every hook it will meet when the user runs it, or
+you haven't finished it. The user runs the commit; the hooks reject it; the user
+pays for your unchecked work. So, for each commit, before showing it:
+
+1. Write its message to a file in your scratchpad, exactly as git will build it
+   from the `-m` arguments: the header, then each paragraph, separated by blank
+   lines, ending with the `Co-authored-by` line.
+2. Run, with exactly the pathspecs of the commit's `git add -A`:
+
+   ```console
+   skills/am-git-commits/scripts/check-commit.sh <message-file> <pathspec>...
+   ```
+
+   It checks that `git add` would accept every pathspec (git refuses the whole
+   command when one matches nothing, e.g. a deletion the user already staged),
+   runs the pre-commit hooks on the files they cover (twice, since the first
+   run may fix them), commitlint on the message with the working tree's
+   `commitlint.config.js`, and checks that a changed hook configuration is in
+   the commit.
+
+3. Fix whatever fails, in the files or the message, and run it again. Hand over
+   only commits that pass.
+
+Three traps this catches:
+
+- **pre-commit stashes unstaged changes while the hooks run.** A fix to
+  `.pre-commit-config.yaml` or `commitlint.config.js` is invisible to a commit
+  that doesn't include it, so the commit is checked with the old configuration.
+  Put such a fix in the first commit of the series.
+- **commitlint runs in the commit-msg stage**, which `pre-commit run --files`
+  never runs. Checking the files alone says nothing about the message.
+- **A retried commit's paths may already be staged.** After a failed attempt, a
+  deleted file's deletion is in the index and the path exists nowhere, so
+  repeating its `git add` fails. Re-check against the current index before
+  handing a commit over again.
+
+When a series has several commits, also say in which order to run them, and why.
+
 For a complete, real example of the format, see
 `../smarter/skills/smarter-git-commits/references/canonical-git-commit.md`.

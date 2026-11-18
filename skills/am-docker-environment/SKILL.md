@@ -1,6 +1,6 @@
 ---
 name: am-docker-environment
-description: Use whenever Account Manager code must run in its Docker containers (am-app, am-worker, am-beat, am-mysql, am-redis), for tests, migrations, manage.py commands or the local server, e.g. "run migrate", "the container has old code", "MySQL won't start", "port 3306 is already allocated". Explains the image and why host edits don't reach the containers, make build / make run / docker compose up -d, syncing with docker cp or testing the host tree with scripts/docker-test.sh, the zsh word-splitting trap, and the database rules (make docker-init drops the am database).
+description: Use whenever Account Manager code must run in its Docker containers (am-app, am-worker, am-beat, am-mariadb, am-redis), for tests, migrations, manage.py commands or the local server, e.g. "run migrate", "the container has old code", "MariaDB won't start", "port 3306 is already allocated". Explains the image and why host edits don't reach the containers, make build / make run / docker compose up -d, syncing with docker cp or testing the host tree with scripts/docker-test.sh, the zsh word-splitting trap, and the database rules (make docker-init drops the am database).
 ---
 
 # Account Manager Docker Environment
@@ -18,13 +18,13 @@ description: Use whenever Account Manager code must run in its Docker containers
 Services in `docker-compose.yml` (compose project `account-manager`, network
 `account-manager_default`):
 
-| Container   | Role                                                                                      |
-| ----------- | ----------------------------------------------------------------------------------------- |
-| `am-app`    | gunicorn on http://localhost:8000, under `watchmedo auto-restart`; where `manage.py` runs |
-| `am-worker` | Celery worker (`am.workers.celery.app`, queue `default_celery_task_queue`)                |
-| `am-beat`   | Celery Beat (`am.workers.celerybeat.app`)                                                 |
-| `am-mysql`  | MySQL 8 on host port 3306: database `am`, user `am`, password `am`, root password `am`    |
-| `am-redis`  | Redis on host port 6379                                                                   |
+| Container    | Role                                                                                      |
+| ------------ | ----------------------------------------------------------------------------------------- |
+| `am-app`     | gunicorn on http://localhost:8000, under `watchmedo auto-restart`; where `manage.py` runs |
+| `am-worker`  | Celery worker (`am.workers.celery.app`, queue `default_celery_task_queue`)                |
+| `am-beat`    | Celery Beat (`am.workers.celerybeat.app`)                                                 |
+| `am-mariadb` | MariaDB on host port 3306: database `am`, user `am`, password `am`, root password `am`    |
+| `am-redis`   | Redis on host port 6379                                                                   |
 
 `am-app`, `am-worker` and `am-beat` run the image `am`, built from the
 `Dockerfile`, as `am_user`, with `.env` as their environment. The working
@@ -88,13 +88,13 @@ EXISTS am`), then migrates and creates the `admin` user. Never run it unless
   ```
 
 - **Port 3306 is shared with Smarter.** `smarter-mariadb`, from the smarter
-  repository's stack, also binds host port 3306, so `am-mysql` fails to start
+  repository's stack, also binds host port 3306, so `am-mariadb` fails to start
   ("port is already allocated") while it runs. Stop it first, and tell the
   user you did: `docker stop smarter-mariadb`.
-- The data lives in `./mysql-data` on the host (git-ignored). `make
+- The data lives in `./mariadb-data` on the host (git-ignored). `make
 docker-prune`, `make clean` and `make tear-down` delete it, and every Docker
   image, volume and network on the machine. Never run them unless asked.
-- A MySQL shell: `docker exec -it am-mysql mysql -u am -pam am`.
+- A MariaDB shell: `docker exec -it am-mariadb mariadb -u am -pam am`.
 
 ## docker cp traps
 
@@ -111,7 +111,7 @@ Generated files are written in the container. Copy them to the host so they
 become part of the change:
 
 ```console
-docker cp am-app:/home/am_user/am/am/apps/account/migrations/0004_<name>.py am/am/apps/account/migrations/
+docker cp am-app:/home/am_user/am/am/apps/account/migrations/0001_initial.py am/am/apps/account/migrations/
 ```
 
 `make coverage` also writes `coverage.xml` in the container

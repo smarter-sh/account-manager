@@ -1,55 +1,53 @@
 ---
 name: am-migrations
-description: Use when an Account Manager Django model changes (a field, a choices list, an index, a new model) in the account app (am/am/apps/account) or the drf app (am/am/lib/drf), and a migration is needed, or when makemigrations --check reports missing migrations. Covers why migrations are append-only, generating one in the am-app container, copying it out, data migrations for existing rows, and verifying.
+description: Use when an Account Manager Django model changes (a field, a choices list, an index, a new model) in the account app (am/am/apps/account) or the drf app (am/am/lib/drf), and a migration is needed, or when makemigrations --check reports missing migrations. Covers why each app keeps a single regenerated 0001_initial (Account Manager has no production data yet), regenerating it in a container, resetting the local database, and verifying.
 ---
 
 # Account Manager Migrations
 
-The apps with migrations, `account` (`am/am/apps/account/migrations/`) and
-`drf` (`am/am/lib/drf/migrations/`), are deployed with production data. So
-their migrations are **append-only**: never edit, delete, squash or regenerate
-a migration that is on `main`. A production database has already applied it,
-and Django won't run a changed one again. Every schema change is a new
-migration that runs unattended on that database during a deployment.
+Account Manager has never been used in production, so no database holds data
+that its migrations must carry forward. As in smarter-sh/smarter before a
+release, each app with migrations, `account` (`am/am/apps/account/migrations/`)
+and `drf` (`am/am/lib/drf/migrations/`), keeps **a single `0001_initial.py`**,
+regenerated whenever its models change, rather than a growing chain of
+migrations.
 
-## Add a migration
+This changes once Account Manager has a production database: from then on, its
+migrations are append-only (a new migration per change, never an edited one).
+Update this skill and `CLAUDE.md` when that happens.
 
-Generate it in the `am-app` container, after your model change has reached it
-(see `am-docker-environment`), then copy it to the host:
+## Regenerate 0001_initial
+
+Delete the app's migrations, regenerate them from the models with the host's
+tree mounted in a throwaway container (as `scripts/docker-test.sh` does), and
+check that nothing is missing:
 
 ```console
-docker exec am-app bash -c "python manage.py makemigrations account --name <what_it_does>"
-docker cp am-app:/home/am_user/am/am/apps/account/migrations/<NNNN>_<what_it_does>.py am/am/apps/account/migrations/
-docker exec am-app bash -c "python manage.py migrate"
+rm am/am/apps/account/migrations/0*.py
+docker run --rm --network account-manager_default --env-file .env \
+  -v "$PWD/am:/home/am_user/am" -w /home/am_user/am am \
+  bash -c "python manage.py makemigrations account && python manage.py makemigrations --check --dry-run"
 ```
 
-- Name it after what it does (`0003_subscription_comment.py`), not the
-  default `auto_<timestamp>`.
-- If `makemigrations` fails with a permission error, the migrations folder
-  holds files you copied in as root:
-  `docker exec -u root am-app chown -R am_user /home/am_user/am/am/apps/account/migrations`.
-- A migration on `alpha` that isn't on `main` yet may still be replaced, if
-  nothing but local databases have applied it. Ask first.
+The new file lands in `am/am/apps/account/migrations/0001_initial.py` on the
+host. A test run creates its database from scratch, so the tests need nothing
+else.
 
-## Existing rows
+## Reset the local database
 
-A required field on a table with rows needs a default, or three steps: add it
-as nullable, fill it with `migrations.RunPython(forward, reverse)`, then
-`AlterField` it to its final form. In `RunPython`, use
-`apps.get_model("account", "<Model>")`, never an import of the real model, and
-give it a real reverse function, or `migrations.RunPython.noop` explicitly.
-Changing a field's `choices` needs an `AlterField` migration too.
+The local `am` database (in `mariadb-data/`) recorded the old migrations, and its
+tables have the old schema, so it no longer matches. Rebuild it with
+`make docker-init`, which drops and recreates the `am` database, then migrates
+and initializes it. It deletes the local data, so ask the user before running
+it.
 
 ## Verify
 
 ```console
 # no model change without a migration
 docker exec am-app bash -c "python manage.py makemigrations --check --dry-run"
-# backward to the previous migration, then forward again
-docker exec am-app bash -c "python manage.py migrate account <previous> && python manage.py migrate account"
 ```
 
-Never `make docker-init` to get a clean database: it drops the local `am`
-database. Then run the app's tests (`am-python-testing`), and mention the
-migration in the commit body (`am-git-commits`) and the pull request's
-Breaking Changes section.
+Then run the tests (`am-python-testing`), and mention in the commit body
+(`am-git-commits`) that the migrations were regenerated and that local
+databases need `make docker-init`.

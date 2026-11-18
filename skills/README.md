@@ -59,7 +59,7 @@ code. For example:
 - `make docker-init` drops the local database.
 - `make run` never returns.
 - Smarter's `smarter-mariadb` container also wants port 3306.
-- Migrations run against production data, so they are append-only.
+- Each app keeps a single regenerated `0001_initial` migration until Account Manager has production data.
 - Commit messages drive semantic-release, and follow a particular format.
 
 Written down here, that knowledge is reviewed in pull requests and shared by

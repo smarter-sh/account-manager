@@ -83,6 +83,13 @@ git ls-files --others --exclude-standard | xargs venv/bin/pre-commit run --files
 - Hooks that modify files (black, isort, autoflake, Prettier, the whitespace
   fixers) fail the first run and pass the second. Run them twice, and read the
   diff of what they changed.
+- `pre-commit run --files` runs only the pre-commit stage. `commitlint` runs at
+  the commit-msg stage, on the message, when the user commits. Before handing
+  over a commit, check both with `skills/am-git-commits/scripts/check-commit.sh`
+  (see `am-git-commits`).
+- While hooks run at commit time, pre-commit stashes everything unstaged. A
+  hook configuration change (`.pre-commit-config.yaml`, `commitlint.config.js`)
+  only takes effect in a commit that includes it, or after it is committed.
 - `make pre-commit-run` runs every hook on every tracked file: slower, and it
   touches files you didn't change. It skips untracked files.
 - `make pre-commit-init` runs `pre-commit autoupdate`, which edits

@@ -7,7 +7,7 @@ description: Use when writing, fixing or running Account Manager's Django unit t
 
 ## Where tests run
 
-Tests run in Docker, against the `am-mysql` and `am-redis` containers. The host
+Tests run in Docker, against the `am-mariadb` and `am-redis` containers. The host
 has no runnable test environment. Two ways, both from the repository root:
 
 ```console
@@ -22,7 +22,7 @@ make test                                                 # = make docker-test: 
 
 **Prefer `scripts/docker-test.sh`.** It mounts the host's `am/` over
 `/home/am_user/am`, so your edits are tested at once, without a rebuild or a
-`docker cp`. It needs the `am` image (`make build`) and `am-mysql` and
+`docker cp`. It needs the `am` image (`make build`) and `am-mariadb` and
 `am-redis` running (`docker compose up -d`), on the `account-manager_default`
 network. It reads `.env`, as the containers do.
 
