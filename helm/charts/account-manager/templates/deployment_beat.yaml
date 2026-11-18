@@ -34,7 +34,7 @@ spec:
       containers:
         - name: "{{ .Values.names.appName }}-beat"
           image: '{{ .Values.env.AM_DOCKER_IMAGE | default (printf "%s:%s" .Values.global.image.repository .Values.global.image.tag) }}'
-          command: ["celery", "-A", "am.workers.celery.app", "beat", "--loglevel=info"]
+          command: ["celery", "-A", "am.workers.celerybeat.app", "beat", "--loglevel=info"]
           imagePullPolicy: {{ .Values.global.image.pullPolicy | default "IfNotPresent" }}
           resources:
             {{- toYaml .Values.beat.resources | nindent 12 }}

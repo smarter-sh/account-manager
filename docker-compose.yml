@@ -72,7 +72,7 @@ services:
       args:
         ENVIRONMENT: ${ENVIRONMENT}
     image: am
-    command: celery -A am.workers.celery.app worker --concurrency=4 --loglevel=info -Q default_celery_task_queue -E
+    command: celery -A am.workers.celery.app worker --concurrency=4 --loglevel=info -Q default_celery_task_queue,beat_tasks -E
     depends_on:
       - am-mysql
       - am-redis
@@ -116,8 +116,7 @@ services:
         target: /am
         consistency: cached
     healthcheck:
-      test:
-        ["CMD", "celery", "-A", "am.workers.celerybeat.app", "inspect", "ping"]
+      test: ["CMD", "celery", "-A", "am.workers.celerybeat.app", "inspect", "ping"]
       interval: 30s
       timeout: 30s
       retries: 3
