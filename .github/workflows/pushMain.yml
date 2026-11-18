@@ -13,6 +13,9 @@ on:
 jobs:
   semantic-release:
     runs-on: ubuntu-latest
+    # merge-main reads this job's output, which a job must declare.
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
     env:
       GITHUB_TOKEN: ${{ secrets.PAT }}
 

@@ -1,0 +1,19 @@
+# Default owner for everything
+
+* @lpm0073
+
+# Django backend
+
+am/am/ @lpm0073
+
+# Documentation
+
+docs/ @lpm0073
+
+# Helm chart
+
+helm/ @lpm0073
+
+# CI-CD
+
+.github/ @lpm0073
