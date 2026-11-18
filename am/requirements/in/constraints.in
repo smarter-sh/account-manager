@@ -4,8 +4,3 @@
 #
 # usage:      referenced by base.in and local.in to constrain versions
 # -----------------------------------------------------------------------------
-
-cachetools<7.0
-
-# Built-package format for Python; required for building and distributing Python packages.
-wheel>=0.45.1,<1.0.0
