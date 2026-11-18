@@ -146,6 +146,25 @@ class TestCreateAccountAdmin(CommandTestCase):
         self.assertIn("User cmd_admin updated.", output)
         self.assertEqual(AMAuthToken.objects.filter(user=user).count(), 1)
 
+    def test_credentials_from_the_environment(self):
+        """
+        Without options, the credentials come from AM_ADMIN_USERNAME, AM_ADMIN_EMAIL and AM_ADMIN_PASSWORD.
+
+        The Helm chart's init job runs it this way, so the password is on no command line.
+        """
+        Account.objects.filter(account_number=ACCOUNT_ACCOUNT_NUMBER).delete()
+        environment = {
+            "AM_ADMIN_USERNAME": "env_admin",
+            "AM_ADMIN_EMAIL": "env_admin@example.com",
+            "AM_ADMIN_PASSWORD": "env-pw",
+        }
+        with mock.patch.dict("os.environ", environment):
+            self.call("create_account_admin")
+        user = User.objects.get(username="env_admin")
+        self.assertEqual(user.email, "env_admin@example.com")
+        self.assertTrue(user.check_password("env-pw"))
+        self.assertTrue(user.is_superuser)
+
     def test_generated_password_and_support_contact(self):
         """Without a password one is generated; an account without a primary contact gets the support one."""
         Account.objects.filter(account_number=ACCOUNT_ACCOUNT_NUMBER).delete()
@@ -160,7 +179,6 @@ class TestCreateAccountAdmin(CommandTestCase):
         self.call("create_account_admin", username="cmd_admin2", email="cmd_admin2@example.com")
         support = AccountContact.objects.get(account=account, is_primary=True)
         self.assertEqual(support.email, ACCOUNT_CUSTOMER_SUPPORT_EMAIL)
-        self.assertTrue(support.welcomed)
         sent_to = [c.kwargs["to"] for c in self.send_email.call_args_list]
         self.assertNotIn(ACCOUNT_CUSTOMER_SUPPORT_EMAIL, sent_to)
 
@@ -224,10 +242,8 @@ class TestCreateUser(CommandTestCase):
         contact = AccountContact.objects.get(account=self.account, email="staff@example.com")
         self.assertEqual((contact.first_name, contact.last_name), ("Staff", "User"))
         self.assertIn("User cmd_staff staff@example.com has been created.", output)
-        credentials = [c for c in self.send_email.call_args_list if "credentials" in c.kwargs["body"]]
-        self.assertEqual(len(credentials), 1)
-        self.assertEqual(credentials[0].kwargs["to"], "staff@example.com")
-        self.assertIn("pw-1", credentials[0].kwargs["body"])
+        # no email: Smarter welcomes its users, and a password is never emailed.
+        self.send_email.assert_not_called()
 
     def test_generated_password(self):
         """Without a password, a new user gets a generated one."""
@@ -325,45 +341,3 @@ class TestInitializeSite(CommandTestCase):
         self.call("initialize_site")
         self.assertEqual(Site.objects.get(id=1).domain, am_settings.environment_domain)
         self.assertEqual(Site.objects.get(id=2).domain, am_settings.environment_api_domain)
-
-
-class TestSendWelcomeEmail(CommandTestCase):
-    """Test manage.py send_welcome_email."""
-
-    def welcome_emails(self) -> list[str]:
-        """Return the addresses that were sent a welcome email."""
-        return [c.kwargs["to"] for c in self.send_email.call_args_list if c.kwargs["subject"] == "Welcome to Smarter!"]
-
-    def test_by_username(self):
-        """An existing contact is sent the welcome email again."""
-        self.call("send_welcome_email", username="commands_user")
-        self.assertEqual(self.welcome_emails(), ["commands_user@example.com"])
-
-    def test_by_email(self):
-        """A user is found by email address."""
-        self.call("send_welcome_email", email="commands_user@example.com")
-        self.assertEqual(self.welcome_emails(), ["commands_user@example.com"])
-
-    def test_new_contact_by_account_number(self):
-        """A new contact of an account is welcomed once, not twice."""
-        self.call("send_welcome_email", account_number=self.account.account_number, email="newbie@example.com")
-        self.assertTrue(AccountContact.objects.filter(account=self.account, email="newbie@example.com").exists())
-        self.assertEqual(self.welcome_emails(), ["newbie@example.com"])
-
-    def test_by_company_name(self):
-        """An account is found by company name."""
-        self.call("send_welcome_email", company_name="Commands Co", email="commands_user@example.com")
-        self.assertEqual(self.welcome_emails(), ["commands_user@example.com"])
-
-    def test_errors(self):
-        """An unknown account exits; missing arguments raise."""
-        with self.assertRaises(SystemExit):
-            self.call("send_welcome_email", company_name="Nobody Co", email="x@example.com")
-        with mock.patch("am.lib.django.management.base.sys.exit"):
-            self.call("send_welcome_email", account_number="0000-0000-0009", email="x@example.com")
-        self.assertFalse(AccountContact.objects.filter(email="x@example.com").exists())
-        with self.assertRaises(AMValueError):
-            self.call("send_welcome_email", account_number=self.account.account_number)
-        with self.assertRaises(AMValueError):
-            self.call("send_welcome_email")
-        self.assertEqual(self.welcome_emails(), [])

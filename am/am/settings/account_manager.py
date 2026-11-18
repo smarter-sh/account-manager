@@ -72,24 +72,10 @@ Description of the Account Manager API.
 Not currently used.
 """
 
-# Marketing and branding settings
+# Email
 # -----------------------------------------------------------------------------
-ACCOUNT_BRANDING_CORPORATE_NAME = "Lawrence P. McDaniel, The Smarter Project"
-"""
-Smarter Branding.
-
-Provided to the Smarter web console dashboard
-context processor for use in the common footer of html templates.
-"""
-ACCOUNT_BRANDING_SUPPORT_PHONE_NUMBER = "+1 (617) 834-6172"
-ACCOUNT_BRANDING_SUPPORT_EMAIL = "support@smarter.sh"
-ACCOUNT_BRANDING_ADDRESS = "851 Burlway Road, Suite 101, Burlingame, CA 94010"
-ACCOUNT_BRANDING_CONTACT_URL = "https://lawrencemcdaniel.com/contact/"
-ACCOUNT_BRANDING_SUPPORT_HOURS = "MON-FRI 9:00 AM - 5:00 PM GMT-6 (CST)"
-ACCOUNT_BRANDING_URL_FACEBOOK = "#"
-ACCOUNT_BRANDING_URL_TWITTER = "#"
-ACCOUNT_BRANDING_URL_LINKEDIN = "#"
 ACCOUNT_EMAIL_ADMIN = "lpm0073@gmail.com"
+"""The administrator, who receives a blind copy of every email that email_helper sends."""
 
 
 ACCOUNT_SENSITIVE_FILES_AMNESTY_PATTERNS = [

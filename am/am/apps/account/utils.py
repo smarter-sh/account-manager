@@ -378,8 +378,8 @@ def get_cached_admin_user_for_account(account: Account, invalidate: bool = False
             return user_profile.user
         else:
             # Create a new admin user and UserProfile. An account whose every profile is a test
-            # profile is a test account, so its admin is a test profile too, which keeps the
-            # welcome email to the admin's account contact quiet.
+            # profile is a test account, so its admin is a test profile too, and so is the admin's
+            # account contact, whose emails are then sent quietly.
             profiles = UserProfile.objects.filter(account=account)
             is_test_account = profiles.exists() and not profiles.filter(is_test=False).exists()
             admin_email = f"{account_number}@{am_settings.root_domain}"

@@ -6,6 +6,7 @@ from django.contrib.auth.models import AnonymousUser
 
 from am.apps.account.models import (
     Account,
+    AccountContact,
     User,
     UserProfile,
 )
@@ -134,8 +135,8 @@ class TestUtils(AccountTestCase):
         """
         An account without staff gets a new staff admin, named after the account number.
 
-        The account's profiles are all test profiles, so the admin's profile is too, and
-        its contact's welcome email is quiet.
+        The account's profiles are all test profiles, so the admin's profile is too, and so
+        is its account contact. Nobody is emailed.
         """
         admin = get_cached_admin_user_for_account(self.account)
         self.assertEqual(admin.username, self.account.account_number)
@@ -143,9 +144,8 @@ class TestUtils(AccountTestCase):
         self.assertEqual(admin.email, f"{self.account.account_number}@{am_settings.root_domain}")
         profile = UserProfile.objects.get(user=admin, account=self.account)
         self.assertTrue(profile.is_test)
-        welcome_calls = [c for c in self.send_email.call_args_list if c.kwargs["to"] == admin.email]
-        self.assertEqual(len(welcome_calls), 1)
-        self.assertTrue(welcome_calls[0].kwargs["quiet"])
+        self.assertTrue(AccountContact.objects.get(account=self.account, email=admin.email).is_test)
+        self.send_email.assert_not_called()
 
     def test_admin_user_created_for_real_account(self):
         """An account with no profiles, or a non-test profile, gets a non-test admin profile."""

@@ -35,8 +35,8 @@ class TestAccountMixin(AMTestBase):
 
         using the class setup so that we retain the same user_profile for each test.
 
-        Every new AccountContact is sent a welcome email, so SMTP is patched for the
-        lifetime of the class: no test reaches the real mail server.
+        SMTP is patched for the lifetime of the class, so that no test that sends an email
+        reaches the real mail server.
         """
         cls._smtp_patchers = [
             mock.patch("am.common.helpers.email_helpers.smtplib.SMTP"),

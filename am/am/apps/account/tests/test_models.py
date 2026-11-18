@@ -19,7 +19,6 @@ from am.apps.account.models import (
     SubscriptionUser,
     User,
     get_resolved_user,
-    welcome_email_context,
 )
 from am.apps.account.signals import new_charge_created
 from am.apps.account.tests.mixins import AccountTestCase
@@ -28,13 +27,6 @@ from am.common.exceptions import AMConfigurationError, AMValueError
 
 class TestModelHelpers(AccountTestCase):
     """Test the module-level helpers."""
-
-    def test_welcome_email_context(self):
-        """The first name is capitalized and the branding settings are included."""
-        context = welcome_email_context("jane")
-        self.assertEqual(context["first_name"], "Jane")
-        for key in ("base_url", "corporate_name", "support_email", "contact_url", "linkedin_url"):
-            self.assertIn(key, context)
 
     def test_get_resolved_user(self):
         """Users, lazy users and mocks resolve; anything else raises."""
@@ -84,45 +76,28 @@ class TestAccountContactModel(AccountTestCase):
     def setUpTestData(cls):
         cls.account = Account.objects.create(company_name="Contacts Co")
 
-    def test_new_contact_is_welcomed(self):
-        """A new contact is sent the html welcome email once, and is flagged welcomed."""
+    def test_new_contact_is_not_emailed(self):
+        """Saving a contact sends no email: Smarter, not Account Manager, welcomes its users."""
         contact = AccountContact.objects.create(
             account=self.account, first_name="jane", last_name="Doe", email="jane@example.com"
         )
-        self.send_email.assert_called_once()
-        kwargs = self.send_email.call_args.kwargs
-        self.assertEqual(kwargs["to"], "jane@example.com")
-        self.assertEqual(kwargs["subject"], "Welcome to Smarter!")
-        self.assertTrue(kwargs["html"])
-        self.assertFalse(kwargs["quiet"])
-        self.assertIn("Jane", kwargs["body"])
-        contact.refresh_from_db()
-        self.assertTrue(contact.welcomed)
-        self.assertEqual(str(contact), "jane Doe")
-
-        # saving again does not send another
         contact.phone = "555-0100"
         contact.save()
-        self.send_email.assert_called_once()
+        self.send_email.assert_not_called()
+        self.assertEqual(str(contact), "jane Doe")
 
     def test_test_contact_is_quiet(self):
         """A test contact's emails are sent in quiet mode."""
-        AccountContact.objects.create(
+        contact = AccountContact.objects.create(
             account=self.account, first_name="T", last_name="T", email="t@example.com", is_test=True
         )
+        contact.send_email(subject="Hi", body="Body")
         self.assertTrue(self.send_email.call_args.kwargs["quiet"])
-
-    def test_already_welcomed_contact_is_not_emailed(self):
-        """A contact created as welcomed is not emailed."""
-        AccountContact.objects.create(
-            account=self.account, first_name="W", last_name="W", email="w@example.com", welcomed=True
-        )
-        self.send_email.assert_not_called()
 
     def test_send_email(self):
         """Send_email() passes its arguments to the email helper."""
         contact = AccountContact.objects.create(
-            account=self.account, first_name="A", last_name="B", email="ab@example.com", welcomed=True
+            account=self.account, first_name="A", last_name="B", email="ab@example.com"
         )
         contact.send_email(subject="Hi", body="Body", from_email="from@example.com")
         self.send_email.assert_called_once_with(

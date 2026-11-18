@@ -14,7 +14,6 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser, AnonymousUser, User
 from django.core.validators import RegexValidator
 from django.db import models
-from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.functional import SimpleLazyObject
 
@@ -63,29 +62,6 @@ PROVIDERS = [
     (PROVIDER_METAAI, "Meta AI"),
     (PROVIDER_GOOGLEAI, "Google AI"),
 ]
-
-
-def welcome_email_context(first_name: str) -> dict:
-    """
-    Return the context for the welcome email template.
-
-    templates/account/email/welcome.html
-    """
-
-    first_name = first_name.capitalize()
-    return {
-        "base_url": am_settings.environment_url,
-        "first_name": first_name,
-        "corporate_name": settings.ACCOUNT_BRANDING_CORPORATE_NAME,
-        "support_phone": settings.ACCOUNT_BRANDING_SUPPORT_PHONE_NUMBER,
-        "support_email": settings.ACCOUNT_BRANDING_SUPPORT_EMAIL,
-        "contact_address": settings.ACCOUNT_BRANDING_ADDRESS,
-        "contact_url": settings.ACCOUNT_BRANDING_CONTACT_URL,
-        "office_hours": settings.ACCOUNT_BRANDING_SUPPORT_HOURS,
-        "facebook_url": settings.ACCOUNT_BRANDING_URL_FACEBOOK,
-        "twitter_url": settings.ACCOUNT_BRANDING_URL_TWITTER,
-        "linkedin_url": settings.ACCOUNT_BRANDING_URL_LINKEDIN,
-    }
 
 
 if TYPE_CHECKING:
@@ -295,11 +271,11 @@ class AccountContact(TimestampedModel):
     :param phone: String. Contact's phone number (optional).
     :param is_primary: Boolean. Marks this contact as the primary contact for the account.
     :param is_test: Boolean. Indicates if this contact is for testing purposes.
-    :param welcomed: Boolean. Indicates if a welcome email has been sent.
 
     .. note::
 
-        Contacts do not need to be registered users.
+        Contacts do not need to be registered users. Account Manager doesn't welcome them by email:
+        Smarter welcomes its users.
 
     .. attention::
 
@@ -339,9 +315,6 @@ class AccountContact(TimestampedModel):
     is_test = models.BooleanField(
         default=False, help_text="Indicates if this contact is used for unit testing purposes."
     )
-    welcomed = models.BooleanField(
-        default=False, help_text="Indicates if a welcome email has been sent to this contact."
-    )
 
     def send_email(self, subject: str, body: str, html: bool = False, from_email: Optional[str] = None):
         """
@@ -366,8 +339,8 @@ class AccountContact(TimestampedModel):
         **Example usage**::
 
             contact.send_email(
-                subject="Welcome!",
-                body="Hello and welcome to Smarter.",
+                subject="Your invoice",
+                body="Your monthly invoice is ready.",
                 html=True,
                 from_email="support@smarter.com"
             )
@@ -377,39 +350,11 @@ class AccountContact(TimestampedModel):
             subject=subject, to=self.email, body=body, html=html, from_email=from_email, quiet=self.is_test
         )
 
-    def send_welcome_email(self) -> None:
-        """
-        Send a personalized welcome email to this account contact.
-
-        This method renders the welcome email template with the contact's first name and sends it as HTML.
-
-        :returns: None
-
-        .. note::
-
-            The welcome email uses the template at ``account/email/welcome.html``.
-
-        .. tip::
-
-            This method is automatically called when a new contact is created and has not yet been welcomed.
-
-        **Example usage**::
-
-            contact.send_welcome_email()
-        """
-        context = welcome_email_context(first_name=self.first_name)
-        html_template = render_to_string("account/email/welcome.html", context)
-
-        subject = "Welcome to Smarter!"
-        body = html_template
-        self.send_email(subject=subject, body=body, html=True)
-
     def save(self, *args, **kwargs):
         """
-        Save the AccountContact instance, enforcing primary contact uniqueness and sending a welcome email if needed.
+        Save the AccountContact instance, enforcing primary contact uniqueness.
 
-        This method ensures that only one primary contact exists per account. If the contact is new and has not
-        been welcomed, a welcome email is sent and the `welcomed` flag is updated.
+        This method ensures that only one primary contact exists per account.
 
         :param args: Positional arguments passed to the parent save method.
         :param kwargs: Keyword arguments passed to the parent save method.
@@ -418,16 +363,12 @@ class AccountContact(TimestampedModel):
 
             Only one contact per account can be marked as primary. Attempting to save another will raise an error.
 
-        .. note::
-
-            The welcome email is sent automatically for new contacts who have not been welcomed.
-
         :raises AMValueError: If another primary contact already exists for the account.
 
         **Example usage**::
 
             contact = AccountContact(account=account, email="jane@example.com", is_primary=True)
-            contact.save()  # Ensures uniqueness and sends welcome email if needed
+            contact.save()  # Ensures that the account has one primary contact
         """
         if self.is_primary:
             # Check for another primary contact for this account (excluding self if updating)
@@ -438,10 +379,6 @@ class AccountContact(TimestampedModel):
                 raise AMValueError("There is already a primary contact for this account.")
 
         super().save(*args, **kwargs)
-        if not self.welcomed:
-            self.send_welcome_email()
-            self.welcomed = True
-            self.save()
 
     def __str__(self):
         return self.first_name + " " + self.last_name

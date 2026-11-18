@@ -2,11 +2,8 @@
 
 import secrets
 import string
-from urllib.parse import urljoin
 
 from am.apps.account.models import Account, AccountContact, User, UserProfile
-from am.common.conf import am_settings
-from am.common.helpers.email_helpers import email_helper
 from am.lib.django.management.base import AMCommand
 
 
@@ -68,20 +65,8 @@ class Command(AMCommand):
             user.is_active = True
             user.set_password(password)
             user.save()
+            # no email: Smarter welcomes its users, and a password never goes by email.
             self.handle_completed_success(msg=f"User {username} {email} has been created.")
-
-            # Send email to user
-            login_url = urljoin(am_settings.environment_url, "login")
-            body = f"""Your Smarter user account has been created. Do not share your account credentials with anyone.
-
-            Url: {login_url}
-            Username: {username}
-            Email: {email}
-            Password: {password}
-            """
-            email_helper.send_email(
-                subject="Your Smarter user account has been created", to=email, body=body, html=False, quiet=False
-            )
 
         elif password:
             self.change_password(username, password)

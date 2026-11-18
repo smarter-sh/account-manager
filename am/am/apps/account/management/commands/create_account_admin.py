@@ -1,5 +1,6 @@
 """This module is used to create a superuser account."""
 
+import os
 import secrets
 import string
 
@@ -20,17 +21,25 @@ class Command(AMCommand):
 
     def add_arguments(self, parser):
         """Add arguments to the command."""
-        parser.add_argument("-u", "--username", type=str, help="The username for the new superuser")
-        parser.add_argument("-e", "--email", type=str, help="The email address for the new superuser")
-        parser.add_argument("-p", "--password", type=str, help="The password for the new superuser")
+        # Each defaults to an environment variable, so that a deployment's init job passes the password
+        # through the environment, never on a command line, which other processes can read.
+        parser.add_argument(
+            "-u", "--username", type=str, help="The username for the new superuser. Default: $AM_ADMIN_USERNAME"
+        )
+        parser.add_argument(
+            "-e", "--email", type=str, help="The email address for the new superuser. Default: $AM_ADMIN_EMAIL"
+        )
+        parser.add_argument(
+            "-p", "--password", type=str, help="The password for the new superuser. Default: $AM_ADMIN_PASSWORD"
+        )
 
     def handle(self, *args, **options):
         """Create the superuser account."""
         self.handle_begin()
 
-        username = options["username"]
-        email = options["email"]
-        password = options["password"]
+        username = options["username"] or os.environ.get("AM_ADMIN_USERNAME")
+        email = options["email"] or os.environ.get("AM_ADMIN_EMAIL")
+        password = options["password"] or os.environ.get("AM_ADMIN_PASSWORD")
 
         account, created = Account.objects.get_or_create(
             account_number=ACCOUNT_ACCOUNT_NUMBER,
@@ -85,8 +94,6 @@ class Command(AMCommand):
                 email=ACCOUNT_CUSTOMER_SUPPORT_EMAIL,
                 phone=ACCOUNT_CUSTOMER_SUPPORT_PHONE,
                 is_primary=True,
-                # the contact is our own support inbox, so don't send it a welcome email
-                welcomed=True,
             )
             account_contact.save()
             self.handle_completed_success(
