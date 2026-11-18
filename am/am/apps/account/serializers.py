@@ -1,48 +1,12 @@
 """Account serializers for Account Manager API."""
 
-from rest_framework import serializers
-
 from am.apps.account.models import (
     Account,
     PaymentMethod,
-    Subscription,
     User,
     UserProfile,
 )
 from am.lib.drf.serializers import AMCamelCaseSerializer
-
-
-class SubscriptionSerializer(AMCamelCaseSerializer):
-    """
-    Serializer for the `Subscription` model in the Account Manager API.
-
-    This serializer exposes all fields of the `Subscription` model, making it suitable for
-    creating, updating, and retrieving subscription details via API endpoints.
-
-    :param ...: All fields as defined in the `Subscription` model.
-
-    **Example usage**::
-
-        from am.apps.account.serializers import SubscriptionSerializer
-        serializer = SubscriptionSerializer(subscription_instance)
-        data = serializer.data
-
-    .. note::
-
-        ``plan_type`` is declared with the choices' integer values: the model's choices are
-        :class:`AMHostingPlanTypeEnum` members, whose ``__str__`` returns an int, which DRF's
-        default ``ChoiceField`` cannot render.
-    """
-
-    plan_type = serializers.ChoiceField(
-        choices=[(getattr(value, "value", value), label) for value, label in Subscription.PLAN_TYPE_CHOICES],
-        required=False,
-    )
-
-    # pylint: disable=missing-class-docstring
-    class Meta:
-        model = Subscription
-        fields = "__all__"
 
 
 class UserSerializer(AMCamelCaseSerializer):

@@ -1,5 +1,7 @@
 """
-URL configuration for the Account Manager API V1. The `urlpatterns`
+URL configuration for the Account Manager API V1.
+
+The `urlpatterns`
 list in this module maps URL patterns to their corresponding views or sub-URL configurations. This enables Django to route incoming HTTP requests to the appropriate logic for handling API operations.
 
 **Structure**
@@ -20,15 +22,15 @@ Namespaces are used for each included URL configuration to avoid naming conflict
 .. seealso::
 
     `Django URL dispatcher documentation <https://docs.djangoproject.com/en/5.0/topics/http/urls/>`_
-
 """
 
 from django.urls import include, path
 
 from am.apps.account.const import namespace as account_namespace
+from am.common.conf import am_settings
+from am.common.const import AMEnvironments
 
 from .const import namespace
-
 
 app_name = namespace
 
@@ -41,8 +43,11 @@ urlpatterns = [
     # /api/v1/prompt/ is used for supporting client-side interactions with the chatbots.
     # /api/v1/plugins/ is used for managing plugins and connections to external services.
     # /api/v1/cli/ implements Brokered services that support the CLI, and is implemented here, in this module.
-    # /api/v1/tests/ is used for unit tests, and is implemented here, in this module.
+    # /api/v1/tests/ is used for unit tests, in the local environment only (see below).
     # -------------------------------------------
     path("accounts/", include("am.apps.account.api.v1.urls", namespace=account_namespace)),
-    path("tests/", include("am.apps.api.v1.tests.urls", namespace="tests")),
 ]
+
+# The unit tests' endpoints, only where the tests run: never in a deployed environment.
+if am_settings.environment == AMEnvironments.LOCAL:
+    urlpatterns.append(path("tests/", include("am.apps.api.v1.tests.urls", namespace="tests")))

@@ -1021,7 +1021,6 @@ See: https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "am.lib.drf.auth.account_manager_auth.AMAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "am.lib.drf.token_authentication.AMTokenAuthentication",
     ],

@@ -8,7 +8,6 @@ from ..serializers import (
     AccountMiniSerializer,
     AccountSerializer,
     PaymentMethodSerializer,
-    SubscriptionSerializer,
     UserMiniSerializer,
     UserProfileSerializer,
     UserSerializer,
@@ -83,10 +82,3 @@ class TestSerializers(TestAccountMixin):
         self.assertEqual(data["name"], self.payment_method.name)
         self.assertEqual(data["stripeId"], self.payment_method.stripe_id)
         self.assertEqual(data["account"], self.account.pk)
-
-    def test_subscription_serializer(self):
-        """SubscriptionSerializer renders the plan type as its integer value."""
-        data = SubscriptionSerializer(self.subscription).data
-        self.assertEqual(data["id"], self.subscription.pk)
-        self.assertEqual(data["planType"], AMHostingPlanTypeEnum.HOSTED_PLATFORM.value)
-        self.assertEqual(data["endDate"], self.subscription.end_date.isoformat())

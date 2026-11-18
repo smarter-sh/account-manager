@@ -6,7 +6,15 @@ from unittest import mock
 from django.db import IntegrityError
 from django.utils import timezone
 
-from am.apps.account.models import Account, Charge, DailyBillingRecord, User
+from am.apps.account.models import (
+    CHARGE_TYPE_PLUGIN,
+    CHARGE_TYPE_PROMPT_COMPLETION,
+    CHARGE_TYPE_TOOL,
+    Account,
+    Charge,
+    DailyBillingRecord,
+    User,
+)
 from am.apps.account.tasks import aggregate_charges, aggregate_daily_billing_records
 from am.apps.account.tests.mixins import AccountTestCase
 
@@ -67,6 +75,26 @@ class TestAggregateCharges(AccountTestCase):
             self.create_charge(days_ago=days_ago)
         aggregate_daily_billing_records()
         self.assertEqual(DailyBillingRecord.objects.filter(account=self.account).count(), 3)
+
+    def test_each_charge_type_gets_its_own_record(self):
+        """
+        A provider's charges of different types on the same day each get their own record.
+
+        The unique constraint once left out charge_type, so the second type's record raised
+        IntegrityError, and its charges stayed behind, retried every hour.
+        """
+        self.create_charge(tokens=10, charge_type=CHARGE_TYPE_PROMPT_COMPLETION)
+        self.create_charge(tokens=4, charge_type=CHARGE_TYPE_PLUGIN)
+        self.create_charge(tokens=2, charge_type=CHARGE_TYPE_TOOL)
+
+        aggregate_daily_billing_records()
+
+        self.assertFalse(Charge.objects.exists())
+        records = DailyBillingRecord.objects.filter(account=self.account, user=self.user, provider="openai")
+        self.assertEqual(
+            {record.charge_type: record.total_tokens for record in records},
+            {CHARGE_TYPE_PROMPT_COMPLETION: 30, CHARGE_TYPE_PLUGIN: 12, CHARGE_TYPE_TOOL: 6},
+        )
 
     def test_progress_is_logged_every_100_items(self):
         """The task processes more than 100 billing items in one run."""

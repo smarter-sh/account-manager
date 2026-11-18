@@ -2,8 +2,11 @@
 
 # pylint: disable=missing-class-docstring
 
+import hashlib
+import hmac
 import logging
 import random
+import secrets
 from typing import TYPE_CHECKING, Optional, Union
 
 # django stuff
@@ -12,6 +15,7 @@ from django.contrib.auth.models import AbstractUser, AnonymousUser, User
 from django.core.validators import RegexValidator
 from django.db import models
 from django.template.loader import render_to_string
+from django.utils import timezone
 from django.utils.functional import SimpleLazyObject
 
 # our stuff
@@ -742,7 +746,9 @@ class DailyBillingRecord(TimestampedModel):
     total_tokens = models.IntegerField()
 
     class Meta:
-        unique_together = ("account", "user", "provider", "date")
+        # one record per charge type: aggregate_daily_billing_records() groups charges by it, and
+        # a provider's charges of different types on the same day each get their own record.
+        unique_together = ("account", "user", "provider", "date", "charge_type")
 
     def __str__(self):
         return (
@@ -893,3 +899,115 @@ class SubscriptionUser(TimestampedModel):
 
     def __str__(self):
         return f"{self.subscription.account.account_number} - {self.user.email}"
+
+
+class PlatformClient(TimestampedModel):
+    """
+    A Smarter platform that may ask the subscription status api about its users.
+
+    Each multitenant Smarter platform (one per environment, e.g. ``alpha.platform.example.com``)
+    holds one key, which it sends as ``Authorization: Platform <key>``. The api identifies the
+    platform by its key, never by a header the caller sets, and answers only the platforms
+    registered here. Only the key's digest is stored: the key itself is shown once, when it is
+    created (:meth:`create_with_key`, or the ``create_platform_api_key`` management command).
+
+    :param host_name: String. The platform's host, e.g. ``alpha.platform.example.com``.
+    :param description: String. What the key is for (optional).
+    :param key_prefix: String. The key's first characters, which find its row without the key.
+    :param key_digest: String. The SHA-512 hex digest of the key.
+    :param is_active: Boolean. An inactive platform's key is refused.
+    :param last_used_at: Datetime. When the key last authenticated a request.
+
+    **Example usage**::
+
+        client, key = PlatformClient.create_with_key("alpha.platform.example.com")
+        PlatformClient.authenticate(key)  # the client, or None
+
+    .. seealso::
+
+        :class:`am.apps.account.api.v1.authentication.PlatformClientAuthentication`
+    """
+
+    KEY_PREFIX_LENGTH = 8
+    """The number of the key's leading characters stored in clear, to find its row."""
+
+    class Meta:
+        verbose_name = "Platform Client"
+        verbose_name_plural = "Platform Clients"
+
+    host_name = models.CharField(
+        max_length=255, unique=True, help_text="The platform's host, e.g. alpha.platform.example.com."
+    )
+    description = models.CharField(max_length=255, blank=True, null=True)
+    key_prefix = models.CharField(max_length=KEY_PREFIX_LENGTH, db_index=True, editable=False)
+    key_digest = models.CharField(max_length=128, editable=False)
+    is_active = models.BooleanField(default=True, help_text="An inactive platform's key is refused.")
+    last_used_at = models.DateTimeField(blank=True, null=True, editable=False)
+
+    @staticmethod
+    def digest(key: str) -> str:
+        """
+        Return the digest of a key, as stored.
+
+        :param key: The key.
+        :returns: Its SHA-512 hex digest. The key is random and long, so it needs no salt or stretching.
+        """
+        return hashlib.sha512(key.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def create_with_key(cls, host_name: str, description: Optional[str] = None) -> tuple["PlatformClient", str]:
+        """
+        Register a platform, with a new key.
+
+        :param host_name: The platform's host.
+        :param description: What the key is for.
+        :returns: The new client and its key. The key is not stored, so this is the only time it is available.
+        """
+        key = secrets.token_urlsafe(48)
+        client = cls.objects.create(
+            host_name=host_name,
+            description=description,
+            key_prefix=key[: cls.KEY_PREFIX_LENGTH],
+            key_digest=cls.digest(key),
+        )
+        return client, key
+
+    def rotate_key(self) -> str:
+        """
+        Replace this platform's key with a new one.
+
+        The old key stops working at once.
+
+        :returns: The new key.
+        """
+        key = secrets.token_urlsafe(48)
+        self.key_prefix = key[: self.KEY_PREFIX_LENGTH]
+        self.key_digest = self.digest(key)
+        self.save()
+        return key
+
+    @classmethod
+    def authenticate(cls, key: str) -> Optional["PlatformClient"]:
+        """
+        Return the active platform that this key belongs to, and record its use.
+
+        :param key: The key from the request.
+        :returns: The client, or None for an unknown, wrong or inactive key.
+        """
+        if not key or len(key) < cls.KEY_PREFIX_LENGTH:
+            return None
+        digest = cls.digest(key)
+        for client in cls.objects.filter(key_prefix=key[: cls.KEY_PREFIX_LENGTH], is_active=True):
+            if hmac.compare_digest(client.key_digest, digest):
+                cls.objects.filter(pk=client.pk).update(last_used_at=timezone.now())
+                return client
+        return None
+
+    def save(self, *args, **kwargs):
+        """Store the host name in lower case, after checking that it is a valid host name."""
+        self.host_name = self.host_name.lower()
+        AMValidator.validate_hostname(self.host_name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.host_name} ({'active' if self.is_active else 'inactive'})"

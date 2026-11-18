@@ -10,15 +10,28 @@ Account user and payment management microservice for Smarter.
 
 ## Usage
 
-Check the real-time subscription status of a user on a hosted platform.
+A multitenant Smarter platform asks, when a user signs in, whether the user has an
+active subscription. The platform identifies itself with its platform key, and the
+user by username and email address:
 
 ```console
-curl -X 'GET' \
-  'https://api.am.smarter.sh/accounts/subscription-status/' \
-  -H 'accept: application/json' \
-  -H 'X-Client-Domain: platform.smarter.sh' \
-  -H 'X-Client-Username: admin'
+curl https://api.am.smarter.sh/accounts/subscription-status/ \
+  -H 'Authorization: Platform <the platform key>' \
+  -H 'X-Client-Username: <username>' \
+  -H 'X-Client-Email: <email>'
 ```
+
+It answers 200 (`{"active": true, "plan_type": "multitenant", "end_date": "..."}`)
+when the user belongs to an active MULTITENANT subscription, and 403 otherwise. An
+operator registers each platform, and gets its key (shown once), with:
+
+```console
+docker exec am-app python manage.py create_platform_api_key --host alpha.platform.smarter.sh
+```
+
+The platform stores the key in its `SMARTER_ACCOUNT_MANAGER_API_KEY` setting. Once
+every platform sends its key, turn on the `require_platform_key` waffle switch, and
+requests without a key are refused.
 
 ## Development
 

@@ -177,9 +177,11 @@ class TestAccountApiUrls(AccountApiTestMixin, TestAccountMixin):
         self.assertEqual(data["isDefault"], self.payment_method.is_default)
 
     def test_subscription_status_view(self):
-        """The subscription status view answers 404 for an unknown user."""
-        response = self.client_for(None).get(self.url("subscription_status_view"), {"username": "no-such-user"})
-        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        """The subscription status view answers 403 for an unknown user."""
+        response = self.client_for(None).get(
+            self.url("subscription_status_view"), HTTP_X_CLIENT_USERNAME="no-such-user"
+        )
+        self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
 
     def test_anonymous_request_is_refused(self):
         """An anonymous request to an admin route is redirected to the admin sign-in page."""

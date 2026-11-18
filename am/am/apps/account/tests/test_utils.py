@@ -1,17 +1,11 @@
 """Test am.apps.account.utils."""
 
-from datetime import timedelta
 from unittest import mock
 
 from django.contrib.auth.models import AnonymousUser
-from django.utils import timezone
 
-from am.apps.account.enum import AMHostingPlanTypeEnum
 from am.apps.account.models import (
     Account,
-    Subscription,
-    SubscriptionHosts,
-    SubscriptionUser,
     User,
     UserProfile,
 )
@@ -26,9 +20,7 @@ from am.apps.account.utils import (
     get_cached_admin_user_for_account,
     get_cached_default_account,
     get_cached_smarter_admin_user_profile,
-    get_cached_subscription,
     get_cached_user_for_user_id,
-    get_cached_user_for_username,
     get_cached_user_profile,
 )
 from am.common.conf import am_settings
@@ -49,62 +41,6 @@ class TestUtils(AccountTestCase):
         cls.account = Account.objects.create(company_name="Utils Test Co")
         cls.user = make_user("utils_user")
         cls.user_profile = UserProfile.objects.create(user=cls.user, account=cls.account, is_test=True)
-        today = timezone.now().date()
-        cls.subscription = Subscription.objects.create(
-            account=cls.account,
-            plan_type=AMHostingPlanTypeEnum.HOSTED_PLATFORM,
-            start_date=today - timedelta(days=1),
-            end_date=today + timedelta(days=30),
-        )
-        SubscriptionHosts.objects.create(subscription=cls.subscription, host_name="Platform.Example.com")
-        SubscriptionUser.objects.create(subscription=cls.subscription, user=cls.user)
-
-    # -------------------------------------------------------------------------
-    # get_cached_subscription()
-    # -------------------------------------------------------------------------
-    def test_subscription_by_user(self):
-        """An active subscription is found by its user, and None for a user without one."""
-        self.assertEqual(get_cached_subscription(user=self.user), self.subscription)
-        self.assertIsNone(get_cached_subscription(user=self.user, invalidate=True))
-        self.assertIsNone(get_cached_subscription(user=make_user("utils_nosub")))
-
-    def test_subscription_by_host(self):
-        """An active subscription is found by its (lower-cased) host name."""
-        self.assertEqual(get_cached_subscription(host="platform.example.com"), self.subscription)
-        self.assertIsNone(get_cached_subscription(host="platform.example.com", invalidate=True))
-        self.assertIsNone(get_cached_subscription(host="unknown.example.com"))
-
-    def test_subscription_by_account_and_plan(self):
-        """An active subscription is found by account and plan type, and not for another plan type."""
-        self.assertEqual(
-            get_cached_subscription(account=self.account, plan_type=AMHostingPlanTypeEnum.HOSTED_PLATFORM),
-            self.subscription,
-        )
-        self.assertIsNone(
-            get_cached_subscription(
-                account=self.account, plan_type=AMHostingPlanTypeEnum.HOSTED_PLATFORM, invalidate=True
-            )
-        )
-        self.assertIsNone(
-            get_cached_subscription(account=self.account, plan_type=AMHostingPlanTypeEnum.MANAGED_PLATFORM)
-        )
-
-    def test_subscription_insufficient_parameters(self):
-        """Without a user, host, or account and plan type, there is no subscription."""
-        self.assertIsNone(get_cached_subscription())
-        self.assertIsNone(get_cached_subscription(account=self.account))
-
-    def test_inactive_and_expired_subscriptions_are_ignored(self):
-        """An inactive or expired subscription is not returned."""
-        self.subscription.active = False
-        self.subscription.save()
-        self.assertIsNone(get_cached_subscription(user=self.user))
-
-        today = timezone.now().date()
-        Subscription.objects.filter(pk=self.subscription.pk).update(
-            active=True, start_date=today - timedelta(days=10), end_date=today
-        )
-        self.assertIsNone(get_cached_subscription(host="platform.example.com"))
 
     # -------------------------------------------------------------------------
     # get_cached_account(), get_cached_default_account()
@@ -176,19 +112,13 @@ class TestUtils(AccountTestCase):
             get_cached_user_profile(self.user, account=other_account)
 
     # -------------------------------------------------------------------------
-    # get_cached_user_for_user_id(), get_cached_user_for_username()
+    # get_cached_user_for_user_id()
     # -------------------------------------------------------------------------
     def test_get_cached_user_for_user_id(self):
         """A user is found by id; a missing one is None."""
         self.assertEqual(get_cached_user_for_user_id(self.user.pk), self.user)
         self.assertIsNone(get_cached_user_for_user_id(self.user.pk, invalidate=True))
         self.assertIsNone(get_cached_user_for_user_id(999999999))
-
-    def test_get_cached_user_for_username(self):
-        """A user is found by username; a missing one is None."""
-        self.assertEqual(get_cached_user_for_username(self.user.username), self.user)
-        self.assertIsNone(get_cached_user_for_username(self.user.username, invalidate=True))
-        self.assertIsNone(get_cached_user_for_username("utils_nobody"))
 
     # -------------------------------------------------------------------------
     # get_cached_admin_user_for_account()

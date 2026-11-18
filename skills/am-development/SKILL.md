@@ -8,9 +8,10 @@ description: Start here for any change to the Account Manager repository (the Dj
 Account Manager is the account, subscription and payment microservice of the
 Smarter platform (smarter-sh/smarter). It is a Django 5 project with Django REST
 Framework, django-oscar and dj-stripe, deployed with Helm to the same EKS
-cluster as Smarter. Smarter's deployments call its api, e.g.
-`GET /accounts/subscription-status/` on the api host, to ask whether a hosted
-platform's subscription is active.
+cluster as Smarter. A multitenant Smarter platform calls
+`GET /accounts/subscription-status/` on the api host, with its platform key
+(`Authorization: Platform <key>`, the `PlatformClient` model), to ask whether a
+user has an active subscription.
 
 It follows the conventions of smarter-sh/smarter, whose checkout usually sits
 next to this one in `../smarter`. When this repository and its skills have no

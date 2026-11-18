@@ -107,6 +107,14 @@ class AMWaffleSwitches:
     REACTAPP_DEBUG_MODE = "enable_reactapp_debug_mode"
     """Enables React app debug mode within the Account Manager React Chat component."""
 
+    REQUIRE_PLATFORM_KEY = "require_platform_key"
+    """
+    Requires a platform key (``Authorization: Platform <key>``) on the subscription status api.
+
+    Off, a request without a key is still answered, as before platform keys existed. Turn it on
+    once every Smarter platform that calls the api sends its key.
+    """
+
     REQUEST_MIXIN_LOGGING = "log_request_mixin"
     """Enables detailed diagnostic logging for the AMRequestMixin class."""
 
@@ -128,6 +136,7 @@ class AMWaffleSwitches:
             self.CACHE_LOGGING,
             self.MIDDLEWARE_LOGGING,
             self.REACTAPP_DEBUG_MODE,
+            self.REQUIRE_PLATFORM_KEY,
             self.REQUEST_MIXIN_LOGGING,
             self.RECEIVER_LOGGING,
             self.TASK_LOGGING,

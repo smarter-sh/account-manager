@@ -5,9 +5,11 @@ Guidance for Claude Code (and other coding agents) working in this repository.
 Account Manager is the account, subscription and payment microservice of the
 Smarter platform (smarter-sh/smarter). It is a Django 5 project with Django REST
 Framework, django-oscar and dj-stripe, deployed with Helm to the same EKS
-cluster as Smarter. Smarter's deployments ask it, for example, whether a user's
-subscription on a hosted platform is active
-(`GET /accounts/subscription-status/` on the api host).
+cluster as Smarter. When a user signs in to a multitenant Smarter platform, the
+platform asks it whether the user has an active subscription
+(`GET /accounts/subscription-status/` on the api host). The platform proves who
+it is with its platform key (`Authorization: Platform <key>`, the
+`PlatformClient` model); the user is named by username and email together.
 
 Detailed know-how lives in the Agent Skills under `skills/` (symlinked to
 `.claude/skills`). **Load `am-development` first for any change.** Its table
