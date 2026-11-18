@@ -1,12 +1,10 @@
 **/.DS_Store
 **/.coverage
-**/.coveragerc
 **/.cache
 **/htmlcov/
 
 .DS_Store
 .coverage
-.coveragerc
 htmlcov/
 
 node_modules/

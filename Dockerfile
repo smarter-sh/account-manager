@@ -11,44 +11,48 @@
 # Use the official Python image as a parent image
 # see https://hub.docker.com/_/python
 #
-# 3.12-slim-trixie is an official Docker image tag for Python 3.12 based on
-# Debian "Trixie" (the codename for Debian 13).
+# 3.14-slim-trixie is an official Docker image tag for Python 3.14 based on
+# Debian "Trixie" (the codename for Debian 13), as in smarter-sh/smarter.
+#
+# PYTHON_BASE_IMAGE lets a build pull the same image from somewhere else.
+# Anonymous ECR Public pulls have a monthly data quota per source IP, which
+# other users of GitHub's shared runner IPs exhaust ("toomanyrequests: Data
+# limit exceeded"), so the Tests workflow sets this to Docker Hub's python
+# image, where it is logged in.
 # The "slim" variant is a minimal image that excludes unnecessary files and packages,
 # making it smaller and faster to download and build.
 # It is commonly used for production deployments where a lightweight Python environment is preferred.
-FROM python:3.12-slim-trixie AS linux_base
+ARG PYTHON_BASE_IMAGE=public.ecr.aws/docker/library/python:3.14-slim-trixie
+FROM ${PYTHON_BASE_IMAGE} AS linux_base
 
 LABEL maintainer="Lawrence McDaniel <lpm0073@gmail.com>" \
   description="Docker image for Account Manager" \
   vcs-url="https://github.com/smarter-sh/account-manager" \
   org.opencontainers.image.title="Account Manager" \
-  org.opencontainers.image.version="0.1.0" \
+  org.opencontainers.image.version="1.1.1" \
   org.opencontainers.image.authors="Lawrence McDaniel <lpm0073@gmail.com>" \
   org.opencontainers.image.source="https://github.com/smarter-sh/account-manager"
 
 
 # Environment: local, alpha, beta, next, or production
-ARG TARGETPLATFORM
-ARG TARGETARCH="arm64"
 ARG ENVIRONMENT=local
 ENV ENVIRONMENT=$ENVIRONMENT
 RUN echo "ENVIRONMENT: $ENVIRONMENT"
 
 ############################## install system packages #################################
-# build-essential           needed to build some python packages, but not included in 3.12-slim-trixie
+# build-essential           needed to build some python packages, but not included in 3.14-slim-trixie
 # libssl-dev                ... ditto ...
 # libffi-dev                ... ditto ...
 # python3-dev               ... ditto ...
 # pkg-config                ... ditto ...
 # ------
-# ca-certificates           needed for SSL/TLS support in http requests but not included in 3.12-slim-trixie
+# ca-certificates           needed for SSL/TLS support in http requests but not included in 3.14-slim-trixie
 # python-dev-is-python3     helper package to ensure that the 'python' command points to python3
 # default-mysql-client      needed for Django mysql backend support
 # libmariadb-dev            needed for default-mysql-client python package
 # git                       used in manage.py commands
 # ------
-# curl                      used below in this Dockerfile to download files
-# unzip                     used below in this Dockerfile to install aws cli
+# curl                      for debugging http from inside the container
 # procps                    provides the 'ps' command, used for liveness/readiness probes of the beat pod in kubernetes
 FROM linux_base AS system_packages
 
@@ -56,7 +60,9 @@ FROM linux_base AS system_packages
 # The Python slim trixie image is based on Debian and is a limited installation. Most of these packages
 # would ordinarily be included in a full Debian installation, but are missing from the slim image and
 # we therefore need to "add these back in" as part of our Dockerfile.
-RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+  DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   build-essential \
   libssl-dev \
   libffi-dev \
@@ -68,27 +74,10 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
   libmariadb-dev \
   git \
   curl \
-  unzip \
   procps \
   redis-tools && \
+  update-ca-certificates && \
   rm -rf /var/lib/apt/lists/*
-
-# Install kubectl, required for am/common/helpers/k8s_helpers.py used for ChatBot/Agent
-# deployments in which dedicated Kubernetes ingress and TLS certificates are created. There
-# are Kubernetes builds for both amd64 and arm64 architectures (we build both for DockerHub
-# multi-arch support).
-RUN curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" && \
-    chmod +x ./kubectl && \
-    mv ./kubectl /usr/local/bin/kubectl
-
-# install aws cli, required for am/common/helpers/aws/
-# We rely extensively on AWS support, for Route53, S3, Simple Email Service,
-# Elastic Kubernetes Service, etc. There are AWS CLI builds for both
-# amd64 and arm64 architectures (we build both for DockerHub multi-arch support).
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"; \
-    unzip awscliv2.zip && \
-    ./aws/install && \
-    rm -rf awscliv2.zip aws
 
 ############################## create app user #################################
 FROM system_packages AS user_setup
@@ -98,14 +87,9 @@ RUN adduser --disabled-password --gecos '' am_user
 
 # create a data directory for the am_user that
 # the application can use to store data.
-# - add a .kube directory and an empty config file
 # - add a celery directory for celerybeat to use to store its schedule.
-RUN mkdir -p /home/am_user/data/.kube && touch /home/am_user/data/.kube/config && \
-  mkdir -p /home/am_user/data/celery && \
+RUN mkdir -p /home/am_user/data/celery && \
   mkdir -p /home/am_user/data/media        # fallback Django storage when not using S3 or other external storage.
-
-# Set the KUBECONFIG environment variable
-ENV KUBECONFIG=/home/am_user/data/.kube/config
 
 # ensure that the am_user owns everything in the /am directory.
 RUN chown -R am_user:am_user /home/am_user/
@@ -154,16 +138,20 @@ FROM application AS permissions
 # am/**/migrations:         rwx------ so that am_user can write django migration files.
 # data:                     rwx------ so that am_user can manage the data directory.
 # .cache:                   rwx------ bc some python packages want to write to .cache, like tldextract
+#
+# The local image stays writable by am_user, as in smarter: the unit tests run
+# in it under coverage.py, which writes its data file into /home/am_user/am.
 
 USER root
 RUN chown -R am_user:am_user /home/am_user/ && \
+  if [ "$ENVIRONMENT" != "local" ] ; then \
   find /home/am_user/ -type f -exec chmod 400 {} + && \
   find /home/am_user/ -type d -exec chmod 500 {} + && \
   find /home/am_user/venv/bin/ -type f -exec chmod 500 {} + && \
   find /home/am_user/am/am/ -type d -name migrations -exec chmod 700 {} + && \
   chmod -R 700 /home/am_user/data && \
   chmod -R 700 /home/am_user/.cache && \
-  chmod 755 /home/am_user/am/manage.py
+  chmod 755 /home/am_user/am/manage.py ; fi
 
 ################################# data #################################
 FROM permissions AS data
