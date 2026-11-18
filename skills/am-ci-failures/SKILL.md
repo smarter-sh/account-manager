@@ -44,8 +44,8 @@ step's `##[error]` lines.
 The Tests workflow is new, and may not be on every branch yet. Its `python`
 job builds the `am` image with `ENVIRONMENT=local`, writes a `.env` from
 `.env.example` with placeholder credentials (so an unmocked outside call fails
-there, rather than reaching a real service), starts `am-mariadb` and `am-redis`,
-then runs `migrate` and `coverage run manage.py test am` in `am-app`. A log
+there, rather than reaching a real service), runs `make docker-init` (the
+whole docker-compose stack, the database and migrations), then runs `migrate` and `coverage run manage.py test am` in `am-app`. A log
 with no `Ran N tests` line failed before the tests ran: read the build, the
 MySQL wait and the migration. The Codecov upload has `fail_ci_if_error: false`,
 so a Codecov problem shows as a missing report or badge, not a failed check.
