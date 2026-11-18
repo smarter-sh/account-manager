@@ -7,7 +7,7 @@
 # coverage report for the badge), and by hand.
 #
 # The tests run in the am image (Dockerfile, ENVIRONMENT=local, which installs
-# the development requirements), against the am-mysql and am-redis services of
+# the development requirements), against the am-mariadb and am-redis services of
 # docker-compose.yml, as `make coverage` does locally. Coverage options are in
 # am/.coveragerc. The tests mock every external service (AWS, SMTP, Stripe), so
 # the .env this workflow writes holds placeholders only, plus a throwaway
@@ -54,7 +54,7 @@ jobs:
           } >> .env
 
       # Logged-in Docker Hub pulls: the python base image (see PYTHON_BASE_IMAGE
-      # in the Dockerfile), mysql and redis.
+      # in the Dockerfile), mariadb and redis.
       - name: Log in to Docker Hub
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
@@ -79,13 +79,13 @@ jobs:
       - name: Start MySQL and Redis
         shell: bash
         run: |
-          docker compose up -d am-mysql am-redis
+          docker compose up -d am-mariadb am-redis
           for i in $(seq 1 60); do
-            docker exec am-mysql mysql -u root -pam -e 'select 1' > /dev/null 2>&1 && break
+            docker exec am-mariadb mariadb -u root -pam -e 'select 1' > /dev/null 2>&1 && break
             sleep 3
           done
           # Django creates (and drops) the test database, test_am.
-          docker exec am-mysql mysql -u root -pam -e "GRANT ALL PRIVILEGES ON *.* TO 'am'@'%'; FLUSH PRIVILEGES;"
+          docker exec am-mariadb mariadb -u root -pam -e "GRANT ALL PRIVILEGES ON *.* TO 'am'@'%'; FLUSH PRIVILEGES;"
 
       - name: Run unit tests with coverage
         shell: bash
@@ -121,4 +121,4 @@ jobs:
       - name: Container logs
         if: failure()
         shell: bash
-        run: docker compose logs --no-color --tail=200 am-mysql am-redis
+        run: docker compose logs --no-color --tail=200 am-mariadb am-redis

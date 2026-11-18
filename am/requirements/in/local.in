@@ -5,11 +5,12 @@
 # usage: developer support packages for code syntax and type checking, testing,
 #        formatting, security, quality, vanity, debugging, build & packaging
 #
-#       pip-compile am/requirements/in/local.in -o am/requirements/local.txt
+#       Compiled into am/requirements/local.txt by make python-requirements.
 # -----------------------------------------------------------------------------
 
 -r constraints.in
--r base.in
+# everything the deployed image has (base.in and gunicorn), so local.txt is a complete superset of docker.txt
+-r docker.in
 
 pip-tools
 
@@ -52,12 +53,3 @@ pylint                                  # code linter
 pylint-django                           # Django support for pylint
 tox                                 # testing tool
 watchdog                                # file system monitoring
-
-# Documentation
-sphinx                                  # for Readthedocs
-sphinx-rtd-theme                        # Sphinx theme for Readthedocs
-autodoc_pydantic                        # Sphinx extension for Pydantic models
-sphinxcontrib-django                    # Sphinx for django settings
-sphinx-copybutton                       # Sphinx code copy button extension
-sphinx-autodoc-typehints                # Sphonx type hint annotation improvements
-sphinx-design                           # Adds drop downs and other fancy styling

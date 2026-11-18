@@ -42,9 +42,11 @@ def load_tfvars(path: str) -> dict:
     :returns: The variables in the file, or an empty dict if the file does not exist.
     :rtype: dict
     """
+    # python-hcl2 8 keeps the quotes of a string value unless asked not to: "example.com", not example.com.
+    options = hcl2.SerializationOptions(strip_string_quotes=True, with_comments=False)
     try:
         with open(path, encoding="utf-8") as f:
-            return hcl2.load(f)
+            return hcl2.load(f, serialization_options=options)
     except FileNotFoundError:
         logger.info("No terraform.tfvars file found. Using default values.")
         return {}

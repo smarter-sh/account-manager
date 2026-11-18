@@ -9,7 +9,7 @@
 #   AM_TEST_DATABASE_NAME=test_am_2 scripts/docker-test.sh am.lib   # a test database of its own
 #
 # The host's am/ folder is mounted over /home/am_user/am, so edits are tested at
-# once. It needs the am image (make build), and am-mysql and am-redis running
+# once. It needs the am image (make build), and am-mariadb and am-redis running
 # (docker compose up -d). Concurrent runs need different AM_TEST_DATABASE_NAMEs,
 # because each one creates and drops its test database. Coverage data is written
 # to am/.coverage.<test database name>.

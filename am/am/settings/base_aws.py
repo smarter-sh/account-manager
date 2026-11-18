@@ -30,19 +30,7 @@ CELERY_BROKER_URL = os.getenv(
 CELERY_REDBEAT_REDIS_URL = CELERY_BROKER_URL
 CELERY_BEAT_SCHEDULER = "redbeat.RedBeatScheduler"
 
-# Database
-# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": os.getenv("MYSQL_DATABASE"),
-        "USER": os.getenv("MYSQL_USER"),
-        "PASSWORD": os.getenv("MYSQL_PASSWORD"),
-        "HOST": os.getenv("MYSQL_HOST"),
-        "PORT": os.getenv("MYSQL_PORT", "3306"),  # default MySQL port
-    }
-}
+# Database: DATABASES is base.py's, from am_settings.mysql_* (AM_MYSQL_* environment variables).
 
 
 STRIPE_LIVE_SECRET_KEY = am_settings.stripe_live_secret_key

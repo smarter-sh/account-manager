@@ -48,7 +48,46 @@ from .exceptions import AMConfigurationError, AMValueError
 logger = logging.getLogger(__name__)
 LOCALHOST = "localhost:8000"
 DEFAULT_MISSING_VALUE = "SET-ME-PLEASE"
-DEFAULT_AWS_REGIONS = ["us-east-1"]
+DEFAULT_AWS_REGIONS = [
+    "af-south-1",
+    "ap-east-1",
+    "ap-northeast-1",
+    "ap-northeast-2",
+    "ap-northeast-3",
+    "ap-south-1",
+    "ap-south-2",
+    "ap-southeast-1",
+    "ap-southeast-2",
+    "ap-southeast-3",
+    "ap-southeast-4",
+    "ap-southeast-5",
+    "ap-southeast-7",
+    "ca-central-1",
+    "ca-west-1",
+    "eu-central-1",
+    "eu-central-2",
+    "eu-north-1",
+    "eu-south-1",
+    "eu-south-2",
+    "eu-west-1",
+    "eu-west-2",
+    "eu-west-3",
+    "il-central-1",
+    "me-central-1",
+    "me-south-1",
+    "mx-central-1",
+    "sa-east-1",
+    "us-east-1",
+    "us-east-2",
+    "us-west-1",
+    "us-west-2",
+]
+"""
+AWS's public commercial regions, which ``aws_region`` is checked against when AWS can't be asked.
+
+for its regions (no credentials, an unknown AWS_PROFILE, or a refused request): a real region
+still passes, and a typo is still refused.
+"""
 TRUE_STRINGS = ["true", "1", "t", "y", "yes"]
 load_dotenv()
 
@@ -90,7 +129,7 @@ class SettingsDefaults:
       3. defaults.
     """
 
-    ROOT_DOMAIN = os.environ.get("ROOT_DOMAIN", TFVARS.get("root_domain", "example.com"))
+    ROOT_DOMAIN = os.environ.get("ROOT_DOMAIN", TFVARS.get("root_domain", "example.com")) or "example.com"
 
     # aws auth
     AWS_PROFILE = os.environ.get("AWS_PROFILE", TFVARS.get("aws_profile", None))
@@ -122,6 +161,26 @@ class SettingsDefaults:
     LOCAL_HOSTS.append("testserver")
 
     LOG_LEVEL: int = logging.DEBUG if DEBUG_MODE else logging.INFO
+
+    # The database, as in smarter-sh/smarter: in Kubernetes, Account Manager's own database and user on
+    # the shared MariaDB server that smarter's Helm chart runs. The defaults are docker-compose.yml's
+    # am-mariadb service. The password is a default only locally: elsewhere it must be set.
+    # The administrator's credentials are for the Helm chart's init job, which creates the database
+    # and its user.
+    MYSQL_ROOT_USERNAME: str = os.environ.get("AM_MYSQL_ROOT_USERNAME", "root")
+    MYSQL_ROOT_PASSWORD: Optional[SecretStr] = (
+        SecretStr(os.environ["AM_MYSQL_ROOT_PASSWORD"]) if os.environ.get("AM_MYSQL_ROOT_PASSWORD") else None
+    )
+    MYSQL_HOST: str = os.environ.get("AM_MYSQL_HOST", "am-mariadb")
+    MYSQL_PORT: int = int(os.environ.get("AM_MYSQL_PORT", "3306"))
+    MYSQL_DATABASE: str = os.environ.get("AM_MYSQL_DATABASE", "am")
+    MYSQL_USER: str = os.environ.get("AM_MYSQL_USER", "am")
+    MYSQL_PASSWORD: Optional[SecretStr] = (
+        SecretStr(os.environ["AM_MYSQL_PASSWORD"])
+        if os.environ.get("AM_MYSQL_PASSWORD")
+        else (SecretStr("am") if os.environ.get("ENVIRONMENT", "local") == "local" else None)
+    )
+    DATABASE_READ_TIMEOUT: int = int(os.environ.get("AM_DATABASE_READ_TIMEOUT", "0"))  # 0: no timeout
 
     SECRET_KEY = os.getenv("SECRET_KEY", DEFAULT_MISSING_VALUE)
 
@@ -202,6 +261,10 @@ class Settings(BaseSettings):
     class Config:
         """Pydantic configuration."""
 
+        # The database fields are read only from their AM_MYSQL_* environment variables (their
+        # validation_alias), never from an unprefixed MYSQL_HOST and the like, so they are set by
+        # those names in the constructor too: Settings(AM_MYSQL_HOST=...), not mysql_host=. No
+        # populate_by_name: pydantic-settings would then read MYSQL_HOST again.
         frozen = True
 
     def __init__(self, **data: Any):
@@ -311,6 +374,46 @@ class Settings(BaseSettings):
         SettingsDefaults.SMTP_HOST,
         description="The SMTP host address for sending emails.",
         examples=["smtp.example.com"],
+    )
+    mysql_root_username: str = Field(
+        SettingsDefaults.MYSQL_ROOT_USERNAME,
+        validation_alias="AM_MYSQL_ROOT_USERNAME",
+        description="The database server's administrator, whom the Helm chart's init job creates the database as.",
+    )
+    mysql_root_password: Optional[SecretStr] = Field(
+        SettingsDefaults.MYSQL_ROOT_PASSWORD,
+        validation_alias="AM_MYSQL_ROOT_PASSWORD",
+        description="The password of mysql_root_username. Masked by pydantic SecretStr.",
+    )
+    mysql_host: str = Field(
+        SettingsDefaults.MYSQL_HOST,
+        validation_alias="AM_MYSQL_HOST",
+        description="The database server: in Kubernetes, the shared MariaDB server of smarter's Helm chart.",
+        examples=["am-mariadb", "smarter-mariadb.smarter-ubc-alpha.svc.cluster.local"],
+    )
+    mysql_port: int = Field(
+        SettingsDefaults.MYSQL_PORT,
+        validation_alias="AM_MYSQL_PORT",
+        description="The database server's port.",
+        ge=1,
+        le=65535,
+    )
+    mysql_database: str = Field(
+        SettingsDefaults.MYSQL_DATABASE, validation_alias="AM_MYSQL_DATABASE", description="Account Manager's database."
+    )
+    mysql_user: str = Field(
+        SettingsDefaults.MYSQL_USER, validation_alias="AM_MYSQL_USER", description="Account Manager's database user."
+    )
+    mysql_password: Optional[SecretStr] = Field(
+        SettingsDefaults.MYSQL_PASSWORD,
+        validation_alias="AM_MYSQL_PASSWORD",
+        description="The password of mysql_user. Masked by pydantic SecretStr.",
+    )
+    database_read_timeout: int = Field(
+        SettingsDefaults.DATABASE_READ_TIMEOUT,
+        validation_alias="AM_DATABASE_READ_TIMEOUT",
+        description="Seconds a query may read or write before it times out. 0: no timeout.",
+        ge=0,
     )
     smtp_password: Optional[str] = Field(
         SettingsDefaults.SMTP_PASSWORD,

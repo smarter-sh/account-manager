@@ -104,6 +104,33 @@ class TestConfiguration(AMTestBase):
         mock_session.return_value.client.return_value.describe_regions.side_effect = errors[2]
         self.assertEqual(get_aws_regions(), DEFAULT_AWS_REGIONS)
 
+    def test_default_regions_accept_any_real_region(self):
+        """
+        Without AWS, e.g. with an unknown AWS_PROFILE, aws_region may still be any real region.
+
+        The fallback was once ["us-east-1"] alone, so a CI run whose .env had
+        AWS_REGION=us-east-2 and AWS_PROFILE=SET-ME-PLEASE failed at startup.
+        """
+        for region in ("us-east-1", "us-east-2", "us-west-2", "eu-west-1", "ap-southeast-2"):
+            with self.subTest(region=region):
+                settings = make_settings(aws_regions=DEFAULT_AWS_REGIONS, aws_region=region)
+                self.assertEqual(settings.aws_region, region)
+        with self.assertRaises(AMValueError):
+            make_settings(aws_regions=DEFAULT_AWS_REGIONS, aws_region="us-east-9")
+
+    def test_database_settings_come_from_am_mysql_variables(self):
+        """
+        The database is set by AM_MYSQL_* alone; an unprefixed MYSQL_HOST, e.g. left in an old .env, is ignored.
+
+        pydantic-settings would otherwise read the field mysql_host from MYSQL_HOST.
+        """
+        env = {"AM_MYSQL_HOST": "smarter-mariadb.example.svc.cluster.local", "MYSQL_HOST": "old.example.com"}
+        settings = make_settings_from_env(env)
+        self.assertEqual(settings.mysql_host, "smarter-mariadb.example.svc.cluster.local")
+        self.assertEqual(make_settings_from_env({"MYSQL_HOST": "old.example.com"}).mysql_host, "am-mariadb")
+        settings = make_settings(AM_MYSQL_HOST="db.example.com", AM_MYSQL_PORT=3307)
+        self.assertEqual((settings.mysql_host, settings.mysql_port), ("db.example.com", 3307))
+
     def test_get_settings_wraps_validation_errors(self):
         """Get_settings() raises AMConfigurationError when the settings don't validate."""
         try:

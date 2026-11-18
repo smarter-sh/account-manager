@@ -41,7 +41,7 @@ init: ## Initialize local and Docker environments
 	make docker-check		# verify Docker is installed and running
 	make python-init		# create/replace Python virtual environment and install dependencies
 	make docker-build		# build the Account Manager containers
-	make docker-init		# initialize MySQL and create the am database
+	make docker-init		# initialize MariaDB and create the am database
 	make pre-commit-init	# install and configure pre-commit
 	@echo ""
 	@echo "==============================================================================="
@@ -116,11 +116,11 @@ docker-shell: ## Open a shell in the am-app Docker container
 	make docker-check && \
 	docker exec -it am-app /bin/bash
 
-docker-init: ## Initialize MySQL and create the am database
+docker-init: ## Initialize MariaDB and create the am database
 	make docker-check && \
 	docker compose up -d && \
-	docker exec am-mysql bash -c "sleep 20; until echo '\q' | mysql -u am -pam; do echo 'Waiting for MySQL to be ready...'; sleep 10; done" && \
-	docker exec am-mysql mysql -u root -pam -e "DROP DATABASE IF EXISTS am; CREATE DATABASE am; GRANT ALL PRIVILEGES ON *.* TO 'am'@'%'; FLUSH PRIVILEGES;" && \
+	docker exec am-mariadb bash -c "sleep 20; until echo '\q' | mariadb -u am -pam; do echo 'Waiting for MariaDB to be ready...'; sleep 10; done" && \
+	docker exec am-mariadb mariadb -u root -pam -e "DROP DATABASE IF EXISTS am; CREATE DATABASE am CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON *.* TO 'am'@'%'; FLUSH PRIVILEGES;" && \
 	docker exec am-app bash -c "\
 		python manage.py migrate && \
 		python manage.py initialize_waffle && \
@@ -153,7 +153,7 @@ docker-prune: ## Remove unused Docker objects and clean up Docker artifacts
 	docker compose down && \
 	docker builder prune -a -f && \
 	docker image prune -a -f
-	rm -rf ./mysql-data && \
+	rm -rf ./mariadb-data && \
 	find ./ -name celerybeat-schedule -type f -exec rm -f {} + && \
 	docker system prune -a --volumes && \
 	docker volume prune -f && \
@@ -186,12 +186,16 @@ python-clean: ## Destroy the Python virtual environment and remove __pycache__ d
 	rm -rf venv
 	find ./am/ -name __pycache__ -type d -exec rm -rf {} +
 
-# The .in files name the packages; the compiled .txt files pin them. Add --upgrade to move the pins.
-python-requirements: ## Compile and update Python dependency files
-	# pip 25.3 removed InstallRequirement.use_pep517, which pip-tools 7.x still reads.
-	pip install --upgrade setuptools wheel "pip<25.3" "pip-tools>=7.6.1"
-	pip-compile am/requirements/in/local.in -o am/requirements/local.txt
-	pip-compile am/requirements/in/docker.in -o am/requirements/docker.txt
+# The .in files name the packages; the compiled .txt files pin them. Compiled in a throwaway container
+# of the am image, on the Linux and Python that install them: the mariadb package builds there against
+# MariaDB Connector/C, which a host may not have. make python-requirements UPGRADE=--upgrade moves every pin to its latest.
+python-requirements: ## Compile the pinned requirements (UPGRADE=--upgrade for the latest versions)
+	make docker-check
+	docker run --rm -v "$(CURDIR)/am:/home/am_user/am" -w /home/am_user/am am bash -c "\
+		pip install --quiet --upgrade pip pip-tools && \
+		pip-compile --quiet --strip-extras $(UPGRADE) requirements/in/local.in -o requirements/local.txt && \
+		pip-compile --quiet --strip-extras $(UPGRADE) requirements/in/docker.in -o requirements/docker.txt && \
+		pip-compile --quiet --strip-extras $(UPGRADE) requirements/in/docs.in -o requirements/docs.txt"
 
 # -------------------------------------------------------------------------
 # Helm

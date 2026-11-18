@@ -130,6 +130,7 @@ CORS_ALLOWED_ORIGINS.extend(
     ]
 )
 
+# pylint: disable=W0105
 """
 A list of origins that are allowed to make cross-site HTTP requests.
 
@@ -798,34 +799,48 @@ WSGI_APPLICATION = "am.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+DATABASE_CONNECT_TIMEOUT = 5
+"""Seconds to wait to connect to the database before the request fails."""
+
+DATABASE_OPTIONS: dict[str, str | int] = {
+    "charset": "utf8mb4",
+    "connect_timeout": DATABASE_CONNECT_TIMEOUT,
+}
+"""
+The OPTIONS of the database in every environment, as in smarter-sh/smarter.
+
+A query times out only when ``am_settings.database_read_timeout`` is set (AM_DATABASE_READ_TIMEOUT).
+Migrations and other management commands can legitimately run longer.
+"""
+if am_settings.database_read_timeout:
+    DATABASE_OPTIONS["read_timeout"] = am_settings.database_read_timeout
+    DATABASE_OPTIONS["write_timeout"] = am_settings.database_read_timeout
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": "am",
-        "USER": "am",
-        "PASSWORD": "am",
-        "HOST": "am-mysql",  # Or an IP Address that your DB is hosted on
-        "PORT": "3306",
+        "NAME": am_settings.mysql_database,
+        "USER": am_settings.mysql_user,
+        "PASSWORD": am_settings.mysql_password.get_secret_value() if am_settings.mysql_password else "",
+        "HOST": am_settings.mysql_host,
+        "PORT": str(am_settings.mysql_port),
+        "OPTIONS": DATABASE_OPTIONS,
         # The unit tests' database. Defaults to test_am. Concurrent test runs against the
-        # same MySQL server each need their own, e.g. AM_TEST_DATABASE_NAME=test_am_2.
+        # same server each need their own, e.g. AM_TEST_DATABASE_NAME=test_am_2.
         "TEST": {"NAME": os.environ.get("AM_TEST_DATABASE_NAME") or None},
     }
 }
 """
-The Django database configuration for Account Manager, using MySQL as the database backend.
+The Django database configuration for Account Manager: MariaDB, as in smarter-sh/smarter, through.
 
-Account Manager **should** be able to support other common Sql databases supported by Django
-with minimal or no changes, but MySQL is the recommended and tested database backend.
+PyMySQL, which stands in for MySQLdb (see am/am/__init__.py).
 
-This setting is environment specific and will typically be overridden in
-account/account/settings/base_aws.py or other environment-specific settings files.
+In Kubernetes, the database is Account Manager's own database and user on the shared MariaDB server
+that smarter's Helm chart runs. Locally, it is docker-compose.yml's am-mariadb service.
 
-These credentials are created for you by the Account Manager Terraform scripts when deploying
-the Account Manager.
+The chain of custody for database credentials is:
 
-For cloud deployments the chain of custody for database credentials should be:
-
-Kubernetes Secret -> environment variable -> am_settings -> Django DATABASES.
+Kubernetes Secret -> environment variable (AM_MYSQL_*) -> am_settings -> Django DATABASES.
 
 See:
 

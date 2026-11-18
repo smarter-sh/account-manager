@@ -4,7 +4,7 @@
 #
 # usage:      The common platform requirements.
 #
-#             pip-compile am/requirements/in/base.in -o am/requirements/base.txt
+#             Included by docker.in and local.in; make python-requirements compiles those.
 # -----------------------------------------------------------------------------
 
 -r constraints.in
@@ -15,7 +15,7 @@ boto3                                   # AWS CLI SDK
 botocore                                # AWS CLI SDK core
 celery                                  # asynchronous task queue. works with redis.
 celery-redbeat                          # scheduled asynchronous tasks
-mysqlclient                             # MySQL client
+pymysql                                 # MariaDB driver for Django (installed as MySQLdb in am/am/__init__.py)
 python-hcl2                             # Terraform hcl parser for reading Terraform tfvars files
 python-dotenv                           # for reading environment variables from .env files
 tldextract                              # Extracts the top-level domain from a URL
