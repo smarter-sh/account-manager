@@ -98,7 +98,7 @@ package-lock.json
 *.tfstate.backup
 .terraform.lock.hcl
 .terragrunt-cache/
-.terraform.tfvars
+*.tfvars
 
 # coverage.py reports
 coverage.xml
