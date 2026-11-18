@@ -19,6 +19,9 @@ name: Deploy
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   AWS_REGION: us-east-2
   ROOT_DOMAIN: "smarter.sh"
@@ -26,10 +29,11 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         id: checkout_code
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Set environment variable
         id: setenv

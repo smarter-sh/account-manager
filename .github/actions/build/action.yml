@@ -33,7 +33,7 @@ runs:
   steps:
     - name: Checkout code
       id: checkout
-      uses: actions/checkout@v5
+      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         fetch-depth: 0
 
@@ -59,12 +59,12 @@ runs:
         echo "LATEST_TAG=$FINAL_TAG" >> $GITHUB_ENV
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
     # authenticate AWS CLI
     - name: Configure AWS credentials
       id: aws-credentials
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
       with:
         aws-access-key-id: ${{ inputs.aws-access-key-id }}
         aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
@@ -117,7 +117,7 @@ runs:
     # Kubernetes deployment manifest.
     - name: Login to Amazon ECR
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+      uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
     # set the Docker image to the environment variable AM_DOCKER_IMAGE
     # example:  012345678903.dkr.ecr.us-east-2.amazonaws.com/smarter-platform-alpha:latest
@@ -144,11 +144,11 @@ runs:
 
     - name: Build and push to AWS ECR
       id: docker-build-ecr
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
       with:
         context: .
         push: true
-        platforms: linux/amd64,linux/arm64
+        platforms: linux/amd64
         tags: |
           ${{ github.ref_name == 'main' && format('{0}/{1}:latest', steps.login-ecr.outputs.registry, env.AWS_ECR_REPO) || '' }}
           ${{ steps.login-ecr.outputs.registry }}/${{ env.AWS_ECR_REPO }}:${{ github.run_id }}

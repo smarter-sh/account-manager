@@ -7,6 +7,22 @@
 # usage:  AWS EKS secrets Kubernetes resources
 #------------------------------------------------------------------------------
 
+resource "kubernetes_secret" "mysql_root" {
+  metadata {
+    name      = "mysql-root"
+    namespace = local.environment_namespace
+  }
+
+  data = {
+    MYSQL_ROOT_USERNAME   = var.mysql_root_username
+    MYSQL_ROOT_PASSWORD   = var.mysql_root_password
+    MYSQL_HOST            = var.mysql_host
+    MYSQL_PORT            = var.mysql_port
+  }
+
+  depends_on = [kubernetes_namespace.am]
+}
+
 resource "random_password" "mysql_am" {
   length           = 16
   special          = true
@@ -23,9 +39,9 @@ resource "kubernetes_secret" "mysql_am" {
   }
 
   data = {
-    SMARTER_MYSQL_DATABASE = local.mysql_database
-    SMARTER_MYSQL_USERNAME = local.mysql_username
-    SMARTER_MYSQL_PASSWORD = random_password.mysql_am.result
+    AM_MYSQL_DATABASE      = local.mysql_database
+    AM_MYSQL_USERNAME      = local.mysql_username
+    AM_MYSQL_PASSWORD      = random_password.mysql_am.result
     MYSQL_HOST             = var.mysql_host
     MYSQL_PORT             = var.mysql_port
   }
@@ -49,10 +65,10 @@ resource "kubernetes_secret" "am_admin_password" {
   }
 
   data = {
-    SMARTER_ADMIN_USERNAME = "admin"
-    SMARTER_ADMIN_EMAIL    = "admin@${var.root_domain}"
-    am_admin_password = random_password.am_admin_password.result
-    SMARTER_LOGIN_URL      = "https://${local.environment_platform_domain}/login/"
+    AM_ADMIN_USERNAME = "admin"
+    AM_ADMIN_EMAIL    = "admin@${var.root_domain}"
+    AM_ADMIN_PASSWORD = random_password.am_admin_password.result
+    AM_LOGIN_URL      = "https://${local.environment_platform_domain}/login/"
   }
 
   depends_on = [kubernetes_namespace.am]

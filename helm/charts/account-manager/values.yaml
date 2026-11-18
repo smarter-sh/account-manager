@@ -26,7 +26,7 @@
 # ----------------------------------------------------------------------------
 global:
   image:
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
     repository: 090511222473.dkr.ecr.us-east-2.amazonaws.com/smarter-am-prod
     tag: v0.13.38
   affinity:

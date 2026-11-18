@@ -7,8 +7,9 @@ from am.common.conf import am_settings
 
 from .base import *
 
-
 logger.info("Loading am.settings.base_aws")
+
+ALLOWED_HOSTS = ["*"]
 
 CACHES = {
     "default": {

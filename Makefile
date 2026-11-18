@@ -17,6 +17,11 @@ ifeq ("$(wildcard .env)","")
 endif
 include .env
 
+# scaffold Terraform's variables from the example, for the terraform/ commands.
+ifeq ("$(wildcard terraform/aws/terraform/terraform.tfvars)","")
+    $(shell cp terraform/aws/terraform/terraform.tfvars.example terraform/aws/terraform/terraform.tfvars)
+endif
+
 .PHONY: all init activate build run test clean tear-down lint analyze coverage pre-commit-init pre-commit-run release change-log \
 	docker-check docker-init docker-shell docker-build docker-run docker-test docker-prune \
 	python-init python-lint python-clean python-requirements check-python \

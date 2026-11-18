@@ -11,7 +11,6 @@ import os
 import subprocess
 import sys
 
-
 HERE = os.path.abspath(os.path.dirname(__file__))
 AM_ROOT = os.path.abspath(os.path.join(HERE, "../../am/"))
 sys.path.insert(0, AM_ROOT)
@@ -19,14 +18,12 @@ sys.path.insert(0, AM_ROOT)
 from am.__version__ import __version__  # noqa: F401
 from am.common.conf import am_settings
 
-
 if not am_settings.environment:
     raise RuntimeError("The 'am_settings.environment' variable is not set.")
 
 os.environ["DJANGO_SETTINGS_MODULE"] = "am.settings." + am_settings.environment
 
 import django
-
 
 django.setup()
 
@@ -44,7 +41,6 @@ except Exception:
     commit = None
 
 from datetime import datetime
-
 
 last_updated = datetime.now().strftime("%Y-%m-%d")
 
@@ -79,7 +75,7 @@ extensions = [
 
 templates_path = ["_templates"]
 exclude_patterns = []
-django_settings = "smarter.settings.prod"
+django_settings = "am.settings.prod"
 todo_include_todos = True
 
 intersphinx_mapping = {

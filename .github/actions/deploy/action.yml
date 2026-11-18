@@ -48,12 +48,12 @@ runs:
     # Checkout all code referenced by this action
     - name: Checkout code
       id: checkout_code
-      uses: actions/checkout@v5
+      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
     # authenticate AWS CLI
     - name: Configure AWS credentials
       id: aws-credentials
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
       with:
         aws-access-key-id: ${{ inputs.aws-access-key-id }}
         aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
@@ -104,7 +104,7 @@ runs:
     # Kubernetes deployment manifest.
     - name: Login to Amazon ECR
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+      uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
     # set the Docker image to the environment variable AM_DOCKER_IMAGE
     # example:  012345678903.dkr.ecr.us-east-2.amazonaws.com/smarter-am-alpha:latest
@@ -158,23 +158,6 @@ runs:
       with:
         eks-namespace: ${{ env.NAMESPACE }}
         eks-secret-name: am-admin
-
-    # extract the Django SMTP email from the Kubernetes secret.
-    # these will be set as environment variables for the Helm deployment
-    #
-    # example:
-    # SMTP_HOST: email-smtp.us-east-2.amazonaws.com
-    # SMTP_PORT: "587"
-    # SMTP_USE_SSL: "false"
-    # SMTP_USE_TLS: "true"
-    # SMTP_USERNAME: an IAM key-pair id
-    # SMTP_PASSWORD: an IAM key-pair secret
-    - name: Configure SMTP email credentials from Kubernetes secret
-      id: get-aws-ses-secret
-      uses: ./.github/actions/k8s-get-secret
-      with:
-        eks-namespace: ${{ env.NAMESPACE }}
-        eks-secret-name: aws-ses-config
 
     # extract the Django application secret from the Kubernetes secret.
     # these will be set as environment variables for the Helm deployment
@@ -261,14 +244,6 @@ runs:
           AM_ADMIN_PASSWORD: "${{ env.AM_ADMIN_PASSWORD }}"
           AM_ADMIN_USERNAME: "${{ env.AM_ADMIN_USERNAME }}"
           AM_ADMIN_EMAIL: "${{ env.AM_ADMIN_EMAIL }}"
-
-          # SMTP
-          SMTP_HOST: "${{ env.SMTP_HOST }}"
-          SMTP_PORT: "${{ env.SMTP_PORT }}"
-          SMTP_USE_SSL: "${{ env.SMTP_USE_SSL }}"
-          SMTP_USE_TLS: "${{ env.SMTP_USE_TLS }}"
-          SMTP_USERNAME: "${{ env.SMTP_USERNAME }}"
-          SMTP_PASSWORD: "${{ env.SMTP_PASSWORD }}"
 
           # Cache/Celery
           CACHES_LOCATION: "${{ env.CACHES_LOCATION }}"

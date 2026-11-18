@@ -1,0 +1,4 @@
+mysql_root_username = "SET-ME-PLEASE"
+mysql_root_password = "SET-ME-PLEASE"
+mysql_host          = "SET-ME-PLEASE"
+mysql_port          = "SET-ME-PLEASE"

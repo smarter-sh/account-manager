@@ -10,9 +10,14 @@ on:
   push:
     branches:
       - main
+
+permissions:
+  contents: read
+
 jobs:
   semantic-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     # merge-main reads this job's output, which a job must declare.
     outputs:
       new_release_published: ${{ steps.semantic.outputs.new_release_published }}
@@ -20,13 +25,13 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.PAT }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         id: checkout
         with:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
 
@@ -35,7 +40,7 @@ jobs:
         shell: bash
 
       - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v5
+        uses: cycjimmy/semantic-release-action@ba330626c4750c19d8299de843f05c7aa5574f62 # v5.0.2
         id: semantic
         with:
           branches: |
@@ -75,11 +80,12 @@ jobs:
     needs: semantic-release
     if: needs.semantic-release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
         id: checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
           token: ${{ secrets.PAT }}

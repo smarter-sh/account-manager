@@ -30,7 +30,7 @@ celery==5.5.3
     #   django-celery-beat
 celery-redbeat==2.3.3
     # via -r requirements/in/base.in
-certifi==2025.11.12
+certifi==2026.10.18
     # via requests
 cffi==2.0.0
     # via cryptography
@@ -50,11 +50,11 @@ click-repl==0.3.0
     # via celery
 cron-descriptor==2.0.6
     # via django-celery-beat
-cryptography==46.0.3
+cryptography==50.0.0
     # via jwcrypto
 dj-stripe==2.10.3
     # via -r requirements/in/base.in
-django==5.2.7
+django==5.2.17
     # via
     #   -r requirements/in/base.in
     #   dj-stripe
@@ -107,7 +107,7 @@ django-waffle==5.0.0
     # via -r requirements/in/base.in
 django-widget-tweaks==1.5.0
     # via django-oscar
-djangorestframework==3.16.1
+djangorestframework==3.18.2
     # via
     #   -r requirements/in/base.in
     #   django-rest-knox
@@ -121,7 +121,7 @@ factory-boy==3.3.3
     # via django-oscar
 faker==38.2.0
     # via factory-boy
-filelock==4.2.12
+filelock==4.2.1
     # via tldextract
 gunicorn==23.0.0
     # via -r requirements/in/docker.in
@@ -143,7 +143,7 @@ lark==1.3.1
     # via python-hcl2
 mysqlclient==2.2.7
     # via -r requirements/in/base.in
-oauthlib==3.3.1
+oauthlib==4.0.0
     # via django-oauth-toolkit
 packaging==25.0
     # via
@@ -153,7 +153,7 @@ packaging==25.0
     #   kombu
 phonenumbers==9.0.20
     # via django-oscar
-pillow==12.0.0
+pillow==13.0.0
     # via django-oscar
 prompt-toolkit==3.0.52
     # via click-repl
@@ -171,7 +171,7 @@ pydantic-core==2.41.1
     # via pydantic
 pydantic-settings==2.11.0
     # via -r requirements/in/base.in
-pyjwt==2.10.1
+pyjwt==2.15.0
     # via djangorestframework-simplejwt
 python-crontab==3.3.0
     # via django-celery-beat
@@ -212,13 +212,13 @@ six==1.17.0
     #   python-dateutil
 sorl-thumbnail==12.11.0
     # via -r requirements/in/base.in
-sqlparse==0.5.4
+sqlparse==0.6.0
     # via django
 stripe==14.0.1
     # via dj-stripe
 tenacity==9.1.2
     # via celery-redbeat
-tldextract==5.4.0
+tldextract==5.3.0
     # via -r requirements/in/base.in
 typing-extensions==4.15.0
     # via
@@ -239,7 +239,7 @@ tzdata==2025.3
     #   kombu
 uritemplate==4.2.0
     # via drf-yasg
-urllib3==2.6.2
+urllib3==2.8.0
     # via
     #   botocore
     #   requests

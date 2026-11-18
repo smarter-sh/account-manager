@@ -51,6 +51,7 @@ module.exports = {
         assets: [
           "CHANGELOG.md",
           "helm/charts/account-manager/Chart.yaml",
+          "helm/charts/account-manager/values.yaml",
           "am/am/__version__.py",
           "am/requirements/**/*",
           "pyproject.toml",

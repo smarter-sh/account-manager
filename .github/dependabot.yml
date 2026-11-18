@@ -14,10 +14,6 @@ updates:
     schedule:
       interval: "quarterly"
     target-branch: "alpha"
-    assignees:
-      - "lpm0073"
-    reviewers:
-      - "lpm0073"
   - package-ecosystem: "github-actions"
     directory: "/.github"
     labels:
@@ -26,10 +22,6 @@ updates:
     schedule:
       interval: "quarterly"
     target-branch: "alpha"
-    assignees:
-      - "lpm0073"
-    reviewers:
-      - "lpm0073"
   - package-ecosystem: "helm"
     directory: "/helm/charts/account-manager"
     labels:
@@ -47,7 +39,3 @@ updates:
     labels:
       - "dependencies"
       - "automated pr"
-    assignees:
-      - "lpm0073"
-    reviewers:
-      - "lpm0073"

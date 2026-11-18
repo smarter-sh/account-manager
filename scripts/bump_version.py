@@ -15,6 +15,7 @@ Updates:
 - pyproject.toml
 - Dockerfile
 - helm/charts/account-manager/Chart.yaml (appVersion)
+- helm/charts/account-manager/values.yaml (global.image.tag, as v<version>)
 """
 
 import re
@@ -30,6 +31,8 @@ VERSION_LOCATIONS = (
     ("pyproject.toml", r'^version\s*=\s*["\'][^"\']*["\']', 'version = "{version}"'),
     ("Dockerfile", r'org\.opencontainers\.image\.version="[^"]*"', 'org.opencontainers.image.version="{version}"'),
     ("helm/charts/account-manager/Chart.yaml", r"^appVersion:\s*\S+", "appVersion: {version}"),
+    # the image tag of global.image, the only tag in the chart's values
+    ("helm/charts/account-manager/values.yaml", r"^(\s+tag:\s*)v\d+\.\d+\.\d+\S*", "\\g<1>v{version}"),
 )
 
 

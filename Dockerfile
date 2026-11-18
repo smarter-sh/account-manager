@@ -35,6 +35,8 @@ LABEL maintainer="Lawrence McDaniel <lpm0073@gmail.com>" \
 
 
 # Environment: local, alpha, beta, next, or production
+# the build's architecture, amd64 or arm64, set by BuildKit: the MySQL client below is per architecture.
+ARG TARGETARCH
 ARG ENVIRONMENT=local
 ENV ENVIRONMENT=$ENVIRONMENT
 RUN echo "ENVIRONMENT: $ENVIRONMENT"
@@ -48,11 +50,12 @@ RUN echo "ENVIRONMENT: $ENVIRONMENT"
 # ------
 # ca-certificates           needed for SSL/TLS support in http requests but not included in 3.14-slim-trixie
 # python-dev-is-python3     helper package to ensure that the 'python' command points to python3
-# default-mysql-client      needed for Django mysql backend support
-# libmariadb-dev            needed for default-mysql-client python package
+# libmariadb-dev            the C client library that the mysqlclient python package builds against
+# libncurses6               needed by the Oracle MySQL client binary installed below
 # git                       used in manage.py commands
 # ------
 # curl                      for debugging http from inside the container
+# wget                      downloads the Oracle MySQL client below
 # procps                    provides the 'ps' command, used for liveness/readiness probes of the beat pod in kubernetes
 FROM linux_base AS system_packages
 
@@ -70,14 +73,30 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
   pkg-config \
   ca-certificates \
   python-dev-is-python3 \
-  default-mysql-client \
-  libmariadb-dev \
+  wget \
   git \
   curl \
   procps \
-  redis-tools && \
+  redis-tools \
+  libmariadb-dev \
+  libncurses6 && \
   update-ca-certificates && \
   rm -rf /var/lib/apt/lists/*
+
+# Install the Oracle MySQL 8.x client binary, for the correct architecture. The Helm chart's init
+# job runs mysql against the deployment's MySQL 8 server to create its database and user.
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      MYSQL_TARBALL="mysql-8.0.36-linux-glibc2.28-aarch64.tar.xz"; \
+      MYSQL_DIR="mysql-8.0.36-linux-glibc2.28-aarch64"; \
+    else \
+      MYSQL_TARBALL="mysql-8.0.36-linux-glibc2.28-x86_64.tar.xz"; \
+      MYSQL_DIR="mysql-8.0.36-linux-glibc2.28-x86_64"; \
+    fi && \
+    wget "https://dev.mysql.com/get/Downloads/MySQL-8.0/${MYSQL_TARBALL}" && \
+    tar -xf "$MYSQL_TARBALL" && \
+    cp "$MYSQL_DIR/bin/mysql" /usr/local/bin/ && \
+    chmod +x /usr/local/bin/mysql && \
+    rm -rf "$MYSQL_TARBALL" "$MYSQL_DIR"
 
 ############################## create app user #################################
 FROM system_packages AS user_setup
@@ -120,7 +139,6 @@ FROM venv AS application
 # do this last so that we can take advantage of Docker's caching mechanism.
 WORKDIR /home/am_user/
 COPY --chown=am_user:am_user ./am ./am
-RUN mkdir -p /home/am_user/data/manifests/example_manifests
 
 ################################# permissuions #######################################
 FROM application AS permissions
