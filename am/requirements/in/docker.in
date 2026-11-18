@@ -7,10 +7,11 @@
 #             handshakes with the cloud proxy server Nginx to manage
 #             http requests and responses.
 #
-#             pip-compile smarter/requirements/in/docker.in -o smarter/requirements/docker.txt
+#             Compiled into am/requirements/docker.txt by make python-requirements.
 # -----------------------------------------------------------------------------
 
 -r constraints.in
 -r base.in
+-r mariadb.in
 
-gunicorn==23.0.0
+gunicorn

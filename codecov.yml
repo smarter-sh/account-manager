@@ -1,0 +1,19 @@
+---
+#------------------------------------------------------------------------------
+# Codecov configuration
+#
+# .github/workflows/test.yml uploads the Python coverage report, under the
+# python flag, for the README's badge. The unit tests run with coverage inside
+# the am-app container, where the repository's am/ folder is /home/am_user/am/,
+# so the fix below maps those paths back to the repository's. carryforward
+# keeps the last coverage when a commit uploads none, so that the badge doesn't
+# go blank.
+#------------------------------------------------------------------------------
+fixes:
+  - "/home/am_user/am/::am/"
+
+flags:
+  python:
+    paths:
+      - am/am/
+    carryforward: true

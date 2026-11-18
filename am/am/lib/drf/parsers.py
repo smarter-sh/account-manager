@@ -11,9 +11,17 @@ class YAMLParser(BaseParser):
     media_type = "application/x-yaml"
 
     def parse(self, stream, media_type=None, parser_context=None):
-        # pylint: disable=W0707
+        """
+        Parse a YAML request body.
+
+        :param stream: The request body stream.
+        :param media_type: The request's media type.
+        :param parser_context: DRF's parser context.
+        :returns: The parsed data.
+        :raises ParseError: If the body isn't valid UTF-8 YAML, so that DRF answers 400.
+        """
         try:
             data = stream.read().decode("utf-8")
             return yaml.safe_load(data)
-        except ValueError as exc:
-            raise ParseError(f"YAML parse error - {str(exc)}")
+        except (ValueError, yaml.YAMLError) as exc:
+            raise ParseError(f"YAML parse error - {str(exc)}") from exc

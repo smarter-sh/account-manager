@@ -1,0 +1,20 @@
+# -----------------------------------------------------------------------------
+# written by: Lawrence McDaniel
+#             https://lawrencemcdaniel.com
+#
+# usage:      the Sphinx documentation build (Read the Docs, .readthedocs.yml), as in
+#             smarter-sh/smarter. No mariadb.in: Read the Docs can't compile it.
+#
+#             Compiled into am/requirements/docs.txt by make python-requirements.
+# -----------------------------------------------------------------------------
+
+-r constraints.in
+-r base.in
+
+sphinx                                  # for Readthedocs
+sphinx-rtd-theme                        # Sphinx theme for Readthedocs
+autodoc_pydantic                        # Sphinx extension for Pydantic models
+sphinxcontrib-django                    # Sphinx for django settings
+sphinx-copybutton                       # Sphinx code copy button extension
+sphinx-autodoc-typehints                # Sphinx type hint annotation improvements
+sphinx-design                           # Adds drop downs and other fancy styling

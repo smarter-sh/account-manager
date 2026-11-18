@@ -1,8 +1,11 @@
-"""
-Account Manager.
-"""
+"""Account Manager."""
+
+# PyMySQL stands in for MySQLdb, Django's MySQL and MariaDB driver, as in smarter-sh/smarter.
+import pymysql
 
 from .__version__ import __version__ as _version
+
+pymysql.install_as_MySQLdb()
 
 
 __title__ = "Account Manager"

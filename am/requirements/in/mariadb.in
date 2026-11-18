@@ -1,0 +1,12 @@
+# -----------------------------------------------------------------------------
+# written by: Lawrence McDaniel
+#             https://lawrencemcdaniel.com
+#
+# usage:      MariaDB requirements, as in smarter-sh/smarter. The mariadb package builds against
+#             MariaDB Connector/C, which the Dockerfile installs, so these are kept out of
+#             docs.in: the Read the Docs build can't compile it.
+#
+#             Included by docker.in; make python-requirements compiles it.
+# -----------------------------------------------------------------------------
+
+mariadb                                 # MariaDB Connector/Python

@@ -41,11 +41,13 @@ class Command(AMCommand):
         :py:class:`waffle.models.Switch` - The Django Waffle model representing feature switches.
         :py:class:`account.lib.django.waffle.AMWaffleSwitches` - The class defining all Account Manager-specific Waffle switches.
         :py:data:`account.common.conf.settings.am_settings` - The Account Manager settings module for environment detection.
-
     """
 
     def handle(self, *args, **options):
-        """ensure that switches exist. If not, then create them"""
+        """Ensure that switches exist.
+
+        If not, then create them
+        """
 
         def verify_switch(switch_name):
             """Initialize a switch."""
@@ -63,7 +65,7 @@ class Command(AMCommand):
 
         waffle_switches = Switch.objects.all()
         for switch in waffle_switches:
-            if not switch.name in smarter_switches:
+            if switch.name not in smarter_switches:
                 self.stdout.write(self.style.NOTICE(f"Deleting orphaned switch {switch.name}."))
                 switch.delete()
 

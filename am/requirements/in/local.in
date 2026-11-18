@@ -5,59 +5,51 @@
 # usage: developer support packages for code syntax and type checking, testing,
 #        formatting, security, quality, vanity, debugging, build & packaging
 #
-#       pip-compile smarter/requirements/in/local.in -o am/requirements/local.txt
+#       Compiled into am/requirements/local.txt by make python-requirements.
 # -----------------------------------------------------------------------------
 
 -r constraints.in
--r base.in
+# everything the deployed image has (base.in and gunicorn), so local.txt is a complete superset of docker.txt
+-r docker.in
 
-pip-tools==7.5.0
+pip-tools
 
 # Django dev tools
 # ------------
-django-extensions==4.1                  # a collection of custom extensions for the Django Framework.
-django-debug-toolbar==6.0.0             # a configurable set of panels that display various debug information about the current request/response.
+django-extensions                       # a collection of custom extensions for the Django Framework.
+django-debug-toolbar                    # a configurable set of panels that display various debug information about the current request/response.
 
 
 # type annotations for packages that don't include them
 # ------------
-types-cachetools==6.2.0.20250827
-types-paramiko==4.0.0.20250822
-types-PyYAML==6.0.12.20250822
-types-requests==2.32.4.20250809
-django-stubs==5.2.2                 # Type annotations for Django
-djangorestframework-stubs==3.16.0   # type annotations for djangorestframework
-mypy_extensions==1.1.0              # Type annotations for Python
+types-cachetools
+types-paramiko
+types-PyYAML
+types-requests
+django-stubs                            # Type annotations for Django
+djangorestframework-stubs               # type annotations for djangorestframework
+mypy_extensions                         # Type annotations for Python
 
 
 # tests
 # ------------
-pytest==8.4.1
-pytest_mock==3.14.0
+pytest
+pytest_mock
 
 
 # Code linters, formatters, and security scanners
 # ------------
-bandit==1.8.6                       # security linter
-black==26.10.1                       # code formatter
-codespell==2.4.1                    # typo checker
-coverage==7.10.5                    # test coverage
-flake8==7.3.0                       # code linter
-flake8-coding==1.3.2                # coding style linter
-isort==6.0.1                        # import sorter
-mypy==1.15.0                        # static type checker
-pre-commit==4.3.0                   # git hook manager
-pydocstringformatter==0.7.3         # docstring formatter
-pylint==3.3.4                       # code linter
-pylint-django==2.6.1                # Django support for pylint
+bandit                                  # security linter
+black                                   # code formatter
+codespell                               # typo checker
+coverage                                # test coverage
+flake8                                  # code linter
+flake8-coding                           # coding style linter
+isort                                   # import sorter
+mypy                                    # static type checker
+pre-commit                              # git hook manager
+pydocstringformatter                    # docstring formatter
+pylint                                  # code linter
+pylint-django                           # Django support for pylint
 tox                                 # testing tool
-watchdog>=4.0.1                     # file system monitoring
-
-# Documentation
-sphinx==8.2.3                       # for Readthedocs
-sphinx-rtd-theme==3.0.2             # Sphinx theme for Readthedocs
-autodoc_pydantic==2.2.0             # Sphinx extension for Pydantic models
-sphinxcontrib-django==2.5           # Sphinx for django settings
-sphinx-copybutton==0.5.2            # Sphinx code copy button extension
-sphinx-autodoc-typehints==3.5.2     # Sphonx type hint annotation improvements
-sphinx-design==0.6.1                # Adds drop downs and other fancy styling
+watchdog                                # file system monitoring

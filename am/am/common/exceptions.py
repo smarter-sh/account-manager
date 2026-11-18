@@ -1,8 +1,7 @@
-"""Module exceptions.py"""
+"""Module exceptions.py."""
 
 import logging
 import re
-
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +30,6 @@ class AMConfigurationError(AMException):
 
 class AMValueError(AMException):
     """Exception raised for illegal or invalid values."""
-
-
-class AMInvalidApiKeyError(AMException):
-    """Exception raised when an invalid api key is received."""
-
-
-class AMIlligalInvocationError(AMException):
-    """Exception raised when the service is illegally invoked."""
 
 
 class AMBusinessRuleViolation(AMException):

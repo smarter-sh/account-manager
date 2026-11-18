@@ -7,6 +7,9 @@
 # usage:  AWS EKS secrets Kubernetes resources
 #------------------------------------------------------------------------------
 
+# The shared MariaDB server (the smarter Helm chart's) and its root account, which
+# the chart's init job creates Account Manager's database and user as. The deploy
+# action (.github/actions/deploy/action.yml) reads these keys.
 resource "kubernetes_secret" "mysql_root" {
   metadata {
     name      = "mysql-root"
@@ -16,13 +19,15 @@ resource "kubernetes_secret" "mysql_root" {
   data = {
     MYSQL_ROOT_USERNAME   = var.mysql_root_username
     MYSQL_ROOT_PASSWORD   = var.mysql_root_password
-    MYSQL_HOST            = var.mysql_host
+    MYSQL_HOST            = local.mysql_host
     MYSQL_PORT            = var.mysql_port
   }
 
   depends_on = [kubernetes_namespace.am]
 }
 
+# Account Manager's own database and user on the shared server. The chart's init
+# job creates both; the deploy action reads these keys.
 resource "random_password" "mysql_am" {
   length           = 16
   special          = true
@@ -39,11 +44,9 @@ resource "kubernetes_secret" "mysql_am" {
   }
 
   data = {
-    AM_MYSQL_DATABASE      = local.mysql_database
-    AM_MYSQL_USERNAME      = local.mysql_username
-    AM_MYSQL_PASSWORD      = random_password.mysql_am.result
-    MYSQL_HOST             = var.mysql_host
-    MYSQL_PORT             = var.mysql_port
+    AM_MYSQL_DATABASE = local.mysql_database
+    AM_MYSQL_USER     = local.mysql_username
+    AM_MYSQL_PASSWORD = random_password.mysql_am.result
   }
 
   depends_on = [kubernetes_namespace.am]

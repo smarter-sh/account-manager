@@ -1,4 +1,4 @@
-"""knox TokenAuthentication subclass that checks if the token is active."""
+"""Knox TokenAuthentication subclass that checks if the token is active."""
 
 import logging
 
@@ -9,9 +9,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from am.apps.account.models import User
 from am.common.classes import AMHelperMixin
 from am.common.conf import am_settings
-from am.common.exceptions import AMException
 from am.common.utils import mask_string
-from am.lib.cache import cache_results
 from am.lib.django import waffle
 from am.lib.django.waffle import AMWaffleSwitches
 from am.lib.logging import WaffleSwitchedLoggerWrapper
@@ -24,9 +22,6 @@ from .signals import (
 )
 
 
-CACHE_TIMEOUT = 60 * 60 * 24  # 24 hours
-
-
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
     return waffle.switch_is_active(AMWaffleSwitches.API_LOGGING) and level >= am_settings.log_level
@@ -36,16 +31,8 @@ base_logger = logging.getLogger(__name__)
 logger = WaffleSwitchedLoggerWrapper(base_logger, should_log)
 
 
-class AMTokenAuthenticationError(AMException):
-    """Base class for all AMTokenAuthentication errors."""
-
-    @property
-    def get_formatted_err_message(self):
-        return "Smarter Token Authentication error"
-
-
 class AMTokenAuthentication(TokenAuthentication, AMHelperMixin):
-    """Enhanced Django Rest Framework (DRF) knox TokenAuthentication
+    """Enhanced Django Rest Framework (DRF) knox TokenAuthentication.
 
     This subclass adds:
 
@@ -70,7 +57,6 @@ class AMTokenAuthentication(TokenAuthentication, AMHelperMixin):
             kwargs,
         )
 
-    @cache_results(CACHE_TIMEOUT)
     def authenticate_credentials(self, token: bytes) -> tuple[User, AMAuthToken]:
         """Override parent authenticate_credentials() to add token activity check and logging.
 
@@ -149,34 +135,3 @@ class AMTokenAuthentication(TokenAuthentication, AMHelperMixin):
             "%s.authenticate_credentials() - successfully authenticated user %s", self.formatted_class_name, user
         )
         return (user, smarter_auth_token)
-
-    @classmethod
-    def get_user_from_request(cls, request):
-        """Override get_user_from_request() to add logging and to use AMAuthToken.
-
-        Args:
-            request (HttpRequest): a Django request object.
-
-        Returns:
-            User or None: The authenticated user if the token is valid, otherwise None.
-        """
-        auth_header = request.META.get("HTTP_AUTHORIZATION")
-        if not auth_header or not auth_header.startswith("Token "):
-            return None
-        token_key = auth_header.split("Token ")[1]
-        # If your tokens are bytes, decode as needed
-        # token = token.encode()  # if needed
-        try:
-            auth_token = AMAuthToken.objects.get(token_key=token_key)
-            logger.info(
-                "AMTokenAuthentication.get_user_from_request() retrieved user %s for token_key: %s",
-                auth_token.user,
-                token_key,
-            )
-            return auth_token.user
-        except AMAuthToken.DoesNotExist:
-            logger.warning(
-                "AMTokenAuthentication.get_user_from_request() failed to retrieve user for token_key: %s",
-                token_key,
-            )
-            return None

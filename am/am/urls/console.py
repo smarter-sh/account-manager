@@ -1,6 +1,4 @@
-"""
-URLs for Account Manager web console.
-"""
+"""URLs for Account Manager web console."""
 
 from django.apps import apps
 from django.conf import settings
@@ -21,7 +19,6 @@ from am.apps.account.views.webserver import (
 )
 from am.apps.api.const import namespace as api_namespace
 from am.apps.api.v1.views.openapi import schema_view
-
 
 admin.autodiscover()
 
@@ -63,12 +60,5 @@ urlpatterns = [
     # -------------------------------------------------------------------------
     re_path(r"^swagger/$", schema_view.with_ui("swagger", cache_timeout=0), name="schema-swagger-ui"),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-
-if settings.DEBUG:
-    import debug_toolbar
-
-    urlpatterns += [
-        path("__debug__/", include(debug_toolbar.urls)),
-    ]
 
 __all__ = ["urlpatterns"]

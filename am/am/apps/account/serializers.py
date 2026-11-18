@@ -1,37 +1,12 @@
-"""Account serializers for Account Manager API"""
+"""Account serializers for Account Manager API."""
 
 from am.apps.account.models import (
     Account,
-    AccountContact,
     PaymentMethod,
-    Subscription,
     User,
     UserProfile,
 )
 from am.lib.drf.serializers import AMCamelCaseSerializer
-
-
-class SubscriptionSerializer(AMCamelCaseSerializer):
-    """
-    Serializer for the `Subscription` model in the Account Manager API.
-
-    This serializer exposes all fields of the `Subscription` model, making it suitable for
-    creating, updating, and retrieving subscription details via API endpoints.
-
-    :param ...: All fields as defined in the `Subscription` model.
-
-    **Example usage**::
-
-        from am.apps.account.serializers import SubscriptionSerializer
-        serializer = SubscriptionSerializer(subscription_instance)
-        data = serializer.data
-
-    """
-
-    # pylint: disable=missing-class-docstring
-    class Meta:
-        model = Subscription
-        fields = "__all__"
 
 
 class UserSerializer(AMCamelCaseSerializer):
@@ -58,7 +33,6 @@ class UserSerializer(AMCamelCaseSerializer):
         from am.apps.account.serializers import UserSerializer
         serializer = UserSerializer(user_instance)
         data = serializer.data
-
     """
 
     # pylint: disable=missing-class-docstring
@@ -101,7 +75,6 @@ class UserMiniSerializer(AMCamelCaseSerializer):
 
     .. seealso::
         For full user details, use :class:`UserSerializer`.
-
     """
 
     # pylint: disable=missing-class-docstring
@@ -138,7 +111,6 @@ class AccountSerializer(AMCamelCaseSerializer):
 
     .. seealso::
         For lightweight account representations, use :class:`AccountMiniSerializer`.
-
     """
 
     # pylint: disable=missing-class-docstring
@@ -172,7 +144,6 @@ class AccountMiniSerializer(AMCamelCaseSerializer):
 
     .. seealso::
         For full account details, use :class:`AccountSerializer`.
-
     """
 
     # pylint: disable=missing-class-docstring
@@ -195,7 +166,6 @@ class UserProfileSerializer(AMCamelCaseSerializer):
 
             Only the ``user`` and ``account`` fields are included in serialization.
 
-
     **Example usage**::
 
         from am.apps.account.serializers import UserProfileSerializer
@@ -204,7 +174,6 @@ class UserProfileSerializer(AMCamelCaseSerializer):
 
     .. seealso::
         For more detailed user or account data, use :class:`UserSerializer` or :class:`AccountSerializer`.
-
     """
 
     user = UserMiniSerializer()
@@ -233,46 +202,9 @@ class PaymentMethodSerializer(AMCamelCaseSerializer):
         from am.apps.account.serializers import PaymentMethodSerializer
         serializer = PaymentMethodSerializer(payment_method_instance)
         data = serializer.data
-
     """
 
     # pylint: disable=missing-class-docstring
     class Meta:
         model = PaymentMethod
         fields = "__all__"
-
-
-class AccountContactSerializer(AMCamelCaseSerializer):
-    """
-    Serializer for the `AccountContact` model in the Account Manager API.
-
-    This serializer exposes all fields of the `AccountContact` model, including a minimal account reference.
-    Use it for endpoints that manage or display account contact information.
-
-    :param account: Instance of :class:`AccountMiniSerializer`. Minimal account information.
-    :param ...: All other fields as defined in the `AccountContact` model.
-
-    .. note::
-
-            All fields are read-only in this serializer.
-
-
-    **Example usage**::
-
-        from am.apps.account.serializers import AccountContactSerializer
-        serializer = AccountContactSerializer(contact_instance)
-        data = serializer.data
-
-    .. seealso::
-
-            For full account details, use :class:`AccountSerializer`.
-
-    """
-
-    account = AccountMiniSerializer()
-
-    # pylint: disable=missing-class-docstring
-    class Meta:
-        model = AccountContact
-        fields = "__all__"
-        read_only_fields = fields

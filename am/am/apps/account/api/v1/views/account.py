@@ -5,15 +5,14 @@ import logging
 from http import HTTPStatus
 
 from django.core.exceptions import ValidationError
-from django.core.handlers.wsgi import WSGIRequest
-from django.db import transaction
-from django.http import HttpResponseRedirect, JsonResponse
+from django.db.models import QuerySet
 from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.request import Request
 from rest_framework.response import Response
 
-from am.apps.account.models import Account, UserProfile
+from am.apps.account.models import Account
 from am.common.conf import am_settings
-from am.lib import json
 from am.lib.django import waffle
 from am.lib.django.waffle import AMWaffleSwitches
 from am.lib.logging import WaffleSwitchedLoggerWrapper
@@ -31,80 +30,132 @@ logger = WaffleSwitchedLoggerWrapper(base_logger, should_log)
 
 
 class AccountView(AccountViewBase):
-    """Account view for Account Manager API."""
+    """
+    Account view for Account Manager API.
 
-    def get(self, request: WSGIRequest, account_id: int):
-        if account_id and request.user.is_superuser:
-            self.account = get_object_or_404(Account, pk=account_id)
-        else:
-            self.account = self.user_profile.account
-        serializer = self.serializer_class(self.account)
-        return Response(serializer.data, status=HTTPStatus.OK)
+    A superuser may read, update, create and delete any Account. A staff user may
+    read and update only the Account of their own UserProfile.
+    """
 
-    def post(self, request: WSGIRequest):
+    def get_account(self, account_id: int) -> Account:
+        """
+        The Account that the request user asked for, if they may see it.
+
+        :param account_id: The Account's id.
+        :returns: The Account.
+        :raises Http404: when a superuser asks for an Account that does not exist.
+        :raises PermissionDenied: when anyone else asks for an Account other than their own.
+        """
+        if self.is_request_superuser:
+            return get_object_or_404(Account, pk=account_id)
+        account = self.get_request_user_account()
+        if account.id != account_id:  # type: ignore[attr-defined]
+            raise PermissionDenied("You are not authorized to access this account.")
+        return account
+
+    def require_superuser(self):
+        """
+        Refuse the request unless its user is a superuser.
+
+        :raises PermissionDenied: when the request user is not a superuser.
+        """
+        if not self.is_request_superuser:
+            raise PermissionDenied("Only a superuser may create or delete accounts.")
+
+    def get(self, request: Request, account_id: int):
+        """
+        Return an Account as json.
+
+        :param request: The request.
+        :param account_id: The Account's id.
+        :returns: The serialized Account.
+        """
+        logger.info("%s.get() account_id: %s", self.formatted_class_name, account_id)
+        account = self.get_account(account_id)
+        return Response(self.serializer_class(account).data, status=HTTPStatus.OK)
+
+    # pylint: disable=W0613
+    def post(self, request: Request, account_id: int):
+        """
+        Create an Account from the json dict in the request body.
+
+        Superusers only.
+
+        :param request: The request, whose body holds the new Account's fields (snake_case).
+        :param account_id: Unused; the url names an existing Account.
+        :returns: The new Account with status 201, or a 400 response when the body is
+            not a json dict or the Account cannot be created.
+        """
+        logger.info("%s.post()", self.formatted_class_name)
+        self.require_superuser()
+        data = request.data
+        if not isinstance(data, dict):
+            return Response(
+                {"error": f"Invalid request data. Expected a JSON dict but received {type(data).__name__}"},
+                status=HTTPStatus.BAD_REQUEST,
+            )
         try:
-            data = json.loads(request.body.decode("utf-8"))
-            with transaction.atomic():
-                self.account = Account.objects.create(**data)
-                UserProfile.objects.create(user=request.user, account=self.account)
+            account = Account.objects.create(**data)
         except Exception as e:
-            return JsonResponse({"error": "Invalid request data", "exception": str(e)}, status=HTTPStatus.BAD_REQUEST)
-        return HttpResponseRedirect(request.path_info + str(self.account.id) + "/")
+            return Response({"error": "Invalid request data", "exception": str(e)}, status=HTTPStatus.BAD_REQUEST)
+        logger.info("%s.post() created account %s", self.formatted_class_name, account.id)  # type: ignore[attr-defined]
+        return Response(self.serializer_class(account).data, status=HTTPStatus.CREATED)
 
-    def patch(self, request: WSGIRequest, account_id: int = None):
-        data: dict = None
+    def patch(self, request: Request, account_id: int):
+        """
+        Update an Account's fields from the json dict in the request body.
 
-        try:
-            if account_id and self.is_superuser_or_unauthorized():
-                self.account = Account.objects.get(id=account_id)
-        except UserProfile.DoesNotExist:
-            return JsonResponse({"error": "User not found"}, status=HTTPStatus.UNAUTHORIZED)
+        Keys that are not attributes of the Account are ignored.
 
-        try:
-            data = request.data
-            if not isinstance(data, dict):
-                return JsonResponse(
-                    {"error": f"Invalid request data. Expected a JSON dict in request body but received {type(data)}"},
-                    status=HTTPStatus.BAD_REQUEST,
-                )
-        except Exception as e:
-            return JsonResponse({"error": "Invalid request data", "exception": str(e)}, status=HTTPStatus.BAD_REQUEST)
-
+        :param request: The request, whose body holds the fields to change (snake_case).
+        :param account_id: The Account's id.
+        :returns: The updated Account, or a 400 response when the body or a value is invalid.
+        """
+        logger.info("%s.patch() account_id: %s", self.formatted_class_name, account_id)
+        account = self.get_account(account_id)
+        data = request.data
+        if not isinstance(data, dict):
+            return Response(
+                {"error": f"Invalid request data. Expected a JSON dict but received {type(data).__name__}"},
+                status=HTTPStatus.BAD_REQUEST,
+            )
         try:
             for key, value in data.items():
-                if hasattr(self.account, key):
-                    setattr(self.account, key, value)
-            self.account.save()
+                if key not in ("id", "pk") and hasattr(account, key):
+                    setattr(account, key, value)
+            account.full_clean()
+            account.save()
         except ValidationError as e:
-            return JsonResponse({"error": e.message}, status=HTTPStatus.BAD_REQUEST)
-        except Exception as e:
-            return JsonResponse(
-                {"error": "Internal error", "exception": str(e)}, status=HTTPStatus.INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": "Invalid request data", "exception": str(e)}, status=HTTPStatus.BAD_REQUEST)
+        return Response(self.serializer_class(account).data, status=HTTPStatus.OK)
 
-        return HttpResponseRedirect(request.path_info)
+    def delete(self, request: Request, account_id: int):
+        """
+        Delete an Account, and with it its UserProfiles.
 
-    def delete(self, request, account_id: int = None):
-        if account_id and self.is_superuser_or_unauthorized():
-            self.account = get_object_or_404(Account, pk=account_id)
+        Superusers only.
 
-        try:
-            with transaction.atomic():
-                self.account.delete()
-                UserProfile.objects.get(user=request.user).delete()
-        except Exception as e:
-            return JsonResponse(
-                {"error": "Internal error", "exception": str(e)}, status=HTTPStatus.INTERNAL_SERVER_ERROR
-            )
-
-        plugins_path = request.path_info.rsplit("/", 2)[0]
-        return HttpResponseRedirect(plugins_path)
+        :param request: The request.
+        :param account_id: The Account's id.
+        :returns: An empty 204 response.
+        :raises Http404: when the Account does not exist.
+        """
+        logger.info("%s.delete() account_id: %s", self.formatted_class_name, account_id)
+        self.require_superuser()
+        account = get_object_or_404(Account, pk=account_id)
+        account.delete()
+        return Response(status=HTTPStatus.NO_CONTENT)
 
 
 class AccountListView(AccountListViewBase):
-    """Account list view for Account Manager API."""
+    """Account list view for Account Manager API: every Account for a superuser, else the user's own."""
 
-    def get_queryset(self):
-        if self.request.user.is_superuser:
-            return Account.objects.all()
-        return self.user_profile.account
+    def get_queryset(self) -> QuerySet[Account]:
+        """
+        The Accounts the request user may see.
+
+        :returns: Every Account for a superuser, else the Accounts of the user's UserProfiles.
+        """
+        if self.is_request_superuser:
+            return Account.objects.all().order_by("pk")
+        return Account.objects.filter(users__user=self.request_user).order_by("pk")

@@ -12,7 +12,6 @@ from rest_framework.request import Request
 
 from am.apps.account.models import User
 from am.apps.account.serializers import UserMiniSerializer
-from am.apps.account.utils import get_cached_user_profile
 from am.common.classes import AMHelperMixin
 from am.common.conf import am_settings
 from am.common.exceptions import AMBusinessRuleViolation
@@ -30,7 +29,6 @@ from .utils import (
     get_cached_account_for_user,
     get_cached_user_profile,
 )
-
 
 UserType = Union[AnonymousUser, User, None]
 AccountNumberType = Optional[str]
@@ -52,7 +50,8 @@ logger = WaffleSwitchedLoggerWrapper(base_logger, should_log)
 
 class AccountMixin(AMHelperMixin):
     """
-    Provides consistent initialization and short-lived caching of the
+    Provides consistent initialization and short-lived caching of the.
+
     ``account``, ``user``, and ``user_profile`` properties using various sources,
     such as direct arguments, request objects, or API tokens.
 
@@ -167,7 +166,7 @@ class AccountMixin(AMHelperMixin):
                 # if the account is not set, then try to get it from the request
                 # by parsing the URL.
                 account_number = account_number_from_url(url)
-                if account_number and waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING):
+                if account_number:
                     logger.info(
                         "%s.__init__(): located account number %s from the request url %s",
                         self.formatted_class_name,
@@ -202,15 +201,14 @@ class AccountMixin(AMHelperMixin):
             )
 
     def __str__(self):
-        """
-        Returns a string representation of the class.
-        """
+        """Returns a string representation of the class."""
         return f"{self.__class__.__name__}(user={self.user_profile}, account={self._account})"
 
     @property
     def formatted_class_name(self) -> str:
         """
-        Returns the class name in a formatted string
+        Returns the class name in a formatted string.
+
         along with the name of this mixin.
         """
         inherited_class = super().formatted_class_name
@@ -219,7 +217,9 @@ class AccountMixin(AMHelperMixin):
     @property
     def account(self) -> AccountType:
         """
-        Returns the account for the current user. Handle
+        Returns the account for the current user.
+
+        Handle
         lazy instantiation from user or user_profile.
         """
         try:
@@ -238,7 +238,9 @@ class AccountMixin(AMHelperMixin):
     @account.setter
     def account(self, account: AccountType):
         """
-        Set the account for the current user. Handle
+        Set the account for the current user.
+
+        Handle
         management of user_profile.
         """
         if self._user:
@@ -261,16 +263,12 @@ class AccountMixin(AMHelperMixin):
 
     @property
     def account_number(self) -> AccountNumberType:
-        """
-        A helper function to get the account number from the account.
-        """
+        """A helper function to get the account number from the account."""
         return self._account.account_number if self._account else None
 
     @account_number.setter
     def account_number(self, account_number: AccountNumberType):
-        """
-        A helper function to set the account from the account_number.
-        """
+        """A helper function to set the account from the account_number."""
         if not account_number:
             self._account = None
             self._user_profile = None
@@ -288,7 +286,9 @@ class AccountMixin(AMHelperMixin):
     @property
     def user(self) -> UserType:
         """
-        Returns the user for the current user. Handle
+        Returns the user for the current user.
+
+        Handle
         lazy instantiation from user_profile or account.
         """
         try:
@@ -306,7 +306,9 @@ class AccountMixin(AMHelperMixin):
     @user.setter
     def user(self, user: UserType):
         """
-        Set the user for the current user. Handle
+        Set the user for the current user.
+
+        Handle
         management of user_profile, if the user is unset.
         Otherwise, initialize the account in which the user is contained.
         """
@@ -337,7 +339,9 @@ class AccountMixin(AMHelperMixin):
     @property
     def user_profile(self) -> UserProfileType:
         """
-        Returns the user_profile for the current user. Handle
+        Returns the user_profile for the current user.
+
+        Handle
         lazy instantiation from user or account.
         """
         if self._user_profile:
@@ -366,7 +370,9 @@ class AccountMixin(AMHelperMixin):
     @user_profile.setter
     def user_profile(self, user_profile: UserProfileType):
         """
-        Set the user_profile for the current user. If we're unsetting the user_profile,
+        Set the user_profile for the current user.
+
+        If we're unsetting the user_profile,
         then leave the user and account as they are. But if we're setting the user_profile,
         then set the user and account as well.
         """
@@ -380,6 +386,7 @@ class AccountMixin(AMHelperMixin):
     def is_accountmixin_ready(self) -> bool:
         """
         Returns True if the AccountMixin is ready to be used.
+
         This is a convenience property that checks if the account and user
         are initialized.
         """
@@ -399,9 +406,7 @@ class AccountMixin(AMHelperMixin):
 
     @property
     def ready(self) -> bool:
-        """
-        Returns True if the account and user are set.
-        """
+        """Returns True if the account and user are set."""
         retval = super().ready
         if not retval:
             logger.debug(
@@ -412,15 +417,11 @@ class AccountMixin(AMHelperMixin):
 
     @property
     def is_authenticated(self) -> bool:
-        """
-        Returns True if the user is authenticated and is associated with an Account.
-        """
+        """Returns True if the user is authenticated and is associated with an Account."""
         return bool(self._user) and self._user.is_authenticated and bool(self._account) and bool(self._user_profile)
 
     def to_json(self):
-        """
-        Returns a JSON representation of the account, user, and user_profile.
-        """
+        """Returns a JSON representation of the account, user, and user_profile."""
         return {
             "ready": self.ready,
             "account": AccountMiniSerializer(self._account).data if self._account else None,

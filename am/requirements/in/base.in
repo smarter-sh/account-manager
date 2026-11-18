@@ -4,60 +4,50 @@
 #
 # usage:      The common platform requirements.
 #
-#             pip-compile smarter/requirements/in/base.in -o smarter/requirements/base.txt
+#             Included by docker.in and local.in; make python-requirements compiles those.
 # -----------------------------------------------------------------------------
 
 -r constraints.in
 
 # General back end
 # ------------
-boto3~=1.40                             # AWS CLI SDK
-botocore~=1.40                          # AWS CLI SDK core
-cachetools                              # Python object caching library
-celery==5.5.3                           # asynchronous task queue. works with redis.
-celery-redbeat==2.3.3                   # scheduled asynchronous tasks
-dnspython==2.9.0                        # DNS toolkit for Python
-mysqlclient==2.2.7                      # MySQL client
-paramiko==4.0.0                         # SSH2 protocol library
-python-hcl2==7.3.1                      # Terraform hcl parser for reading Terraform tfvars files
-python-dotenv==1.1.1                    # for reading environment variables from .env files
-requests==2.32.5                        # HTTP requests library
-requests-cache==1.2.1                   # HTTP requests caching
-retry-requests==2.0.0                   # HTTP requests retry
-tldextract==5.3.0                       # Extracts the top-level domain from a URL
-mailchimp-marketing==3.0.80             # Mailchimp API, for adding people to the mailing list
+boto3                                   # AWS CLI SDK
+botocore                                # AWS CLI SDK core
+celery                                  # asynchronous task queue. works with redis.
+celery-redbeat                          # scheduled asynchronous tasks
+pymysql                                 # MariaDB driver for Django (installed as MySQLdb in am/am/__init__.py)
+python-hcl2                             # Terraform hcl parser for reading Terraform tfvars files
+python-dotenv                           # for reading environment variables from .env files
+tldextract                              # Extracts the top-level domain from a URL
 
 # for working with data
 # ------------
-pydantic==2.12.0                        # best data validation library ever!
-pydantic-settings==2.11.0               # settings management
-email-validator==2.3.0                  # Pydantic email validator for EmailStr
-validators==0.35.0                      # Data validation library
+pydantic                                # best data validation library ever!
+pydantic-settings                       # settings management
 
 
 # Django
 # ------------
-Django==5.2.17                           # web framework
-django-redis==6.0.0                     # object caching
-django-celery-beat==2.8.1               # scheduled asynchronous tasks
-djangorestframework==3.18.2             # for creating REST APIs on top of Django
-djangorestframework-simplejwt==5.5.1    # JWT support for DRF
-django-filter==25.1                     # REST API filtering
-django-hosts==7.0.0                     # Dynamic and static host resolving for Django. Maps hostnames to URLconfs.
-django-rest-knox==5.0.2                 # Token authentication for REST APIs
-django-cors-headers==4.7.0              # Cross-origin resource sharing
-django-storages==1.14.6                 # Django storage subsystem
-django-waffle==5.0.0                    # Feature flagging
-django-oauth-toolkit==3.1.0             # OAuth2 provider for Django (for ReactJS clients)
+Django                                  # web framework
+django-redis                            # object caching
+django-celery-beat                      # scheduled asynchronous tasks
+djangorestframework                     # for creating REST APIs on top of Django
+djangorestframework-simplejwt           # JWT support for DRF
+django-hosts                            # Dynamic and static host resolving for Django. Maps hostnames to URLconfs.
+django-rest-knox                        # Token authentication for REST APIs
+django-cors-headers                     # Cross-origin resource sharing
+django-storages                         # Django storage subsystem
+django-waffle                           # Feature flagging
+django-oauth-toolkit                    # OAuth2 provider for Django (for ReactJS clients)
 
 # Ecommerce
 # ------------
-dj-stripe==2.10.3                       # Stripe payment processing
-django-oscar==4.1                       # ecommerce
-sorl-thumbnail==12.11.0                 # Apache Solr
-pycountry                               # country database with flags
+dj-stripe                               # Stripe payment processing
+django-oscar                            # ecommerce
+sorl-thumbnail                          # Apache Solr
+pycountry                               # country database; oscar_populate_countries needs it (make docker-init, the Helm init job)
 
 # Web publishing tools
 # ------------
-drf-yasg==1.21.10                       # Swagger API documentation
-whitenoise==6.9.0                       # static file serving
+drf-yasg                                # Swagger API documentation
+whitenoise                              # static file serving

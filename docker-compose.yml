@@ -1,17 +1,20 @@
 ---
 #------------------------------------------------------------------------------
 # For local development, you can use the following docker-compose file
-# to run the application. This file will start a MySQL database, a Redis
-# server, a Celery worker, and the application itself. The application
+# to run the application. This file will start a MariaDB database, a Redis
+# server, Celery and Beat workers, and the application itself. The application
 # will be available at http://localhost:8000.
+#
+# Modeled on smarter-sh/smarter's docker-compose.yml. In Kubernetes, Account
+# Manager uses the MariaDB server of smarter's Helm chart; locally, am-mariadb
+# stands in for it.
 #------------------------------------------------------------------------------
 services:
-  am-mysql:
-    container_name: am-mysql
+  am-mariadb:
+    container_name: am-mariadb
     mem_limit: 2g
     cpus: 0.5
-    image: mysql:8
-    command: ["mysqld", "--mysql-native-password=ON"]
+    image: mariadb:latest
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: am
@@ -21,7 +24,7 @@ services:
     ports:
       - 3306:3306
     volumes:
-      - ./mysql-data:/var/lib/mysql
+      - ./mariadb-data:/var/lib/mysql
 
   am-redis:
     container_name: am-redis
@@ -33,7 +36,6 @@ services:
       - 6379:6379
 
   am-app:
-    platform: linux/amd64
     container_name: am-app
     mem_limit: 4g
     cpus: 1
@@ -47,21 +49,20 @@ services:
         ENVIRONMENT: ${ENVIRONMENT}
     image: am
     command: watchmedo auto-restart --directory=./am --pattern=*.py --recursive -- gunicorn am.wsgi:application -b 0.0.0.0:8000 --timeout 120
-    volumes:
-      - type: bind
-        source: ./am
-        target: /am
-        consistency: cached
     ports:
       - 8000:8000
     depends_on:
-      - am-mysql
+      - am-mariadb
       - am-redis
     env_file:
       - ./.env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SERVICE_TYPE=app
+      # am-mariadb's MYSQL_ROOT_PASSWORD, as in the Helm chart's init job.
+      - AM_MYSQL_ROOT_PASSWORD=am
 
   am-worker:
-    platform: linux/amd64
     container_name: am-worker
     mem_limit: 2g
     cpus: 0.5
@@ -74,18 +75,16 @@ services:
       args:
         ENVIRONMENT: ${ENVIRONMENT}
     image: am
-    command: celery -A am.workers.celery.app worker --concurrency=4 --loglevel=info -Q default_celery_task_queue -E
+    command: celery -A am.workers.celery.app worker --concurrency=4 --loglevel=info -Q default_celery_task_queue,beat_tasks -E
     depends_on:
-      - am-mysql
+      - am-mariadb
       - am-redis
       - am-app
     env_file:
       - ./.env
-    volumes:
-      - type: bind
-        source: ./am
-        target: /am
-        consistency: cached
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SERVICE_TYPE=worker
     healthcheck:
       test: ["CMD", "celery", "-A", "am.workers.celery.app", "inspect", "ping"]
       interval: 30s
@@ -93,7 +92,6 @@ services:
       retries: 3
 
   am-beat:
-    platform: linux/amd64
     container_name: am-beat
     mem_limit: 1g
     cpus: 0.5
@@ -108,19 +106,16 @@ services:
     image: am
     command: celery -A am.workers.celerybeat.app beat --loglevel=info
     depends_on:
-      - am-mysql
+      - am-mariadb
       - am-redis
       - am-app
     env_file:
       - ./.env
-    volumes:
-      - type: bind
-        source: ./am
-        target: /am
-        consistency: cached
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SERVICE_TYPE=beat
     healthcheck:
-      test:
-        ["CMD", "celery", "-A", "am.workers.celerybeat.app", "inspect", "ping"]
+      test: ["CMD", "celery", "-A", "am.workers.celerybeat.app", "inspect", "ping"]
       interval: 30s
       timeout: 30s
       retries: 3

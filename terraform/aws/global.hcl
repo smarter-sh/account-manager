@@ -23,7 +23,11 @@ locals {
     shared_resource_identifier = get_env("SHARED_RESOURCE_IDENTIFIER", "am")
     api_subdomain              = get_env("API_SUBDOMAIN", "api")
     eks_cluster_name           = get_env("EKS_CLUSTER_NAME", "apps-hosting-service")
-    mysql_host                 = get_env("MYSQL_HOST", "mysql.service.lawrencemcdaniel.com")
+    # the shared MariaDB server: the smarter Helm chart's smarter-mariadb Service in the
+    # namespace <smarter_namespace_base>-<environment>. An empty mysql_host means that
+    # Service's in-cluster name (see local.mysql_host in terraform/main.tf).
+    smarter_namespace_base     = get_env("SMARTER_NAMESPACE_BASE", "smarter-ubc")
+    mysql_host                 = get_env("MYSQL_HOST", "")
     mysql_port                 = get_env("MYSQL_PORT", "3306")
     tags = {
       "terraform"                 = "true",
@@ -31,7 +35,7 @@ locals {
       "contact"                   = "Lawrence McDaniel - https://lawrencemcdaniel.com/"
       "am/root_domain"            = local.root_domain
       "am/eks_cluster_name"       = local.eks_cluster_name
-      "am/mysql_host"             = local.mysql_host
+      "am/smarter_namespace_base" = local.smarter_namespace_base
     }
 
 }
@@ -46,6 +50,7 @@ inputs = {
     eks_cluster_name           = local.eks_cluster_name
     mysql_root_username        = local.mysql_root_username
     mysql_root_password        = local.mysql_root_password
+    smarter_namespace_base     = local.smarter_namespace_base
     mysql_host                 = local.mysql_host
     mysql_port                 = local.mysql_port
     tags                       = local.tags

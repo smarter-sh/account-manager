@@ -1,9 +1,8 @@
 """DRF knox authtoken model and manager."""
 
 import uuid
-from datetime import datetime, timedelta
 from logging import getLogger
-from typing import Optional
+from typing import ClassVar, Optional
 
 from django.db import models
 from django.utils import timezone
@@ -14,7 +13,6 @@ from knox.settings import CONSTANTS
 from am.apps.account.models import User
 from am.common.exceptions import AMBusinessRuleViolation
 from am.lib.django.model_helpers import TimestampedModel
-
 
 logger = getLogger(__name__)
 
@@ -52,13 +50,9 @@ class AMAuthTokenManager(AuthTokenManager):
             is_active=is_active,
             **kwargs,
         )
-        logger.info(
-            "Creating API Key for user %s with token %s and expiry %s",
-            user,
-            token_key,
-            expiry,
-        )
         auth_token.save()
+        # never log the token, nor its token_key prefix: they are credentials.
+        logger.info("Created API Key %s for user %s with expiry %s", auth_token.key_id, user, expiry)
         return auth_token, token
 
 
@@ -88,15 +82,9 @@ class AMAuthToken(AuthToken, TimestampedModel):
                 description="Key for production API access"
             )
 
-            # Activating or deactivating the key
-            token.activate()
-            token.deactivate()
-
-            # Toggling active status
-            token.toggle_active()
-
-            # Tracking usage
-            token.accessed()
+            # Deactivating the key
+            token.is_active = False
+            token.save()
 
     .. note::
 
@@ -107,17 +95,15 @@ class AMAuthToken(AuthToken, TimestampedModel):
     .. warning::
 
         - Ensure that API keys are managed securely. Deactivated keys cannot be used for authentication.
-        - The `has_permissions` method checks if a user is staff or superuser before allowing management actions.
 
     Related Models
     --------------
 
     - ``User``: The owner of the API key.
     - ``TimestampedModel``: Provides created/modified timestamps.
-
     """
 
-    objects = AMAuthTokenManager()
+    objects: ClassVar[AMAuthTokenManager] = AMAuthTokenManager()
 
     # pylint: disable=C0115
     class Meta:
@@ -140,35 +126,6 @@ class AMAuthToken(AuthToken, TimestampedModel):
         if self.created is None:
             self.created = timezone.now()
         super().save(*args, **kwargs)
-
-    def has_permissions(self, user) -> bool:
-        """Determine if the authenticated user has permissions to manage this key."""
-        if not hasattr(user, "is_authenticated") or not user.is_authenticated:
-            return False
-        if not hasattr(user, "is_staff") or not hasattr(user, "is_superuser"):
-            return False
-        return user.is_staff or user.is_superuser
-
-    def activate(self):
-        """Activate the API key."""
-        self.is_active = True
-        self.save()
-
-    def deactivate(self):
-        """Deactivate the API key."""
-        self.is_active = False
-        self.save()
-
-    def toggle_active(self):
-        """Toggle the active status of the API key."""
-        self.is_active = not self.is_active
-        self.save()
-
-    def accessed(self):
-        """Update the last used time."""
-        if self.last_used_at is None or (datetime.now() - self.last_used_at) > timedelta(minutes=5):
-            self.last_used_at = datetime.now()
-            self.save()
 
     def __str__(self):
         return str(self.name) + " (" + str(self.user) + ") " + str(self.identifier)

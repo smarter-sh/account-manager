@@ -1,16 +1,12 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
-    directory: "/am/requirements/in"
-    schedule:
-      interval: "monthly"
-    target-branch: "alpha"
-    labels:
-      - "dependencies"
-      - "python"
-      - "automated pr"
   - package-ecosystem: "npm"
     directory: "/"
+    ignore:
+      # v10+ requires conventional-changelog-writer@9, but
+      # @semantic-release/release-notes-generator@14 still bundles writer@8.
+      - dependency-name: "conventional-changelog-conventionalcommits"
+        update-types: ["version-update:semver-major"]
     labels:
       - "dependencies"
       - "javascript"
@@ -27,7 +23,11 @@ updates:
       interval: "quarterly"
     target-branch: "alpha"
   - package-ecosystem: "helm"
-    directory: "/helm/charts/am"
+    directory: "/helm/charts/account-manager"
+    labels:
+      - "dependencies"
+      - "automated pr"
+    target-branch: "alpha"
     schedule:
       interval: "quarterly"
   - package-ecosystem: "terraform"

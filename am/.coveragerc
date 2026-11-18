@@ -1,12 +1,17 @@
+# coverage.py, for make coverage and the Tests workflow. Paths are relative to am/, the
+# folder that manage.py is in (/home/am_user/am in the am-app container).
 [run]
 source =
-    account/
+    am/
 omit =
     **/tests/*
     **/migrations/*
-    account/apps/account/models.py
-    account/common/
-    account/lib/
+    # Django settings are configuration, not logic. Their only branches are a startup
+    # diagnostics block that runs under gunicorn, not manage.py, and per-environment values.
+    am/settings/*
+    am/asgi.py
+    am/wsgi.py
 [report]
 exclude_lines =
     pragma: no cover
+    if TYPE_CHECKING:

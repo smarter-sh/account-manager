@@ -7,18 +7,19 @@ from .models import (
     Charge,
     DailyBillingRecord,
     PaymentMethod,
+    PlatformClient,
     Subscription,
     SubscriptionHosts,
     SubscriptionUser,
     UserProfile,
 )
 
-
 admin.site.register(Account)
 admin.site.register(AccountContact)
 admin.site.register(Charge)
 admin.site.register(DailyBillingRecord)
 admin.site.register(PaymentMethod)
+admin.site.register(PlatformClient)
 admin.site.register(UserProfile)
 admin.site.register(Subscription)
 admin.site.register(SubscriptionHosts)

@@ -20,6 +20,7 @@ service-account.b64
 # application data
 # -------------------------------------
 celerybeat-schedule
+mariadb-data
 mysql-data
 db.sqlite3
 .cache.sqlite
@@ -99,3 +100,7 @@ package-lock.json
 *.tfstate.backup
 .terraform.lock.hcl
 .terragrunt-cache/
+
+# coverage.py reports
+coverage.xml
+coverage-out/

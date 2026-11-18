@@ -25,7 +25,7 @@ output "environment_platform_domain" {
 
 
 output "mysql_host" {
-  value = var.mysql_host
+  value = local.mysql_host
 }
 
 output "mysql_port" {

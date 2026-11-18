@@ -1,22 +1,21 @@
 """
-authenticate requests via AMTokenAuthentication, a subclass of
+Authenticate requests via AMTokenAuthentication, a subclass of.
+
 knox.auth TokenAuthentication tokens.
 """
 
 import logging
-import traceback
 from datetime import timedelta
 from http import HTTPStatus
 from typing import Optional
 
 from django.contrib.auth import login
-from django.http import HttpRequest
+from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 from knox.settings import knox_settings
 from rest_framework.authentication import get_authorization_header
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.response import Response
 
 from am.common.classes import AMHelperMixin
 from am.common.conf import am_settings
@@ -26,16 +25,7 @@ from am.lib.django.validators import AMValidator
 from am.lib.django.waffle import AMWaffleSwitches
 from am.lib.logging import WaffleSwitchedLoggerWrapper
 
-from .models import AMAuthToken
-from .signals import (
-    smarter_token_authentication_failure,
-    smarter_token_authentication_request,
-    smarter_token_authentication_success,
-)
-from .token_authentication import (
-    AMTokenAuthentication,
-    AMTokenAuthenticationError,
-)
+from .token_authentication import AMTokenAuthentication
 
 
 def should_log(level):
@@ -48,103 +38,50 @@ logger = WaffleSwitchedLoggerWrapper(base_logger, should_log)
 
 
 class AMTokenAuthenticationMiddleware(MiddlewareMixin, AMHelperMixin):
-    """Middleware to authenticate requests via AMTokenAuthentication, a subclass of
-    knox.auth TokenAuthentication tokens. Provides seamless token authentication for
-    incoming requests.
+    """Middleware to authenticate api requests via AMTokenAuthentication, a subclass of.
 
-    Does the following:
+    knox.auth TokenAuthentication.
 
-    - Checks for the presence of an Authorization header with a valid token.
-    - Uses AMTokenAuthentication to authenticate the token.
-    - Logs authentication attempts and outcomes.
-    - adds Django signals for token authentication events.
-    - verifies token activity.
-    - adds timestamp update on token use.
+    Does the following, for requests to an Account Manager api url that carry an
+    ``Authorization: Token <key>`` header and that no other middleware has authenticated:
 
-    Raises:
-        AuthenticationFailed: Raised when authentication fails.
-        AMTokenAuthenticationError: Raised for errors specific to AMTokenAuthentication.
+    - authenticates the token with :class:`AMTokenAuthentication`, and logs the user in.
+    - (via AMTokenAuthentication) sends Django signals for token authentication events.
+    - logs a warning when the token is older than ``am_settings.smarter_api_key_max_lifetime_days``.
+    - answers ``401 Unauthorized`` (json) when the token doesn't authenticate.
 
+    The middleware keeps no per-request state on the instance, which Django shares between requests.
     """
 
-    authorization_header: Optional[str] = None
-    request: Optional[HttpRequest] = None
-    masked_token: Optional[str] = None
+    @staticmethod
+    def get_token(request) -> Optional[str]:
+        """Return the knox token from the request's Authorization header.
 
-    # pylint: disable=unused-argument
-    def is_token_auth(self, request) -> bool:
-        """Check if the request is for knox token authentication.
-
-        Args:
-            request (HttpRequest): The incoming HTTP request.
-
-        Returns:
-            bool: True if the request uses token authentication, False otherwise.
+        :param request: The incoming HTTP request.
+        :returns: The token, or None if the header is missing or is for another authentication scheme.
         """
-        # auth=[b'Token', b'd9d56ff4-- A 64-CHARACTER TOKEN --c8176']
-        auth = self.authorization_header.split() if isinstance(self.authorization_header, str) else []
-        auth = [a.decode() if isinstance(a, bytes) else a for a in auth]
+        # auth=['Token', 'd9d56ff4-- A 64-CHARACTER TOKEN --c8176']
+        auth = [a.decode() if isinstance(a, bytes) else a for a in get_authorization_header(request).split()]
         prefix = knox_settings.AUTH_HEADER_PREFIX
         if isinstance(prefix, bytes):
             prefix = prefix.decode()
-
-        if not auth:
-            return False
-
-        # Ensure auth[0] is a string for comparison
-        # prefix=Token
-        # auth=['Token', 'd9d56ff4-- A 64-CHARACTER TOKEN --c8176']
-        auth_prefix = auth[0]
-        if isinstance(auth_prefix, bytes):
-            auth_prefix = auth_prefix.decode()
-
-        if auth_prefix.lower() != prefix.lower():
-            # Authorization header is possibly for another backend
-            return False
-
-        token = auth[1]
-        self.masked_token = mask_string(string=token)
-        return True
-
-    def url(self) -> Optional[str]:
-        """Return the full URL from the request object.
-
-        Returns:
-            Optional[str]: the complete url from the request object.
-        """
-        if self.request:
-            return self.smarter_build_absolute_uri(self.request)
-        return None
-
-    def __init__(self, get_response):
-        super().__init__(get_response)
-        self.get_response = get_response
+        if len(auth) != 2 or auth[0].lower() != prefix.lower():
+            return None
+        return auth[1]
 
     def __call__(self, request, *args, **kwargs):
         """Try to authenticate the request using AMTokenAuthentication.
 
-        Args:
-            request (HttpRequest): The incoming HTTP request.
-
-        Raises:
-            AuthenticationFailed: Raised when authentication fails.
-            AMTokenAuthenticationError: Raised for errors specific to AMTokenAuthentication.
-        Returns:
-            HttpResponse: The response generated by the next middleware or view.
+        :param request: The incoming HTTP request.
+        :returns: The response of the next middleware or view, or a 401 response if the token is refused.
         """
-
         # this is the earliest point at which we can evaluate the request URL.
         url = self.smarter_build_absolute_uri(request)
         if not AMValidator.is_api_endpoint(url):
-            # skip token authentication if we're not a Account Manager API request
-            logger.info(
-                "%s skipping token authentication for non-Account Manager API request", self.formatted_class_name
-            )
             return self.get_response(request)
 
-        self.authorization_header = get_authorization_header(request)  # type: ignore[assignment]
-        self.request = request
-        if not self.is_token_auth(request):
+        token = self.get_token(request)
+        if token is None:
             # we're not using token authentication, no need to do anything
             return self.get_response(request)
         if getattr(request, "auth", None) is not None:
@@ -152,55 +89,34 @@ class AMTokenAuthenticationMiddleware(MiddlewareMixin, AMHelperMixin):
             # with some other middleware, no need to do anything
             return self.get_response(request)
 
-        smarter_token_authentication_request.send(
-            sender=self.__class__,
-            token=self.masked_token,
-        )
-        request.auth = AMTokenAuthentication()  # type: ignore[assignment]
+        # AMTokenAuthentication sends the request, success and failure signals.
+        masked_token = mask_string(string=token)
         try:
-            user, auth_obj = request.auth.authenticate(request)  # type: ignore[assignment]
-            if user:
-                request.user = user
-                login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-                smarter_token_authentication_success.send(
-                    sender=self.__class__,
-                    user=user,
-                    token=self.masked_token,
-                )
-                # --- BEGIN: check token creation date ---
-                token = None
-                if hasattr(auth_obj, "digest"):
-                    try:
-                        token = AMAuthToken.objects.get(digest=auth_obj.digest)
-                        if token.created < timezone.now() - timedelta(
-                            days=am_settings.smarter_api_key_max_lifetime_days
-                        ):
-                            logger.warning(
-                                "%s token for user %s has exceeded max lifetime of %d days",
-                                self.formatted_class_name,
-                                user,
-                                am_settings.smarter_api_key_max_lifetime_days,
-                            )
-                    except AMAuthToken.DoesNotExist:
-                        logger.warning("%s token digest not found in AuthToken table", self.formatted_class_name)
-                # --- END: Get token creation date ---
+            result = AMTokenAuthentication().authenticate(request)
+        except AuthenticationFailed:
+            result = None
+        if not result:
+            logger.warning("%s token authentication failed for token %s", self.formatted_class_name, masked_token)
+            return JsonResponse({"detail": "Authentication failed."}, status=HTTPStatus.UNAUTHORIZED)
 
-            else:
-                raise AuthenticationFailed(
-                    "AMTokenAuthentication.authenticate() did not return"
-                    " a user object. This can happen if the Authorization header"
-                    " is malformed or is for another backend."
-                )
-            logger.info("%s authenticated user %s", self.formatted_class_name, user)
-        except AuthenticationFailed as auth_failed:
-            smarter_token_authentication_failure.send(
-                sender=self.__class__,
-                user=None,
-                token=self.masked_token,
-            )
-            try:
-                raise AMTokenAuthenticationError("Authentication failed.") from auth_failed
-            except AMTokenAuthenticationError:
-                return Response(status=HTTPStatus.UNAUTHORIZED)
-
+        user, auth_token = result
+        request.user = user
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+        self.warn_if_expired(auth_token, user)
+        logger.info("%s authenticated user %s", self.formatted_class_name, user)
         return self.get_response(request)
+
+    def warn_if_expired(self, auth_token, user) -> bool:
+        """Log a warning if the token is older than the maximum api key lifetime.
+
+        :param auth_token: The authenticated :class:`AMAuthToken`.
+        :param user: The authenticated user.
+        :returns: True if the token has exceeded its maximum lifetime.
+        """
+        max_days = am_settings.smarter_api_key_max_lifetime_days
+        if auth_token.created < timezone.now() - timedelta(days=max_days):
+            logger.warning(
+                "%s token for user %s has exceeded max lifetime of %d days", self.formatted_class_name, user, max_days
+            )
+            return True
+        return False

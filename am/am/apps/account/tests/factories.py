@@ -33,7 +33,7 @@ logger = WaffleSwitchedLoggerWrapper(base_logger, should_log)
 def admin_user_factory(account: Optional[Account] = None) -> tuple[User, Account, UserProfile]:
     hashed_slug = hash_factory()
     username = camel_to_snake(f"testAdminUser_{hashed_slug}")
-    email = f"test-admin-{hashed_slug}@mail.com"
+    email = f"test-admin-{hashed_slug}@example.com"
     first_name = f"TestAdminFirstName_{hashed_slug}"
     last_name = f"TestAdminLastName_{hashed_slug}"
     user = User.objects.create_user(
@@ -60,7 +60,7 @@ def admin_user_factory(account: Optional[Account] = None) -> tuple[User, Account
 def mortal_user_factory(account: Optional[Account] = None) -> tuple[User, Account, UserProfile]:
     hashed_slug = hash_factory()
     username = camel_to_snake(f"testAdminUser_{hashed_slug}")
-    email = f"test-mortal-{hashed_slug}@mail.com"
+    email = f"test-mortal-{hashed_slug}@example.com"
     first_name = f"TestMortalFirstName_{hashed_slug}"
     last_name = f"TestMortalLastName_{hashed_slug}"
     user = User.objects.create_user(
@@ -129,9 +129,7 @@ def billing_address_factory():
 
 
 def payment_method_factory(account: Account):
-    """
-    Factory for creating a PaymentMethod object for testing.
-    """
+    """Factory for creating a PaymentMethod object for testing."""
 
     payment_method = PaymentMethod.objects.create(
         account=account,
@@ -147,7 +145,7 @@ def payment_method_factory(account: Account):
     return payment_method
 
 
-def payment_method_factory_teardown(payment_method: PaymentMethod):
+def payment_method_factory_teardown(payment_method: Optional[PaymentMethod]):
     try:
         if payment_method:
             lbl = str(payment_method)

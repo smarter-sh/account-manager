@@ -1,6 +1,4 @@
-"""
-URL configuration for smarter test end points.
-"""
+"""URL configuration for smarter test end points."""
 
 from django.urls import path
 
@@ -10,9 +8,7 @@ from .views.test_views import (
     TestJsonDictViewAuthenticated,
     TestJsonListView,
     TestJsonListViewAuthenticated,
-    TestStackademyCourseCatalogueView,
 )
-
 
 app_name = namespace
 
@@ -22,7 +18,4 @@ urlpatterns = [
     path("unauthenticated/list/", TestJsonListView.as_view(), name="test_json_list_unauthenticated"),
     path("authenticated/dict/", TestJsonDictViewAuthenticated.as_view(), name="test_json_dict_authenticated"),
     path("authenticated/list/", TestJsonListViewAuthenticated.as_view(), name="test_json_list_authenticated"),
-    path(
-        "stackademy/course-catalogue/", TestStackademyCourseCatalogueView.as_view(), name="stackademy_course_catalogue"
-    ),
 ]

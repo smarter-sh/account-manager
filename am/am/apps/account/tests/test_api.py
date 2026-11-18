@@ -1,220 +1,196 @@
 # pylint: disable=wrong-import-position
-"""Test API end points."""
+"""
+Test the account api end points, end to end, through the url conf and the middleware.
 
-import logging
+The modules ``test_api_v1_views_*`` test each view module in detail. This module
+holds :class:`AccountApiTestMixin`, which they share, and a smoke test of every
+route of ``am.apps.account.api.v1.urls``.
+"""
+
 from http import HTTPStatus
 
 from django.test import Client
 from django.urls import reverse
 
-from am.common.conf import am_settings
-from am.lib.django import waffle
-from am.lib.django.waffle import AMWaffleSwitches
-from am.lib.logging import WaffleSwitchedLoggerWrapper
+from am.apps.account.models import Account, PaymentMethod, User, UserProfile
+from am.common.utils import hash_factory
 
-# our stuff
-from ..models import PaymentMethod
+from .factories import (
+    factory_account_teardown,
+    mortal_user_factory,
+    payment_method_factory,
+    payment_method_factory_teardown,
+)
 from .mixins import TestAccountMixin
 
 
-def should_log(level):
-    """Check if logging should be done based on the waffle switch."""
-    return (
-        waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING)
-        and waffle.switch_is_active(AMWaffleSwitches.PLUGIN_LOGGING)
-        and level >= am_settings.log_level
-    )
+class AccountApiTestMixin:
+    """
+    Fixtures for testing the account api, for a subclass of :class:`TestAccountMixin`.
+
+    Adds, in ``setUpClass``:
+
+    - ``staff_user``: a staff user who is not a superuser, in ``cls.account``.
+    - ``other_user``, ``other_account``: a user of a second Account.
+    - ``payment_method``: a PaymentMethod of ``cls.account``.
+    - ``other_payment_method``: a PaymentMethod of ``other_account``.
+
+    and deletes them in ``tearDownClass``.
+    """
+
+    namespace = "api:v1:account:"
+
+    staff_user: User
+    staff_user_profile: UserProfile
+    other_user: User
+    other_account: Account
+    other_user_profile: UserProfile
+    payment_method: PaymentMethod
+    other_payment_method: PaymentMethod
+
+    @classmethod
+    def setUpClass(cls):
+        """Create the staff user, the second Account, and the PaymentMethods."""
+        super().setUpClass()  # type: ignore[misc]
+        cls.staff_user, cls.staff_user_profile = cls.create_staff_user(cls.account)  # type: ignore[attr-defined]
+        cls.other_user, cls.other_account, cls.other_user_profile = mortal_user_factory()
+        cls.payment_method = payment_method_factory(cls.account)  # type: ignore[attr-defined]
+        cls.other_payment_method = payment_method_factory(cls.other_account)
+
+    @classmethod
+    def tearDownClass(cls):
+        """Delete what ``setUpClass`` created."""
+        payment_method_factory_teardown(PaymentMethod.objects.filter(pk=cls.payment_method.pk).first())
+        payment_method_factory_teardown(PaymentMethod.objects.filter(pk=cls.other_payment_method.pk).first())
+        factory_account_teardown(user=cls.staff_user, account=None, user_profile=None)  # type: ignore[arg-type]
+        factory_account_teardown(user=cls.other_user, account=cls.other_account, user_profile=None)  # type: ignore[arg-type]
+        super().tearDownClass()  # type: ignore[misc]
+
+    @staticmethod
+    def create_staff_user(account: Account) -> tuple[User, UserProfile]:
+        """
+        Create a staff user who is not a superuser, with a UserProfile in ``account``.
+
+        :param account: The Account.
+        :returns: The User and its UserProfile.
+        """
+        slug = hash_factory()
+        user = User.objects.create_user(
+            username=f"test_staff_user_{slug}",
+            email=f"test-staff-{slug}@example.com",
+            password="12345",
+            is_staff=True,
+        )
+        return user, UserProfile.objects.create(user=user, account=account, is_test=True)
+
+    def url(self, name: str, *args) -> str:
+        """
+        Reverse an account api url name.
+
+        :param name: The url name, without the namespace.
+        :param args: The url's arguments.
+        :returns: The path.
+        """
+        return reverse(self.namespace + name, args=list(args))
+
+    def client_without_profile(self) -> Client:
+        """
+        A test client signed in as a staff user who has no UserProfile.
+
+        Signing in creates a UserProfile in the default Account (see
+        ``am.apps.account.receivers``), so the profiles are deleted after signing in.
+        The user is deleted when the test ends.
+
+        :returns: The client.
+        """
+        user, _ = self.create_staff_user(self.account)  # type: ignore[attr-defined]
+        self.addCleanup(user.delete)  # type: ignore[attr-defined]
+        client = self.client_for(user)
+        UserProfile.objects.filter(user=user).delete()
+        return client
+
+    @staticmethod
+    def client_for(user) -> Client:
+        """
+        A test client signed in as ``user``.
+
+        :param user: The user, or None for an anonymous client.
+        :returns: The client.
+        """
+        client = Client()
+        if user is not None:
+            client.force_login(user)
+        return client
 
 
-base_logger = logging.getLogger(__name__)
-logger = WaffleSwitchedLoggerWrapper(base_logger, should_log)
-
-
-class TestUrls(TestAccountMixin):
-    """Test Account API end points."""
-
-    namespace = "account:api:v1:"
+class TestAccountApiUrls(AccountApiTestMixin, TestAccountMixin):
+    """Smoke test of every account api route, as a superuser."""
 
     def setUp(self):
-        """Set up test fixtures."""
+        """Sign in as the superuser."""
         super().setUp()
-        self.payment_method = PaymentMethod.objects.create(
-            account=self.account,
-            name="Test Payment Method",
-            stripe_id="1234567890",
-            card_type="visa",
-            card_last_4="1234",
-            card_exp_month="12",
-            card_exp_year="2024",
-            is_default=True,
-        )
-        self.client = Client()
-        self.client.force_login(self.admin_user)
+        self.client = self.client_for(self.admin_user)
 
-    def tearDown(self):
-
-        if self.client:
-            self.client.logout()
-
-        self.client = None
-        try:
-            self.payment_method.delete()
-
-        # pylint: disable=W0718
-        except Exception:
-            pass
-
-        super().tearDown()
+    def test_account_list_view(self):
+        """The account list holds the test Account."""
+        response = self.client.get(self.url("account_list_view"))
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        account_numbers = [account["accountNumber"] for account in response.json()]
+        self.assertIn(self.account.account_number, account_numbers)
 
     def test_account_view(self):
-        """test that we can see the account view and that it matches the account data."""
-        response = self.client.get(reverse(self.namespace + "account_list_view"))
+        """The account view returns the test Account in camelCase."""
+        response = self.client.get(self.url("account_view", self.account.id))
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(response.json()["companyName"], self.account.company_name)
+        self.assertEqual(response.json()["accountNumber"], self.account.account_number)
 
-        redirect_url = response.get("Location")
-        msg = response.content.decode("utf-8") if redirect_url is None else redirect_url
-        self.assertEqual(response.status_code, HTTPStatus.OK, msg=msg)
+    def test_account_users_list_view(self):
+        """The user list holds the superuser."""
+        response = self.client.get(self.url("account_users_list_view"))
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        emails = [user["email"] for user in response.json()]
+        self.assertIn(self.admin_user.email, emails)
 
-        json_data = response.json()
-        logger.info("test_account_view json_data: %s", json_data)
-        if isinstance(json_data, list):
-            json_data = json_data[-1]
-        self.assertEqual(json_data.get("companyName"), self.account.company_name)
-        self.assertEqual(json_data.get("accountNumber"), self.account.account_number)
+    def test_account_user_view(self):
+        """The user view returns the superuser."""
+        response = self.client.get(self.url("account_user_view", self.admin_user.id))
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(response.json()["username"], self.admin_user.username)
+        self.assertEqual(response.json()["email"], self.admin_user.email)
 
-    def test_accounts_index_view(self):
-        """test that we can see an account from inside the list view and that it matches the account data."""
-        response = self.client.get(reverse(self.namespace + "account_view", args=[str(self.account.id)]))
+    def test_account_payment_methods_list_view(self):
+        """The payment method list holds the test PaymentMethod."""
+        response = self.client.get(self.url("account_payment_methods_list_view"))
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        names = [payment_method["name"] for payment_method in response.json()]
+        self.assertIn(self.payment_method.name, names)
 
-        redirect_url = response.get("Location")
-        msg = response.content.decode("utf-8") if redirect_url is None else redirect_url
-        self.assertEqual(response.status_code, HTTPStatus.OK, msg=msg)
+    def test_account_payment_method_view(self):
+        """The payment method view returns the test PaymentMethod in camelCase."""
+        response = self.client.get(self.url("account_payment_method_view", self.payment_method.id))
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        data = response.json()
+        self.assertEqual(data["name"], self.payment_method.name)
+        self.assertEqual(data["cardType"], self.payment_method.card_type)
+        self.assertEqual(data["cardLast4"], str(self.payment_method.card_last_4))
+        self.assertEqual(data["isDefault"], self.payment_method.is_default)
 
-        json_data = response.json()
-        logger.info("test_accounts_index_view json_data: %s", json_data)
-        output = {
-            "id": 5437,
-            "createdAt": "2025-05-23T14:56:21.046401Z",
-            "updatedAt": "2025-05-23T14:56:21.046424Z",
-            "accountNumber": "1137-8137-6260",
-            "isDefaultAccount": False,
-            "companyName": "TestAccount_AdminUser_08cd0b30b9912bac",
-            "phoneNumber": "123-456-789",
-            "address1": None,
-            "address2": None,
-            "city": None,
-            "state": None,
-            "postalCode": None,
-            "country": "USA",
-            "language": "EN",
-            "timezone": None,
-            "currency": "USD",
-        }
-
-        self.assertIsInstance(json_data, dict)
-        self.assertEqual(json_data.get("companyName"), self.account.company_name)
-        self.assertEqual(json_data.get("accountNumber"), self.account.account_number)
-
-    def test_account_users_view(self):
-        """test that we can see users associated with an account and that one of these matches the account data."""
-        response = self.client.get(reverse(self.namespace + "account_users_list_view"))
-
-        redirect_url = response.get("Location")
-        msg = response.content.decode("utf-8") if redirect_url is None else redirect_url
-        self.assertEqual(response.status_code, HTTPStatus.OK, msg=msg)
-
-        json_data = response.json()
-        self.assertIsInstance(json_data, list)
-        for user in json_data:
-            if user.get("username") == self.admin_user.username:
-                self.assertEqual(user.get("email"), self.admin_user.email)
-                break
-
-    def test_account_users_index_view(self):
-        """test that we can see an account from inside the list view and that it matches the account data."""
-        response = self.client.get(reverse(self.namespace + "account_user_view", args=[str(self.admin_user.id)]))
-
-        redirect_url = response.get("Location")
-        msg = response.content.decode("utf-8") if redirect_url is None else redirect_url
-        self.assertEqual(response.status_code, HTTPStatus.OK, msg=msg)
-
-        json_data = response.json()
-        logger.info("test_account_users_index_view json_data: %s", json_data)
-        output = {
-            "id": 8315,
-            "username": "testAdminUser_08cd0b30b9912bac",
-            "first_name": "TestAdminFirstName_08cd0b30b9912bac",
-            "last_name": "TestAdminLastName_08cd0b30b9912bac",
-            "email": "test-08cd0b30b9912bac@mail.com",
-            "is_staff": True,
-            "is_superuser": True,
-        }
-        self.assertIsInstance(json_data, dict)
-        self.assertEqual(json_data.get("email"), self.admin_user.email)
-        self.assertEqual(json_data.get("username"), self.admin_user.username)
-
-    def test_account_payment_methods(self):
-        """test that we can see the payment methods associated with an account."""
-        response = self.client.get(reverse(self.namespace + "account_payment_methods_list_view"))
-
-        redirect_url = response.get("Location")
-        msg = response.content.decode("utf-8") if redirect_url is None else redirect_url
-        self.assertEqual(response.status_code, HTTPStatus.OK, msg=msg)
-
-        json_data = response.json()
-        logger.info("test_account_payment_methods json_data: %s", json_data)
-        output = [
-            {
-                "id": 443,
-                "createdAt": "2025-05-23T14:56:21.572330Z",
-                "updatedAt": "2025-05-23T14:56:21.572342Z",
-                "name": "Test Payment Method",
-                "stripeId": "1234567890",
-                "cardType": "visa",
-                "cardLast4": "1234",
-                "cardExpMonth": "12",
-                "cardExpYear": "2024",
-                "isDefault": True,
-                "account": 5437,
-            }
-        ]
-
-        self.assertIsInstance(json_data, list)
-        for payment_method in json_data:
-            if payment_method.get("name") == self.payment_method.name:
-                self.assertEqual(payment_method.get("cardType"), self.payment_method.card_type)
-                break
-            self.fail("payment method not found in list")
-
-    def test_account_payment_methods_index(self):
-        """test that we can see the payment methods associated with an account."""
-        response = self.client.get(
-            reverse(self.namespace + "account_payment_method_view", args=[str(self.payment_method.id)])
+    def test_subscription_status_view(self):
+        """The subscription status view answers 403 for an unknown user."""
+        response = self.client_for(None).get(
+            self.url("subscription_status_view"), HTTP_X_CLIENT_USERNAME="no-such-user"
         )
+        self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
 
-        redirect_url = response.get("Location")
-        msg = response.content.decode("utf-8") if redirect_url is None else redirect_url
-        self.assertEqual(response.status_code, HTTPStatus.OK, msg=msg)
+    def test_anonymous_request_is_refused(self):
+        """An anonymous request to an admin route is redirected to the admin sign-in page."""
+        response = self.client_for(None).get(self.url("account_list_view"))
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+        self.assertIn("/admin/login/", response["Location"])
 
-        json_data = response.json()
-        logger.info("test_account_payment_methods_index json_data: %s", json_data)
-        output = {
-            "id": 444,
-            "createdAt": "2025-05-23T14:56:21.853593Z",
-            "updatedAt": "2025-05-23T14:56:21.853610Z",
-            "name": "Test Payment Method",
-            "stripeId": "1234567890",
-            "cardType": "visa",
-            "cardLast4": "1234",
-            "cardExpMonth": "12",
-            "cardExpYear": "2024",
-            "isDefault": True,
-            "account": 5437,
-        }
-        self.assertTrue(type(json_data) in (list, dict))
-
-        self.assertEqual(json_data.get("name"), self.payment_method.name)
-        self.assertEqual(json_data.get("cardType"), self.payment_method.card_type)
-        self.assertEqual(json_data.get("cardLast4"), self.payment_method.card_last_4)
-        self.assertEqual(json_data.get("cardExpMonth"), self.payment_method.card_exp_month)
-        self.assertEqual(json_data.get("cardExpYear"), self.payment_method.card_exp_year)
-        self.assertEqual(json_data.get("isDefault"), self.payment_method.is_default)
+    def test_non_staff_request_is_refused(self):
+        """A request by a user who is not staff is redirected to the admin sign-in page."""
+        response = self.client_for(self.non_admin_user).get(self.url("account_list_view"))
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+        self.assertIn("/admin/login/", response["Location"])

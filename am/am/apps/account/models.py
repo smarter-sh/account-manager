@@ -2,9 +2,11 @@
 
 # pylint: disable=missing-class-docstring
 
+import hashlib
+import hmac
 import logging
-import os
 import random
+import secrets
 from typing import TYPE_CHECKING, Optional, Union
 
 # django stuff
@@ -12,7 +14,7 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser, AnonymousUser, User
 from django.core.validators import RegexValidator
 from django.db import models
-from django.template.loader import render_to_string
+from django.utils import timezone
 from django.utils.functional import SimpleLazyObject
 
 # our stuff
@@ -30,9 +32,6 @@ from .signals import (
     new_charge_created,
     new_user_created,
 )
-
-
-HERE = os.path.abspath(os.path.dirname(__file__))
 
 
 def should_log(level):
@@ -65,28 +64,6 @@ PROVIDERS = [
 ]
 
 
-def welcome_email_context(first_name: str) -> dict:
-    """
-    Return the context for the welcome email template.
-    templates/account/email/welcome.html
-    """
-
-    first_name = first_name.capitalize()
-    return {
-        "base_url": am_settings.environment_url,
-        "first_name": first_name,
-        "corporate_name": settings.ACCOUNT_BRANDING_CORPORATE_NAME,
-        "support_phone": settings.ACCOUNT_BRANDING_SUPPORT_PHONE_NUMBER,
-        "support_email": settings.ACCOUNT_BRANDING_SUPPORT_EMAIL,
-        "contact_address": settings.ACCOUNT_BRANDING_ADDRESS,
-        "contact_url": settings.ACCOUNT_BRANDING_CONTACT_URL,
-        "office_hours": settings.ACCOUNT_BRANDING_SUPPORT_HOURS,
-        "facebook_url": settings.ACCOUNT_BRANDING_URL_FACEBOOK,
-        "twitter_url": settings.ACCOUNT_BRANDING_URL_TWITTER,
-        "linkedin_url": settings.ACCOUNT_BRANDING_URL_LINKEDIN,
-    }
-
-
 if TYPE_CHECKING:
     try:
         from django.contrib.auth.models import _AnyUser
@@ -116,7 +93,6 @@ def get_resolved_user(
 
             Handles edge cases such as lazy objects and test mocks.
 
-
     **Example usage**::
 
         from am.apps.account.models import get_resolved_user
@@ -128,7 +104,6 @@ def get_resolved_user(
 
             :class:`django.contrib.auth.models.User`
             :class:`django.utils.functional.SimpleLazyObject`
-
     """
     logger.info("get_resolved_user() called for user type: %s", type(user))
     if user is None:
@@ -227,14 +202,11 @@ class Account(TimestampedModel):
 
             The generated account number is zero-padded and segmented for readability.
 
-
         **Example usage**::
 
             from am.apps.account.models import Account
             account_number = Account.randomized_account_number()
             print(account_number)  # e.g., '1234-5678-9012'
-
-
         """
         ACCOUNT_NUMBER_SEGMENTS = 3
         ACCOUNT_NUMBER_SEGMENT_LENGTH = 4
@@ -269,28 +241,11 @@ class Account(TimestampedModel):
 
             account = Account(company_name="Acme Corp")
             account.save()  # Ensures account_number is unique and valid
-
         """
         if self.account_number == "9999-9999-9999":
             self.account_number = self.randomized_account_number()
         AMValidator.validate_account_number(self.account_number)
         super().save(*args, **kwargs)
-
-    @classmethod
-    def get_by_account_number(cls, account_number):
-        """
-        Retrieve an Account instance by its account number.
-
-        :param account_number: String. The account number to search for.
-        :returns: Optional[Account]
-            The Account instance if found, otherwise None.
-
-
-        """
-        try:
-            return cls.objects.get(account_number=account_number)
-        except cls.DoesNotExist:
-            return None
 
     # pylint: disable=missing-class-docstring
     class Meta:
@@ -316,15 +271,11 @@ class AccountContact(TimestampedModel):
     :param phone: String. Contact's phone number (optional).
     :param is_primary: Boolean. Marks this contact as the primary contact for the account.
     :param is_test: Boolean. Indicates if this contact is for testing purposes.
-    :param welcomed: Boolean. Indicates if a welcome email has been sent.
 
     .. note::
 
-        Contacts do not need to be registered users.
-
-    .. tip::
-
-        Use :meth:`send_email_to_account` to broadcast messages to all contacts.
+        Contacts do not need to be registered users. Account Manager doesn't welcome them by email:
+        Smarter welcomes its users.
 
     .. attention::
 
@@ -364,9 +315,6 @@ class AccountContact(TimestampedModel):
     is_test = models.BooleanField(
         default=False, help_text="Indicates if this contact is used for unit testing purposes."
     )
-    welcomed = models.BooleanField(
-        default=False, help_text="Indicates if a welcome email has been sent to this contact."
-    )
 
     def send_email(self, subject: str, body: str, html: bool = False, from_email: Optional[str] = None):
         """
@@ -391,156 +339,22 @@ class AccountContact(TimestampedModel):
         **Example usage**::
 
             contact.send_email(
-                subject="Welcome!",
-                body="Hello and welcome to Smarter.",
+                subject="Your invoice",
+                body="Your monthly invoice is ready.",
                 html=True,
                 from_email="support@smarter.com"
             )
-
         """
 
         email_helper.send_email(
             subject=subject, to=self.email, body=body, html=html, from_email=from_email, quiet=self.is_test
         )
 
-    def send_welcome_email(self) -> None:
-        """
-        Send a personalized welcome email to this account contact.
-
-        This method renders the welcome email template with the contact's first name and sends it as HTML.
-
-        :returns: None
-
-        .. note::
-
-            The welcome email uses the template at ``account/email/welcome.html``.
-
-        .. tip::
-
-            This method is automatically called when a new contact is created and has not yet been welcomed.
-
-        **Example usage**::
-
-            contact.send_welcome_email()
-
-        """
-        context = welcome_email_context(first_name=self.first_name)
-        html_template = render_to_string("account/email/welcome.html", context)
-
-        subject = "Welcome to Smarter!"
-        body = html_template
-        self.send_email(subject=subject, body=body, html=True)
-
-    @classmethod
-    def get_primary_contact(cls, account: Account) -> Optional["AccountContact"]:
-        """
-        Retrieve the primary contact for a given account.
-
-        This method returns the first contact marked as primary for the specified account, or None if no such contact exists.
-
-        :param account: Instance of :class:`Account`. The account to search for a primary contact.
-        :returns: Optional[AccountContact]
-            The primary contact instance, or None if not found.
-
-        .. tip::
-
-            Use this method to quickly access the main point of contact for notifications or support.
-
-        **Example usage**::
-
-            primary_contact = AccountContact.get_primary_contact(account)
-            if primary_contact:
-                print(primary_contact.email)
-
-        """
-        return cls.objects.filter(account=account, is_primary=True).first()
-
-    # pylint: disable=too-many-arguments
-    @classmethod
-    def send_email_to_account(
-        cls, account: Account, subject: str, body: str, html: bool = False, from_email: Optional[str] = None
-    ) -> None:
-        """
-        Send an email to all contacts associated with a given account.
-
-        This method iterates over all contacts for the specified account and sends the provided message
-        to each contact's email address.
-
-        :param account: Instance of :class:`Account`. The account whose contacts will receive the email.
-        :param subject: String. The email subject line.
-        :param body: String. The email body content.
-        :param html: Boolean. If True, sends the email as HTML. Defaults to False.
-        :param from_email: String or None. Optional sender email address.
-
-        .. note::
-
-            Contacts marked as test contacts (`is_test=True`) will receive emails quietly.
-
-        .. tip::
-
-            Use this method for account-wide notifications or announcements.
-
-        **Example usage**::
-
-            AccountContact.send_email_to_account(
-                account=account,
-                subject="System Update",
-                body="We have updated our terms of service.",
-                html=False
-            )
-
-        """
-        contacts = cls.objects.filter(account=account)
-        for contact in contacts:
-            contact.send_email(subject=subject, body=body, html=html, from_email=from_email)
-
-    # pylint: disable=too-many-arguments
-    @classmethod
-    def send_email_to_primary_contact(
-        cls, account: Account, subject: str, body: str, html: bool = False, from_email: Optional[str] = None
-    ) -> None:
-        """
-        Send an email to the primary contact of a given account.
-
-        This method locates the primary contact for the specified account and sends the provided message.
-        If no primary contact exists, an error is logged.
-
-        :param account: Instance of :class:`Account`. The account whose primary contact will receive the email.
-        :param subject: String. The email subject line.
-        :param body: String. The email body content.
-        :param html: Boolean. If True, sends the email as HTML. Defaults to False.
-        :param from_email: String or None. Optional sender email address.
-
-        .. attention::
-
-            If no primary contact is found, no email is sent and an error is logged.
-
-        .. tip::
-
-            Use this method for urgent or important communications that require a single point of contact.
-
-        **Example usage**::
-
-            AccountContact.send_email_to_primary_contact(
-                account=account,
-                subject="Urgent: Action Required",
-                body="Please review your account settings.",
-                html=True
-            )
-
-        """
-        contact = cls.get_primary_contact(account)
-        if contact:
-            contact.send_email(subject=subject, body=body, html=html, from_email=from_email)
-        else:
-            logger.error("No primary contact found for account %s", account)
-
     def save(self, *args, **kwargs):
         """
-        Save the AccountContact instance, enforcing primary contact uniqueness and sending a welcome email if needed.
+        Save the AccountContact instance, enforcing primary contact uniqueness.
 
-        This method ensures that only one primary contact exists per account. If the contact is new and has not
-        been welcomed, a welcome email is sent and the `welcomed` flag is updated.
+        This method ensures that only one primary contact exists per account.
 
         :param args: Positional arguments passed to the parent save method.
         :param kwargs: Keyword arguments passed to the parent save method.
@@ -549,17 +363,12 @@ class AccountContact(TimestampedModel):
 
             Only one contact per account can be marked as primary. Attempting to save another will raise an error.
 
-        .. note::
-
-            The welcome email is sent automatically for new contacts who have not been welcomed.
-
         :raises AMValueError: If another primary contact already exists for the account.
 
         **Example usage**::
 
             contact = AccountContact(account=account, email="jane@example.com", is_primary=True)
-            contact.save()  # Ensures uniqueness and sends welcome email if needed
-
+            contact.save()  # Ensures that the account has one primary contact
         """
         if self.is_primary:
             # Check for another primary contact for this account (excluding self if updating)
@@ -570,10 +379,6 @@ class AccountContact(TimestampedModel):
                 raise AMValueError("There is already a primary contact for this account.")
 
         super().save(*args, **kwargs)
-        if not self.welcomed:
-            self.send_welcome_email()
-            self.welcomed = True
-            self.save()
 
     def __str__(self):
         return self.first_name + " " + self.last_name
@@ -602,7 +407,6 @@ class UserProfile(TimestampedModel):
         from am.apps.account.models import UserProfile
         profile = UserProfile.objects.create(user=user, account=account)
         profile.add_to_account_contacts(is_primary=True)
-
     """
 
     # pylint: disable=missing-class-docstring
@@ -672,11 +476,11 @@ class UserProfile(TimestampedModel):
         **Example usage**::
 
             profile.save()
-
         """
         is_new = self.pk is None
 
-        if self.user is None or self.account is None:
+        # pylint: disable=no-member
+        if self.user_id is None or self.account_id is None:  # type: ignore[attr-defined]
             raise AMValueError("User and Account cannot be null")
         super().save(*args, **kwargs)
         if is_new:
@@ -688,51 +492,6 @@ class UserProfile(TimestampedModel):
                 "New user profile created for %s %s. Sending signal.", self.account.company_name, self.user.email
             )
             new_user_created.send(sender=self.__class__, user_profile=self)
-
-    @classmethod
-    def admin_for_account(cls, account: Account) -> User:
-        """
-        Return the designated user for the given account.
-
-        This method finds the first staff user associated with the account. If no staff user exists, it returns the first available user.
-        If the account has no users, an admin user is created and returned.
-
-        :param account: Instance of :class:`Account`. The account for which to find the designated user.
-        :returns: :class:`django.contrib.auth.models.User`
-            The designated user for the account.
-
-        .. attention::
-
-            If no staff or regular users exist for the account, an admin user is automatically created. You must set the password manually.
-
-        .. error::
-
-            Logs an error if no admin or user is found for the account.
-
-        **Example usage**::
-
-            user = UserProfile.admin_for_account(account)
-
-        .. seealso::
-
-            :class:`UserProfile`
-        """
-        admins = cls.objects.filter(account=account, user__is_staff=True).order_by("user__id")
-        if admins.exists():
-            return admins.first().user  # type: ignore[return-value]
-
-        logger.error("No admin found for account %s", account)
-
-        users = cls.objects.filter(account=account).order_by("user__id")
-        if users.exists():
-            user = users.first().user  # type: ignore[return-value]
-            return user
-
-        logger.error("No user for account %s", account)
-        admin_user = cls.objects.get_or_create(username="admin")
-        user_profile = cls.objects.create(user=admin_user, account=account)
-        logger.warning("Created admin user for account %s. Use manage.py to set the password", account)
-        return user_profile.user
 
     def __str__(self):
         return str(self.account.company_name) + "-" + str(self.user.email or self.user.username)
@@ -924,7 +683,9 @@ class DailyBillingRecord(TimestampedModel):
     total_tokens = models.IntegerField()
 
     class Meta:
-        unique_together = ("account", "user", "provider", "date")
+        # one record per charge type: aggregate_daily_billing_records() groups charges by it, and
+        # a provider's charges of different types on the same day each get their own record.
+        unique_together = ("account", "user", "provider", "date", "charge_type")
 
     def __str__(self):
         return (
@@ -1032,9 +793,11 @@ class SubscriptionHosts(TimestampedModel):
     def save(self, *args, **kwargs):
         """
         Save the SubscriptionHosts instance, ensuring a valid hostname.
+
+        :raises AMValueError: If the host name is not a valid hostname.
         """
         self.host_name = self.host_name.lower()
-        AMValidator.is_valid_hostname(self.host_name)
+        AMValidator.validate_hostname(self.host_name)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -1073,3 +836,115 @@ class SubscriptionUser(TimestampedModel):
 
     def __str__(self):
         return f"{self.subscription.account.account_number} - {self.user.email}"
+
+
+class PlatformClient(TimestampedModel):
+    """
+    A Smarter platform that may ask the subscription status api about its users.
+
+    Each multitenant Smarter platform (one per environment, e.g. ``alpha.platform.example.com``)
+    holds one key, which it sends as ``Authorization: Platform <key>``. The api identifies the
+    platform by its key, never by a header the caller sets, and answers only the platforms
+    registered here. Only the key's digest is stored: the key itself is shown once, when it is
+    created (:meth:`create_with_key`, or the ``create_platform_api_key`` management command).
+
+    :param host_name: String. The platform's host, e.g. ``alpha.platform.example.com``.
+    :param description: String. What the key is for (optional).
+    :param key_prefix: String. The key's first characters, which find its row without the key.
+    :param key_digest: String. The SHA-512 hex digest of the key.
+    :param is_active: Boolean. An inactive platform's key is refused.
+    :param last_used_at: Datetime. When the key last authenticated a request.
+
+    **Example usage**::
+
+        client, key = PlatformClient.create_with_key("alpha.platform.example.com")
+        PlatformClient.authenticate(key)  # the client, or None
+
+    .. seealso::
+
+        :class:`am.apps.account.api.v1.authentication.PlatformClientAuthentication`
+    """
+
+    KEY_PREFIX_LENGTH = 8
+    """The number of the key's leading characters stored in clear, to find its row."""
+
+    class Meta:
+        verbose_name = "Platform Client"
+        verbose_name_plural = "Platform Clients"
+
+    host_name = models.CharField(
+        max_length=255, unique=True, help_text="The platform's host, e.g. alpha.platform.example.com."
+    )
+    description = models.CharField(max_length=255, blank=True, null=True)
+    key_prefix = models.CharField(max_length=KEY_PREFIX_LENGTH, db_index=True, editable=False)
+    key_digest = models.CharField(max_length=128, editable=False)
+    is_active = models.BooleanField(default=True, help_text="An inactive platform's key is refused.")
+    last_used_at = models.DateTimeField(blank=True, null=True, editable=False)
+
+    @staticmethod
+    def digest(key: str) -> str:
+        """
+        Return the digest of a key, as stored.
+
+        :param key: The key.
+        :returns: Its SHA-512 hex digest. The key is random and long, so it needs no salt or stretching.
+        """
+        return hashlib.sha512(key.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def create_with_key(cls, host_name: str, description: Optional[str] = None) -> tuple["PlatformClient", str]:
+        """
+        Register a platform, with a new key.
+
+        :param host_name: The platform's host.
+        :param description: What the key is for.
+        :returns: The new client and its key. The key is not stored, so this is the only time it is available.
+        """
+        key = secrets.token_urlsafe(48)
+        client = cls.objects.create(
+            host_name=host_name,
+            description=description,
+            key_prefix=key[: cls.KEY_PREFIX_LENGTH],
+            key_digest=cls.digest(key),
+        )
+        return client, key
+
+    def rotate_key(self) -> str:
+        """
+        Replace this platform's key with a new one.
+
+        The old key stops working at once.
+
+        :returns: The new key.
+        """
+        key = secrets.token_urlsafe(48)
+        self.key_prefix = key[: self.KEY_PREFIX_LENGTH]
+        self.key_digest = self.digest(key)
+        self.save()
+        return key
+
+    @classmethod
+    def authenticate(cls, key: str) -> Optional["PlatformClient"]:
+        """
+        Return the active platform that this key belongs to, and record its use.
+
+        :param key: The key from the request.
+        :returns: The client, or None for an unknown, wrong or inactive key.
+        """
+        if not key or len(key) < cls.KEY_PREFIX_LENGTH:
+            return None
+        digest = cls.digest(key)
+        for client in cls.objects.filter(key_prefix=key[: cls.KEY_PREFIX_LENGTH], is_active=True):
+            if hmac.compare_digest(client.key_digest, digest):
+                cls.objects.filter(pk=client.pk).update(last_used_at=timezone.now())
+                return client
+        return None
+
+    def save(self, *args, **kwargs):
+        """Store the host name in lower case, after checking that it is a valid host name."""
+        self.host_name = self.host_name.lower()
+        AMValidator.validate_hostname(self.host_name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.host_name} ({'active' if self.is_active else 'inactive'})"

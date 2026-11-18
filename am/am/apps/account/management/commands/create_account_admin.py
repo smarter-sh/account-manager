@@ -1,5 +1,6 @@
 """This module is used to create a superuser account."""
 
+import os
 import secrets
 import string
 
@@ -20,17 +21,25 @@ class Command(AMCommand):
 
     def add_arguments(self, parser):
         """Add arguments to the command."""
-        parser.add_argument("-u", "--username", type=str, help="The username for the new superuser")
-        parser.add_argument("-e", "--email", type=str, help="The email address for the new superuser")
-        parser.add_argument("-p", "--password", type=str, help="The password for the new superuser")
+        # Each defaults to an environment variable, so that a deployment's init job passes the password
+        # through the environment, never on a command line, which other processes can read.
+        parser.add_argument(
+            "-u", "--username", type=str, help="The username for the new superuser. Default: $AM_ADMIN_USERNAME"
+        )
+        parser.add_argument(
+            "-e", "--email", type=str, help="The email address for the new superuser. Default: $AM_ADMIN_EMAIL"
+        )
+        parser.add_argument(
+            "-p", "--password", type=str, help="The password for the new superuser. Default: $AM_ADMIN_PASSWORD"
+        )
 
     def handle(self, *args, **options):
-        """create the superuser account."""
+        """Create the superuser account."""
         self.handle_begin()
 
-        username = options["username"]
-        email = options["email"]
-        password = options["password"]
+        username = options["username"] or os.environ.get("AM_ADMIN_USERNAME")
+        email = options["email"] or os.environ.get("AM_ADMIN_EMAIL")
+        password = options["password"] or os.environ.get("AM_ADMIN_PASSWORD")
 
         account, created = Account.objects.get_or_create(
             account_number=ACCOUNT_ACCOUNT_NUMBER,
@@ -86,15 +95,17 @@ class Command(AMCommand):
                 phone=ACCOUNT_CUSTOMER_SUPPORT_PHONE,
                 is_primary=True,
             )
+            account_contact.save()
             self.handle_completed_success(
                 msg=f"Created account contact for {account_contact.first_name} {account_contact.last_name}, account {account_contact.account.account_number} {account_contact.account.company_name}"
             )
 
         # ensure that the admin user has at least one auth token (api key)
         if not AMAuthToken.objects.filter(user=user).exists():
-            _, token_key = AMAuthToken.objects.create(
+            auth_token, _ = AMAuthToken.objects.create(
                 name="account-admin-key", user=user, description="created by manage.py"
             )  # type: ignore[assignment]
-            self.handle_completed_success(msg=f"created API key: {token_key}")
+            # this command runs in the deployment's init job, whose log is retained, so never print the key itself.
+            self.handle_completed_success(msg=f"created API key {auth_token.name} with key_id: {auth_token.key_id}")
             return
         self.handle_completed_success()

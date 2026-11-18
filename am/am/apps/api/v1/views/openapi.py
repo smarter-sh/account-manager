@@ -9,12 +9,11 @@ from rest_framework import permissions
 from am.common.conf import am_settings
 from am.urls import api as urls
 
-
 api_info = openapi.Info(
     title=settings.ACCOUNT_API_NAME,
     default_version="v1",
     description=settings.ACCOUNT_API_DESCRIPTION,
-    terms_of_service="https:/smarter.sh/tos/",
+    terms_of_service="https://smarter.sh/tos/",
     contact=openapi.Contact(
         name="Smarter Support",
         email="lpm0073@gmail.com",

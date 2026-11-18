@@ -20,6 +20,11 @@ locals {
   mysql_database                = substr("${var.shared_resource_prefix}_${var.shared_resource_identifier}_${local.environment}", -64, -1)
   mysql_username                = local.mysql_database
 
+  # the shared MariaDB server: the smarter Helm chart's, the Service smarter-mariadb in the
+  # Smarter platform's namespace. Account Manager has no database server of its own.
+  smarter_namespace             = lower("${var.smarter_namespace_base}-${local.environment}")
+  mysql_host                    = var.mysql_host != "" ? var.mysql_host : "smarter-mariadb.${local.smarter_namespace}.svc.cluster.local"
+
   tags = merge(
     var.tags,
     {

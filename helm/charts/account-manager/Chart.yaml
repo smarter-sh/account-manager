@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 0.1.0
+appVersion: 1.1.1
 name: account-manager
 description: >
   Smarter Account Manager is a rest api microservice for managing customers.
@@ -12,7 +12,7 @@ sources:
 maintainers:
   - name: Lawrence McDaniel
     email: lpm0073@gmail.com
-    website: https://lawrencemcdaniel.com
+    url: https://lawrencemcdaniel.com
 dependencies:
   - name: redis
     version: 23.2.12

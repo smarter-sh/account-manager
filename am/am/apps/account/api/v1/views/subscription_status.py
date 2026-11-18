@@ -1,11 +1,36 @@
-# pylint: disable=W0613
 """
-API Views for checking subscription status.
+The subscription status api, which a multitenant Smarter platform calls when a user signs in.
+
+.. code-block:: bash
+
+    curl https://api.am.example.com/accounts/subscription-status/ \\
+      -H 'Authorization: Platform <the platform key>' \\
+      -H 'X-Client-Username: <username>' \\
+      -H 'X-Client-Email: <email>'
+
+A user may use the platform when they belong (:class:`SubscriptionUser`) to an active, current
+MULTITENANT subscription. The platform is identified by its key
+(:class:`am.apps.account.models.PlatformClient`), and the user by their username and email
+together, so a user of one platform can't be mistaken for another person who has the same
+username elsewhere.
+
+Answers:
+
+- 200 with ``active``, ``plan_type`` and ``end_date``: the subscription is active.
+- 403: no such user, or no active subscription. The two are answered alike, so the api doesn't
+  reveal which usernames exist.
+- 400: no username, or, from a platform with a key, no email.
+- 401: a wrong platform key, or no key while the ``require_platform_key`` switch is on.
+
+Until that switch is on, a request without a key is still answered, by username alone, so that
+platforms keep working while they are given keys.
 """
+
 import logging
 from http import HTTPStatus
+from typing import Optional
 
-from django.http import QueryDict
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from drf_yasg import openapi
@@ -14,165 +39,144 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from am.apps.account.api.v1.authentication import PlatformClientAuthentication
 from am.apps.account.enum import AMHostingPlanTypeEnum
-from am.apps.account.serializers import SubscriptionSerializer
-from am.apps.account.utils import get_cached_subscription, get_cached_user_for_username
-from am.lib.django.request import AMRequestMixin
-
+from am.apps.account.models import PlatformClient, Subscription, User
+from am.lib.django.waffle import AMWaffleSwitches, switch_is_active
 
 logger = logging.getLogger(__name__)
-REQUESTER = "requester"
-REQUESTER_HEADER = "X-Client-Domain"
-USERNAME = "username"
+
 USERNAME_HEADER = "X-Client-Username"
+EMAIL_HEADER = "X-Client-Email"
+DOMAIN_HEADER = "X-Client-Domain"
+"""Sent by platforms without a key.
+
+Logged only: a header the caller sets identifies nothing.
+"""
+
+
+def header(request, name: str) -> Optional[str]:
+    """
+    Return a request header's value, stripped, or None when it is missing or empty.
+
+    :param request: The DRF request.
+    :param name: The header's name, e.g. ``X-Client-Username``.
+    :returns: The value, or None.
+    """
+    value = request.headers.get(name)
+    if value is None:
+        return None
+    return value.strip() or None
+
+
+def get_user(username: str, email: Optional[str]) -> Optional[User]:
+    """
+    Return the user with this username, and, when given, this email address (in any case).
+
+    :param username: The username.
+    :param email: The email address, or None to match by username alone.
+    :returns: The user, or None.
+    """
+    users = User.objects.filter(username=username, is_active=True)
+    if email is not None:
+        users = users.filter(email__iexact=email)
+    return users.first()
+
+
+def get_active_multitenant_subscription(user: User) -> Optional[Subscription]:
+    """
+    Return an active, current MULTITENANT subscription that the user belongs to.
+
+    :param user: The user.
+    :returns: The subscription that ends last, or None.
+    """
+    today = timezone.now().date()
+    return (
+        Subscription.objects.filter(
+            subscription_users__user=user,
+            plan_type=AMHostingPlanTypeEnum.MULTITENANT.value,
+            active=True,
+            start_date__lte=today,
+            end_date__gt=today,
+        )
+        .order_by("-end_date")
+        .first()
+    )
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SubscriptionStatusView(APIView):
-    r"""
-    API view to check the subscription status of a user.
-    Clients can provide a 'requester' in any of the following ways:
-    - In the request body (for POST, PUT, PATCH requests) as JSON
-    - As a query parameter (for GET requests)
-    - In the request headers X-Client-Domain
-    - otherwise AMRequestMixin will attempt to determine the domain from the request META.
+    """
+    Answer whether a user may use the multitenant Smarter platform that asks.
 
-    Example request:
-
-        curl -X 'GET' http://api.am.localhost:8000/accounts/subscription-status/\?requester\=platform.smarter.sh
-
-    Supported methods: GET, POST, PUT, PATCH
-    200 OK: Subscription found and returned.
-    403 Forbidden: User does not have an active subscription.
-    404 Not Found: User not found.
-
-    .. note::
-
-        - This view is exempt from CSRF verification to allow access from external clients.
+    GET is the method. POST, PUT and PATCH are accepted and answered alike, for older callers.
     """
 
+    authentication_classes = [PlatformClientAuthentication]
+    # who may ask is decided in get(): a platform key, or no key until the switch requires one.
     permission_classes = [AllowAny]
-
-    def get_from_request_body(self, request: "AMRequestMixin", key: str) -> str | None:
-        """
-        Extract a value from the request body.
-        """
-        data = request.data
-        if isinstance(data, dict) and data.get(key):
-            logger.info("Found %s in request body: %s", key, data.get(key))
-            return str(data.get(key))
-        return None
-
-    def get_from_request_params(self, request: "AMRequestMixin", key: str) -> str | None:
-        """
-        Extract a value from the request query parameters.
-        """
-        params = request.params
-        if isinstance(params, QueryDict) and params.get(key):
-            logger.info("Found %s in request params: %s", key, params.get(key))
-            return str(params.get(key))
-        return None
-
-    def get_from_request_headers(self, request: "AMRequestMixin", key: str) -> str | None:
-        """
-        Extract a value from the request headers. The header keys arrive differently in Django's META.
-        example: 'X-Client-Domain' becomes 'HTTP_X_CLIENT_DOMAIN'
-        """
-        key = f"HTTP_{key.upper().replace('-', '_')}"
-        meta = request.am_request.META if request.am_request and hasattr(request.am_request, "META") else {}
-        header_value = meta.get(key)
-        if header_value:
-            logger.info("Found %s in request headers: %s", key, header_value)
-            return str(header_value)
-        return None
-
-    def get_from_request(self, request: "AMRequestMixin", key: str) -> str | None:
-        """
-        Extract a value from the request in the following order:
-        1. Request body
-        2. Query parameters
-        3. Request headers
-        """
-        logger.info("Attempting to retrieve %s from request", key)
-        return self.get_from_request_body(request, key) or self.get_from_request_params(request, key)
 
     @swagger_auto_schema(
         manual_parameters=[
             openapi.Parameter(
-                REQUESTER_HEADER,
+                "Authorization",
                 openapi.IN_HEADER,
-                description=f"Client {REQUESTER} domain",
+                description="Platform <key>",
                 type=openapi.TYPE_STRING,
                 required=False,
             ),
             openapi.Parameter(
-                USERNAME_HEADER,
-                openapi.IN_HEADER,
-                description=f"Client {USERNAME}",
-                type=openapi.TYPE_STRING,
-                required=False,
+                USERNAME_HEADER, openapi.IN_HEADER, description="The user's username", type=openapi.TYPE_STRING
             ),
-        ]
+            openapi.Parameter(
+                EMAIL_HEADER,
+                openapi.IN_HEADER,
+                description="The user's email address. Required with a platform key.",
+                type=openapi.TYPE_STRING,
+            ),
+        ],
+        responses={200: "active", 400: "bad request", 401: "unauthorized", 403: "no active subscription"},
     )
     def get(self, request, *args, **kwargs):
         """
-        Handle GET requests to retrieve subscription status.
+        Answer whether the user in the request's headers has an active multitenant subscription.
+
+        :param request: The DRF request.
+        :returns: 200 with the subscription's status, or 400, 401 or 403 (see the module).
         """
-        request_mixin = AMRequestMixin(request=request)
-        requester_domain = (
-            self.get_from_request(request_mixin, REQUESTER)
-            or self.get_from_request_headers(request_mixin, REQUESTER_HEADER)
-            or request_mixin.requester_domain
-        )
+        client = request.auth if isinstance(request.auth, PlatformClient) else None
+        if client is None and switch_is_active(AMWaffleSwitches.REQUIRE_PLATFORM_KEY):
+            return Response(status=HTTPStatus.UNAUTHORIZED, headers={"WWW-Authenticate": "Platform"})
 
-        requester_username = self.get_from_request(request_mixin, USERNAME) or self.get_from_request_headers(
-            request_mixin, USERNAME_HEADER
-        )
-        logger.info("SubscriptionStatusView GET called from: %s for user: %s", requester_domain, requester_username)
-        user = get_cached_user_for_username(requester_username) if requester_username else None
-        if not user:
-            logger.warning(
-                "User not found for domain: %s, username: %s",
-                requester_domain,
-                requester_username,
-            )
-            return Response(status=HTTPStatus.NOT_FOUND)
+        username = header(request, USERNAME_HEADER)
+        email = header(request, EMAIL_HEADER)
+        if username is None or (client is not None and email is None):
+            return Response(status=HTTPStatus.BAD_REQUEST)
+        platform = client.host_name if client is not None else f"{header(request, DOMAIN_HEADER)} (no platform key)"
 
-        if requester_domain:
-            request_mixin.requester_domain = requester_domain
-
-        plan_type = AMHostingPlanTypeEnum.MULTITENANT if request_mixin.is_multitenant_domain else None
-        subscription = get_cached_subscription(
-            user=user,
-            host=request_mixin.requester_domain,
-            account=request_mixin.account,
-            plan_type=plan_type,
-        )
-        if not subscription:
-            logger.warning(
-                "No active subscription found for user: %s on host: %s",
-                requester_username,
-                request_mixin.requester_domain,
-            )
+        user = get_user(username, email if client is not None else None)
+        subscription = get_active_multitenant_subscription(user) if user is not None else None
+        if subscription is None:
+            logger.info("SubscriptionStatusView.get() no active subscription for a user of %s", platform)
             return Response(status=HTTPStatus.FORBIDDEN)
 
-        data = SubscriptionSerializer(subscription).data
-        return Response(data)
+        logger.info("SubscriptionStatusView.get() active subscription %s for a user of %s", subscription.pk, platform)
+        return Response(
+            {
+                "active": True,
+                "plan_type": AMHostingPlanTypeEnum(subscription.plan_type).name.lower(),
+                "end_date": subscription.end_date.isoformat(),
+            }
+        )
 
     def post(self, request, *args, **kwargs):
-        """
-        Handle POST requests to retrieve subscription status.
-        """
+        """Answer as GET does."""
         return self.get(request, *args, **kwargs)
 
     def put(self, request, *args, **kwargs):
-        """
-        Handle PUT requests to retrieve subscription status.
-        """
+        """Answer as GET does."""
         return self.get(request, *args, **kwargs)
 
     def patch(self, request, *args, **kwargs):
-        """
-        Handle PATCH requests to retrieve subscription status.
-        """
+        """Answer as GET does."""
         return self.get(request, *args, **kwargs)

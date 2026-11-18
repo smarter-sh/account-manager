@@ -1,60 +1,69 @@
-# pylint: disable=wrong-import-position
-"""Test User."""
+"""Test UserProfile, the link between a user and an account."""
 
-# our stuff
-from am.apps.account.tests.mixins import TestAccountMixin
+from unittest import mock
 
-from ..models import Account, UserProfile
+from am.apps.account.models import Account, AccountContact, User, UserProfile
+from am.apps.account.signals import new_user_created
+from am.apps.account.tests.mixins import AccountTestCase
+from am.common.exceptions import AMValueError
 
 
-class TestAccount(TestAccountMixin):
-    """Test Account model"""
+class TestUserProfile(AccountTestCase):
+    """Test UserProfile."""
 
-    def test_create(self):
-        """Test that we can create an account."""
-
-        account = Account.objects.create(
-            company_name="Test Company",
-            phone_number="1234567890",
-            address1="123 Test St",
-            address2="Apt 1",
-            city="Test City",
-            state="TX",
-            postal_code="12345",
+    @classmethod
+    def setUpTestData(cls):
+        cls.account = Account.objects.create(company_name="Users Co")
+        cls.first_user = User.objects.create_user(
+            username="users_first", email="first@example.com", first_name="First", last_name="User"
         )
+        cls.second_user = User.objects.create_user(username="users_second", email="second@example.com")
 
-        profile = UserProfile.objects.create(
-            user=self.non_admin_user,
-            account=account,
-            is_test=True,
-        )
+    def test_first_profile_is_primary_contact(self):
+        """The account's first user becomes its primary contact; later ones are ordinary contacts."""
+        UserProfile.objects.create(user=self.first_user, account=self.account, is_test=True)
+        UserProfile.objects.create(user=self.second_user, account=self.account, is_test=True)
 
-        self.assertEqual(profile.account, account)
-        self.assertEqual(profile.user, self.non_admin_user)
+        first = AccountContact.objects.get(account=self.account, email="first@example.com")
+        self.assertTrue(first.is_primary)
+        self.assertEqual((first.first_name, first.last_name), ("First", "User"))
+        self.assertTrue(first.is_test)
 
-        profile.delete()
-        account.delete()
+        second = AccountContact.objects.get(account=self.account, email="second@example.com")
+        self.assertFalse(second.is_primary)
+        # a user without a name gets a placeholder one
+        self.assertEqual((second.first_name, second.last_name), ("account", "contact"))
 
-    def test_update(self):
-        """Test that we can update an account."""
+    def test_add_to_account_contacts_changes_primary(self):
+        """Add_to_account_contacts() moves the primary flag on and off."""
+        profile = UserProfile.objects.create(user=self.first_user, account=self.account, is_test=True)
+        profile.add_to_account_contacts(is_primary=False)
+        self.assertFalse(AccountContact.objects.get(account=self.account, email="first@example.com").is_primary)
+        profile.add_to_account_contacts(is_primary=True)
+        self.assertTrue(AccountContact.objects.get(account=self.account, email="first@example.com").is_primary)
 
-        account = Account.objects.create(
-            company_name="Test Company",
-            phone_number="1234567890",
-            address1="123 Test St",
-            address2="Apt 1",
-            city="Test City",
-            state="TX",
-            postal_code="12345",
-        )
+    def test_new_profile_sends_signal_once(self):
+        """A new profile sends new_user_created; an update does not."""
+        receiver = mock.MagicMock()
+        new_user_created.connect(receiver, dispatch_uid="test_new_profile_sends_signal_once")
+        self.addCleanup(new_user_created.disconnect, dispatch_uid="test_new_profile_sends_signal_once")
 
-        account_to_update = Account.objects.get(id=account.id)
-        account_to_update.company_name = "New Company"
-        account_to_update.save()
+        profile = UserProfile.objects.create(user=self.first_user, account=self.account, is_test=True)
+        receiver.assert_called_once()
+        self.assertEqual(receiver.call_args.kwargs["user_profile"], profile)
+        profile.save()
+        receiver.assert_called_once()
 
-        self.assertEqual(account_to_update.company_name, "New Company")
-        self.assertEqual(account_to_update.phone_number, "1234567890")
-        self.assertEqual(account_to_update.address1, "123 Test St")
-        self.assertEqual(account_to_update.account_number, account.account_number)
+    def test_user_and_account_are_required(self):
+        """A profile without a user or an account raises AMValueError."""
+        with self.assertRaises(AMValueError):
+            UserProfile(account=self.account).save()
+        with self.assertRaises(AMValueError):
+            UserProfile(user=self.first_user).save()
 
-        account.delete()
+    def test_str(self):
+        """A profile is shown as company name and email, or username without one."""
+        profile = UserProfile.objects.create(user=self.first_user, account=self.account, is_test=True)
+        self.assertEqual(str(profile), "Users Co-first@example.com")
+        self.first_user.email = ""
+        self.assertEqual(str(profile), "Users Co-users_first")

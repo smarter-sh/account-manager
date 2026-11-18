@@ -9,7 +9,7 @@ from am.lib.django.management.base import AMCommand
 
 # pylint: disable=E1101
 class Command(AMCommand):
-    """add an email address to the Account Contact list."""
+    """Add an email address to the Account Contact list."""
 
     def add_arguments(self, parser):
         """Add arguments to the command."""
@@ -19,7 +19,7 @@ class Command(AMCommand):
         parser.add_argument("--username", type=str, help="The username for the new superuser")
 
     def handle(self, *args, **options):
-        """create the superuser account."""
+        """Create the superuser account."""
         self.handle_begin()
 
         account_number = options["account_number"]

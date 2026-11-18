@@ -5,26 +5,37 @@
 # - a Docker container for the Account Manager Celery beat.
 #
 # This image is used for all environments (local, alpha, beta, next and production).
+# It is modeled on smarter-sh/smarter's Dockerfile: same base image, the same MariaDB
+# client stack, and the same permissions model.
 #------------------------------------------------------------------------------
 
 ################################## base #######################################
 # Use the official Python image as a parent image
 # see https://hub.docker.com/_/python
 #
-# 3.12-slim-trixie is an official Docker image tag for Python 3.12 based on
-# Debian "Trixie" (the codename for Debian 13).
+# 3.14-slim-trixie is an official Docker image tag for Python 3.14 based on
+# Debian "Trixie" (the codename for Debian 13), as in smarter-sh/smarter.
+#
+# PYTHON_BASE_IMAGE lets a build pull the same image from somewhere else.
+# Anonymous ECR Public pulls have a monthly data quota per source IP, which
+# other users of GitHub's shared runner IPs exhaust ("toomanyrequests: Data
+# limit exceeded"), so the Tests workflow sets this to Docker Hub's python
+# image, where it is logged in.
 # The "slim" variant is a minimal image that excludes unnecessary files and packages,
 # making it smaller and faster to download and build.
-# It is commonly used for production deployments where a lightweight Python environment is preferred.
-FROM python:3.12-slim-trixie AS linux_base
+ARG PYTHON_BASE_IMAGE=public.ecr.aws/docker/library/python:3.14-slim-trixie
+FROM ${PYTHON_BASE_IMAGE} AS linux_base
 
 LABEL maintainer="Lawrence McDaniel <lpm0073@gmail.com>" \
   description="Docker image for Account Manager" \
+  license="GNU AGPL v3" \
   vcs-url="https://github.com/smarter-sh/account-manager" \
   org.opencontainers.image.title="Account Manager" \
   org.opencontainers.image.version="1.1.1" \
   org.opencontainers.image.authors="Lawrence McDaniel <lpm0073@gmail.com>" \
-  org.opencontainers.image.source="https://github.com/smarter-sh/account-manager"
+  org.opencontainers.image.url="https://smarter.sh/" \
+  org.opencontainers.image.source="https://github.com/smarter-sh/account-manager" \
+  org.opencontainers.image.documentation="https://docs.smarter.sh/"
 
 
 # Environment: local, alpha, beta, next, or production
@@ -32,31 +43,30 @@ ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG ENVIRONMENT=local
 ENV ENVIRONMENT=$ENVIRONMENT
-RUN echo "ENVIRONMENT: $ENVIRONMENT"
 
 ############################## install system packages #################################
-# build-essential           needed to build some python packages, but not included in 3.12-slim-trixie
+# build-essential           needed to build some python packages, but not included in 3.14-slim-trixie
 # libssl-dev                ... ditto ...
 # libffi-dev                ... ditto ...
 # python3-dev               ... ditto ...
 # pkg-config                ... ditto ...
 # ------
-# ca-certificates           needed for SSL/TLS support in http requests but not included in 3.12-slim-trixie
+# ca-certificates           needed for SSL/TLS support in http requests but not included in 3.14-slim-trixie
 # python-dev-is-python3     helper package to ensure that the 'python' command points to python3
-# default-mysql-client      needed for Django mysql backend support
-# libmariadb-dev            needed for default-mysql-client python package
 # git                       used in manage.py commands
 # ------
-# curl                      used below in this Dockerfile to download files
-# unzip                     used below in this Dockerfile to install aws cli
+# curl                      fetches MariaDB's apt repository setup script below, and for debugging
 # procps                    provides the 'ps' command, used for liveness/readiness probes of the beat pod in kubernetes
+# redis-tools               redis-cli, for debugging Celery's broker from inside the container
 FROM linux_base AS system_packages
 
 # Install system packages
 # The Python slim trixie image is based on Debian and is a limited installation. Most of these packages
 # would ordinarily be included in a full Debian installation, but are missing from the slim image and
 # we therefore need to "add these back in" as part of our Dockerfile.
-RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+  DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   build-essential \
   libssl-dev \
   libffi-dev \
@@ -64,79 +74,54 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
   pkg-config \
   ca-certificates \
   python-dev-is-python3 \
-  wget \
   git \
   curl \
-  unzip \
   procps \
-  redis-tools \
-  libmariadb-dev \
-  libncurses6 && \
+  redis-tools && \
+  update-ca-certificates && \
   rm -rf /var/lib/apt/lists/*
 
-# Install Oracle MySQL 8.x client binary for correct architecture
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-      MYSQL_TARBALL="mysql-8.0.36-linux-glibc2.28-aarch64.tar.xz"; \
-      MYSQL_DIR="mysql-8.0.36-linux-glibc2.28-aarch64"; \
-    else \
-      MYSQL_TARBALL="mysql-8.0.36-linux-glibc2.28-x86_64.tar.xz"; \
-      MYSQL_DIR="mysql-8.0.36-linux-glibc2.28-x86_64"; \
-    fi && \
-    wget "https://dev.mysql.com/get/Downloads/MySQL-8.0/${MYSQL_TARBALL}" && \
-    tar -xf "$MYSQL_TARBALL" && \
-    cp "$MYSQL_DIR/bin/mysql" /usr/local/bin/ && \
-    chmod +x /usr/local/bin/mysql && \
-    rm -rf "$MYSQL_TARBALL" "$MYSQL_DIR"
+############################## MariaDB #################################
+FROM system_packages AS mariadb_connector
 
-# Install kubectl, required for smarter/common/helpers/k8s_helpers.py used for ChatBot/Agent
-# deployments in which dedicated Kubernetes ingress and TLS certificates are created. There
-# are Kubernetes builds for both amd64 and arm64 architectures (we build both for DockerHub
-# multi-arch support).
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-      KUBECTL_ARCH="arm64"; \
-    else \
-      KUBECTL_ARCH="amd64"; \
-    fi && \
-    curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/${KUBECTL_ARCH}/kubectl" && \
-    chmod +x ./kubectl && \
-    mv ./kubectl /usr/local/bin/kubectl
+# Install MariaDB, as smarter-sh/smarter does: Account Manager's database is the shared MariaDB
+# server that smarter's Helm chart runs.
+# installs libmariadb-dev libmariadb-dev-compat mariadb-client, Connector/C and mariadb_config:
+# the C library that the mariadb Python package builds against, and the mariadb client that the
+# Helm chart's init job uses to create Account Manager's database and user.
+# See
+# - https://mariadb.com/docs/connectors/mariadb-connector-c/install-mariadb-connector-c
+# - https://mariadb.com/downloads/
 
-# install aws cli, required for smarter/common/helpers/aws/
-# We rely extensively on AWS support, for Route53, S3, Simple Email Service,
-# Elastic Kubernetes Service, etc. There are AWS CLI builds for both
-# amd64 and arm64 architectures (we build both for DockerHub multi-arch support).
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-      curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"; \
-    else \
-      curl "https://d1vvhvl2y92vvt.cloudfront.net/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"; \
-    fi && \
-    unzip awscliv2.zip && \
-    ./aws/install && \
-    rm -rf awscliv2.zip aws
-
+ARG MARIADB_VERSION=12.3
+ENV MARIADB_CONFIG=/usr/bin/mariadb_config
+ENV MARIADB_CONFIG_ALTERNATIVE=/usr/local/bin/mariadb_config
+RUN curl -LsS -o mariadb_repo_setup https://downloads.mariadb.com/MariaDB/mariadb_repo_setup && \
+    chmod +x mariadb_repo_setup && \
+    ./mariadb_repo_setup --mariadb-server-version="${MARIADB_VERSION}" --skip-maxscale && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends libmariadb-dev libmariadb-dev-compat mariadb-client && \
+    test -x "$MARIADB_CONFIG" || (echo "mariadb_config not found at $MARIADB_CONFIG" && exit 1) && \
+    ln -sf "$MARIADB_CONFIG" "$MARIADB_CONFIG_ALTERNATIVE" && \
+    rm -f mariadb_repo_setup && \
+    rm -rf /var/lib/apt/lists/*
 
 ############################## create app user #################################
-FROM system_packages AS user_setup
+FROM mariadb_connector AS user_setup
 
 # Create a non-root user to run the application
 RUN adduser --disabled-password --gecos '' am_user
 
 # create a data directory for the am_user that
 # the application can use to store data.
-# - add a .kube directory and an empty config file
-# - add a celery directory for celerybeat to use to store its schedule.
-RUN mkdir -p /home/am_user/data/.kube && touch /home/am_user/data/.kube/config && \
-  mkdir -p /home/am_user/data/celery && \
-  mkdir -p /home/am_user/data/media        # fallback Django storage when not using S3 or other external storage.
+# - a celery directory for celerybeat to use to store its schedule.
+# - a media directory, the fallback Django storage when not using S3 or other external storage.
+RUN mkdir -p /home/am_user/data/celery && \
+  mkdir -p /home/am_user/data/media
 
-# Set the KUBECONFIG environment variable
-ENV KUBECONFIG=/home/am_user/data/.kube/config
-
-# ensure that the am_user owns everything in the /am directory.
 RUN chown -R am_user:am_user /home/am_user/
 
-# so that the Docker file system matches up with the local file system.
-WORKDIR /am
+WORKDIR /home/am_user/
 
 # Switch to non-root user
 USER am_user
@@ -147,64 +132,78 @@ FROM user_setup AS venv
 RUN python -m venv /home/am_user/venv
 ENV PATH="/home/am_user/venv/bin:$PATH"
 
-# Add all Python package dependencies
+# Add all Python package dependencies: one requirements file, never two. local.txt is a superset
+# of docker.txt (local.in includes docker.in) with the development and test tools, for the local
+# image, which runs the unit tests. Every other environment gets docker.txt.
 COPY ./am/requirements requirements
 RUN pip install --upgrade pip && \
-  pip install --no-cache-dir -r requirements/docker.txt
-
-# Install Python dependencies for the local environment for cases where
-# we're going to run python unit tests in the Docker container.
-RUN if [ "$ENVIRONMENT" = "local" ] ; then pip install -r requirements/local.txt ; fi
+  if [ "$ENVIRONMENT" = "local" ] ; then \
+    pip install --no-cache-dir -r requirements/local.txt ; \
+  else \
+    pip install --no-cache-dir -r requirements/docker.txt ; \
+  fi
 
 ############################## application ##################################
 FROM venv AS application
 # do this last so that we can take advantage of Docker's caching mechanism.
 WORKDIR /home/am_user/
 COPY --chown=am_user:am_user ./am ./am
+RUN mkdir -p /home/am_user/am/staticfiles
 
-################################# permissuions #######################################
+################################# permissions #######################################
 FROM application AS permissions
 
-# ensure that am_user owns everything and has the minimum
-# permissions needed to run the application and to manage files
-# that the application needs to write to in /home/am_user.
-# this is important because by default Debian adds
-# read-only and execute permissions to the group and to public.
-# We don't want either of these.
+# As in smarter-sh/smarter, the code and the virtual environment belong to root, and am_user only
+# reads and runs them through its group. A file's owner can always chmod it back to writable, so
+# owning its own code would let the running process rewrite it, whatever the modes. am_user owns
+# only what it must write: data/, .cache/ and staticfiles/.
 #
-# files:                    r-------- so that am_user can read them
-# directories:              r-x------ so that am_user can cd into them
-# venv/bin/*:               r-x------ so that am_user can execute them
-# am/**/migrations:         rwx------ so that am_user can write django migration files.
-# data:                     rwx------ so that am_user can manage the data directory.
-# .cache:                   rwx------ bc some python packages want to write to .cache, like tldextract
+# files:                    r--r----- root:am_user
+# directories:              r-xr-x--- root:am_user
+# venv/bin/*, manage.py:    r-xr-x--- root:am_user
+# data, .cache, staticfiles rwx------ am_user, and nobody else
+#
+# The bytecode is compiled here, since nothing can write __pycache__ at runtime.
+#
+# The local image stays writable by am_user, as in smarter: the unit tests run in it under
+# coverage.py, which writes its data file into /home/am_user/am.
 
 USER root
-RUN chown -R am_user:am_user /home/am_user/ && \
-  find /home/am_user/ -type f -exec chmod 400 {} + && \
-  find /home/am_user/ -type d -exec chmod 500 {} + && \
-  find /home/am_user/venv/bin/ -type f -exec chmod 500 {} + && \
-  find /home/am_user/am/am/ -type d -name migrations -exec chmod 700 {} + && \
-  chmod -R 700 /home/am_user/data && \
-  chmod -R 700 /home/am_user/.cache && \
-  chmod 755 /home/am_user/am/manage.py
+RUN mkdir -p /home/am_user/.cache && \
+  if [ "$ENVIRONMENT" != "local" ] ; then \
+  python -m compileall -q /home/am_user/am/am && \
+  chown -R root:am_user /home/am_user/ && \
+  find /home/am_user/ -type f -exec chmod 440 {} + && \
+  find /home/am_user/ -type d -exec chmod 550 {} + && \
+  find /home/am_user/venv/bin/ -type f -exec chmod 550 {} + && \
+  chmod 550 /home/am_user/am/manage.py && \
+  chown -R am_user:am_user /home/am_user/data /home/am_user/.cache /home/am_user/am/staticfiles && \
+  chmod -R u=rwX,go= /home/am_user/data /home/am_user/.cache /home/am_user/am/staticfiles ; \
+  else \
+  chown -R am_user:am_user /home/am_user/ ; fi
 
 ################################# data #################################
 FROM permissions AS data
-# Add our source code and make the 'am' directory the working directory
-# we want this to be the last step so that we can take advantage of Docker's
-# caching mechanism.
 WORKDIR /home/am_user/
 
 
 ############################## collect_assets ##################################
-# This is a Django application, so we need to collect static assets.
-# We do this in a separate stage so that if the application code changes
-# but the static assets do not change, we can take advantage of Docker's
-# caching mechanism.
+# This is a Django application, so we need to collect static assets. collectstatic runs as
+# am_user, with a throwaway secret key, as in smarter.
 FROM data AS collect_assets
+USER am_user
 WORKDIR /home/am_user/am
-RUN python manage.py collectstatic --noinput
+RUN SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(50))')" \
+      python manage.py collectstatic --noinput && \
+    if [ -z "$(ls -A /home/am_user/am/staticfiles 2>/dev/null)" ]; then \
+      echo "Error: /home/am_user/am/staticfiles is missing or empty" >&2; exit 1; \
+    fi
+# then the collected files are read-only, like the code.
+USER root
+RUN if [ "$ENVIRONMENT" != "local" ] ; then \
+  chown -R root:am_user /home/am_user/am/staticfiles && \
+  find /home/am_user/am/staticfiles -type f -exec chmod 440 {} + && \
+  find /home/am_user/am/staticfiles -type d -exec chmod 550 {} + ; fi
 
 
 ################################# final #######################################

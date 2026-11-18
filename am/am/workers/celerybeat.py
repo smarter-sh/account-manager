@@ -4,14 +4,12 @@ import os
 
 from celery.schedules import timedelta
 
-
 # Set the default Django settings module for the 'celery' program
 # and then instantiate the Celery singleton.
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "am.settings.local")
 
 # pylint: disable=wrong-import-position,unused-import
-from am.lib.celery_conf import APP as app
-
+from am.lib.celery_conf import APP as app  # noqa: E402
 
 app.conf.beat_schedule = {
     "aggregate-charges": {

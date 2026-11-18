@@ -8,7 +8,10 @@ from am.lib.drf.models import AMAuthToken
 
 # pylint: disable=E1101
 class Command(AMCommand):
-    """Django manage.py create_user command. This command is used to create a new user for an account."""
+    """Django manage.py create_api_key command.
+
+    This command is used to create a new api key for an account user.
+    """
 
     def add_arguments(self, parser):
         """Add arguments to the command."""
@@ -21,7 +24,7 @@ class Command(AMCommand):
         parser.add_argument("--description", type=str, help="Optional brief text description for the api key")
 
     def handle(self, *args, **options):
-        """create the superuser account."""
+        """Create the superuser account."""
         self.handle_begin()
 
         account: Account | None = None
@@ -49,23 +52,17 @@ class Command(AMCommand):
                 self.handle_completed_failure(msg=f"User {username} does not have a user profile")
                 return
             account = user_profile.account
-        if not user:
-            user = (
-                User.objects.get(username=username)
-                if username
-                else get_cached_admin_user_for_account(account) if account else None
-            )
-        user_profile = UserProfile.objects.get(user=user, account=account)
 
-        if not user or not account or not user_profile:
-            self.stdout.write(self.style.ERROR("Could not find user or account"))
-            return
+        # raises UserProfile.DoesNotExist if the user does not belong to the account
+        owner = UserProfile.objects.get(user=user, account=account)
+        account_number = owner.account.account_number
+        username = owner.user.username
 
         auth_token, token_key = AMAuthToken.objects.create(
-            name=f"{account.account_number}.{user.username}", user=user, description=description
+            name=f"{account_number}.{username}", user=owner.user, description=description
         )  # type: ignore[assignment]
         self.handle_completed_success(
-            msg=f"Created API key {auth_token.name} for account {account.account_number} and user {user.username}"
+            msg=f"Created API key {auth_token.name} for account {account_number} and user {username}"
         )
         self.stdout.write(self.style.SUCCESS("*" * 80))
         self.stdout.write(self.style.SUCCESS(f"API key: {token_key}"))
@@ -73,10 +70,5 @@ class Command(AMCommand):
         self.stdout.write(
             self.style.WARNING(
                 "This API key is only displayed once and cannot be recovered if lost. Store it in a secure location."
-            )
-        )
-        self.stdout.write(
-            self.style.NOTICE(
-                f"To associate this key with a Chatbot, run `manage.py add_api_key` and pass this key_id: {auth_token.key_id}"
             )
         )

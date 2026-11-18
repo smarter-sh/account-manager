@@ -64,25 +64,31 @@ variable "eks_cluster_name" {
   default     = "apps-hosting-service"
 }
 
-variable "mysql_host" {
-  description = "hostname of the existing MySQL database"
+variable "smarter_namespace_base" {
+  description = "base name of the Smarter platform's Kubernetes namespace, to which the environment is appended (e.g. smarter-ubc -> smarter-ubc-alpha). Its smarter-mariadb Service is the shared MariaDB server."
   type        = string
-  default     = "mysql.service.lawrencemcdaniel.com"
+  default     = "smarter-ubc"
+}
+
+variable "mysql_host" {
+  description = "host of the shared MariaDB server, the smarter Helm chart's. Empty: its in-cluster name, smarter-mariadb.<smarter_namespace_base>-<environment>.svc.cluster.local"
+  type        = string
+  default     = ""
 }
 
 variable "mysql_port" {
-  description = "port number of the existing MySQL database"
+  description = "port number of the shared MariaDB server"
   type        = string
   default     = "3306"
 }
 
 variable "mysql_root_username" {
-  description = "username for the MySQL root user"
+  description = "username of the shared MariaDB server's root user (the smarter Helm chart's MariaDB)"
   type        = string
   default     = "root"
 }
 
 variable "mysql_root_password" {
-  description = "password for the MySQL root user"
+  description = "password of the shared MariaDB server's root user: the same as the root password in the Smarter platform's mysql-root secret"
   type        = string
 }

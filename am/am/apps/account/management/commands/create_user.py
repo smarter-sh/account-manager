@@ -2,17 +2,17 @@
 
 import secrets
 import string
-from urllib.parse import urljoin
 
 from am.apps.account.models import Account, AccountContact, User, UserProfile
-from am.common.conf import am_settings
-from am.common.helpers.email_helpers import email_helper
 from am.lib.django.management.base import AMCommand
 
 
 # pylint: disable=E1101
 class Command(AMCommand):
-    """Django manage.py create_user command. This command is used to create a new user for an account."""
+    """Django manage.py create_user command.
+
+    This command is used to create a new user for an account.
+    """
 
     def add_arguments(self, parser):
         """Add arguments to the command."""
@@ -34,14 +34,14 @@ class Command(AMCommand):
             user = User.objects.get(username=username)
             user.set_password(new_password)
             user.save()
-            self.stdout.write(self.style.SUCCESS(f"Password for user {username} has been changed to {new_password}."))
+            self.stdout.write(self.style.SUCCESS(f"Password for user {username} has been changed."))
             return user
         except User.DoesNotExist:
             self.stdout.write(self.style.ERROR(f"User {username} does not exist."))
         return None
 
     def handle(self, *args, **options):
-        """create the superuser account."""
+        """Create the superuser account."""
         self.handle_begin()
 
         account_number = options["account_number"]
@@ -54,37 +54,23 @@ class Command(AMCommand):
 
         account = Account.objects.get(account_number=account_number)
 
-        if not password:
-            password_length = 16
-            alphabet = string.ascii_letters + string.digits + string.punctuation
-            password = "".join(secrets.choice(alphabet) for _ in range(password_length))
-
         if not User.objects.filter(username=username).exists():
+            if not password:
+                password_length = 16
+                alphabet = string.ascii_letters + string.digits + string.punctuation
+                password = "".join(secrets.choice(alphabet) for _ in range(password_length))
             user = User.objects.create_user(username=username, email=email, first_name=first_name, last_name=last_name)
             if is_admin:
                 user.is_staff = True
             user.is_active = True
             user.set_password(password)
             user.save()
+            # no email: Smarter welcomes its users, and a password never goes by email.
             self.handle_completed_success(msg=f"User {username} {email} has been created.")
 
-            # Send email to user
-            login_url = urljoin(am_settings.environment_url, "login")
-            body = f"""Your Smarter user account has been created. Do not share your account credentials with anyone.
-
-            Url: {login_url}
-            Username: {username}
-            Email: {email}
-            Password: {password}
-            """
-            email_helper.send_email(
-                subject="Your Smarter user account has been created", to=email, body=body, html=False, quiet=False
-            )
-
-        else:
-            if password:
-                self.change_password(username, password)
-                self.handle_completed_success(msg=f"Updated password for {username}.")
+        elif password:
+            self.change_password(username, password)
+            self.handle_completed_success(msg=f"Updated password for {username}.")
 
         user = User.objects.get(username=username)
         user_profile, created = UserProfile.objects.get_or_create(user=user, account=account)

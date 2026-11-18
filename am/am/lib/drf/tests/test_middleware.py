@@ -1,129 +1,122 @@
 """Test AMTokenAuthenticationMiddleware."""
 
+from datetime import timedelta
 from http import HTTPStatus
-from logging import getLogger
-from unittest.mock import MagicMock, Mock, patch
+from typing import cast
+from unittest.mock import MagicMock, patch
 
+from django.contrib.auth.models import AnonymousUser
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.http import HttpResponse
-from django.test import Client, RequestFactory
-from rest_framework.exceptions import AuthenticationFailed
+from django.test import RequestFactory
+from django.utils import timezone
 
-from am.apps.account.tests.factories import (
-    admin_user_factory,
-    factory_account_teardown,
-)
+from am.apps.account.tests.mixins import TestAccountMixin
+from am.lib import json
 from am.lib.drf.middleware import AMTokenAuthenticationMiddleware
 from am.lib.drf.models import AMAuthToken
-from am.lib.drf.token_authentication import AMTokenAuthenticationError
-from am.lib.unittest.base_classes import AMTestBase
+from am.lib.drf.signals import (
+    smarter_token_authentication_failure,
+    smarter_token_authentication_success,
+)
 
 
-logger = getLogger(__name__)
-
-
-class TestAMTokenAuthenticationMiddleware(AMTestBase):
+class TestAMTokenAuthenticationMiddleware(TestAccountMixin):
     """Test AMTokenAuthenticationMiddleware."""
 
     def setUp(self) -> None:
         super().setUp()
-
-        self.admin_user, self.account, self.user_profile = admin_user_factory()
-        logger.info("TestAMTokenAuthenticationMiddleware() Setting up test class with name: %s", self.name)
-
         self.token_record, self.token_key = AMAuthToken.objects.create(
             name=self.name,
             user=self.admin_user,
             description="TestAMTokenAuthenticationMiddleware() test description",
         )  # type: ignore
-
-        self.factory = RequestFactory()
-        self.get_response = Mock(return_value=HttpResponse(status=HTTPStatus.OK))
+        self.addCleanup(self.token_record.delete)
+        self.get_response = MagicMock(return_value=HttpResponse(status=HTTPStatus.OK))
         self.middleware = AMTokenAuthenticationMiddleware(self.get_response)
+        self.factory = RequestFactory()
 
-        self.request = self.factory.get("/")
-        self.request.auth = None
+    def api_request(self, path="/api/v1/accounts/", **headers):
+        """Return a request with a session and an anonymous user, as the earlier middleware leave it."""
+        request = self.factory.get(path, **headers)
+        SessionMiddleware(lambda r: HttpResponse()).process_request(request)
+        request.user = AnonymousUser()
+        return request
 
-    def tearDown(self) -> None:
-        try:
-            factory_account_teardown(user=self.admin_user, account=self.account, user_profile=self.user_profile)
-            self.token_record.delete()
-        except AMAuthToken.DoesNotExist:
-            pass
-        super().tearDown()
+    def respond(self, request) -> HttpResponse:
+        """Run the middleware, which is synchronous here, on the request."""
+        return cast(HttpResponse, self.middleware(request))
 
-    def test_valid_token_authorization_header(self):
-        """Test that the middleware authenticates a valid today."""
-        client = Client()
-        headers = {"HTTP_AUTHORIZATION": f"Token {self.token_key}"}
+    def receive(self, signal):
+        """Connect a mock receiver to a signal for the duration of the test."""
+        receiver = MagicMock()
+        signal.connect(receiver)
+        self.addCleanup(signal.disconnect, receiver)
+        return receiver
 
-        response = client.get(path="/", data=None, content_type="application/json", **headers)
-        self.assertIn(response.status_code, [HTTPStatus.OK, HTTPStatus.FOUND, HTTPStatus.MOVED_PERMANENTLY])
-
-    def test_no_authorization_header(self):
-        """Test that the middleware does not prevent access to public urls."""
-        request = self.factory.get("/")
-        response = self.middleware(request)
+    def test_valid_token_authenticates_and_logs_in(self):
+        on_success = self.receive(smarter_token_authentication_success)
+        request = self.api_request(HTTP_AUTHORIZATION=f"Token {self.token_key}")
+        response = self.respond(request)
         self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.get_response.assert_called_once_with(request)
+        self.assertEqual(request.user, self.admin_user)
+        self.assertEqual(str(request.session["_auth_user_id"]), str(self.admin_user.pk))
+        on_success.assert_called_once()
+        self.assertNotIn(self.token_key, str(on_success.call_args))
 
-    @patch("am.lib.drf.middleware.get_authorization_header")
+    def test_invalid_token_is_401_json(self):
+        on_failure = self.receive(smarter_token_authentication_failure)
+        request = self.api_request(HTTP_AUTHORIZATION="Token " + "0" * 64)
+        response = self.respond(request)
+        self.assertEqual(response.status_code, HTTPStatus.UNAUTHORIZED)
+        self.assertEqual(json.loads(response.content), {"detail": "Authentication failed."})
+        self.get_response.assert_not_called()
+        on_failure.assert_called_once()
+
+    def test_inactive_token_is_401(self):
+        self.token_record.is_active = False
+        self.token_record.save()
+        response = self.respond(self.api_request(HTTP_AUTHORIZATION=f"Token {self.token_key}"))
+        self.assertEqual(response.status_code, HTTPStatus.UNAUTHORIZED)
+
+    def test_authenticate_returning_none_is_401(self):
+        with patch("am.lib.drf.middleware.AMTokenAuthentication") as mock_auth:
+            mock_auth.return_value.authenticate.return_value = None
+            response = self.respond(self.api_request(HTTP_AUTHORIZATION=f"Token {self.token_key}"))
+        self.assertEqual(response.status_code, HTTPStatus.UNAUTHORIZED)
+
+    def test_non_api_url_is_skipped(self):
+        request = self.api_request(path="/accounts/", HTTP_AUTHORIZATION="Token " + "0" * 64)
+        self.assertEqual(self.respond(request).status_code, HTTPStatus.OK)
+        self.assertIsInstance(request.user, AnonymousUser)
+
+    def test_no_authorization_header_is_skipped(self):
+        request = self.api_request()
+        self.assertEqual(self.respond(request).status_code, HTTPStatus.OK)
+        self.assertIsInstance(request.user, AnonymousUser)
+
+    def test_other_auth_scheme_is_skipped(self):
+        request = self.api_request(HTTP_AUTHORIZATION="Bearer some.jwt.token")
+        self.assertEqual(self.respond(request).status_code, HTTPStatus.OK)
+        self.assertIsInstance(request.user, AnonymousUser)
+
+    def test_already_authenticated_request_is_skipped(self):
+        request = self.api_request(HTTP_AUTHORIZATION="Token " + "0" * 64)
+        request.auth = "authenticated elsewhere"
+        self.assertEqual(self.respond(request).status_code, HTTPStatus.OK)
+
     @patch("am.lib.drf.middleware.knox_settings")
-    def test_is_token_auth_false(self, mock_knox_settings, mock_get_auth_header):
+    def test_get_token_with_bytes_prefix(self, mock_knox_settings):
         mock_knox_settings.AUTH_HEADER_PREFIX = b"Token"
-        self.middleware.authorization_header = b"Bearer sometoken"
-        result = self.middleware.is_token_auth(self.request)
-        self.assertFalse(result)
+        request = self.factory.get("/", HTTP_AUTHORIZATION="token abc")
+        self.assertEqual(AMTokenAuthenticationMiddleware.get_token(request), "abc")
+        request = self.factory.get("/", HTTP_AUTHORIZATION="Token")
+        self.assertIsNone(AMTokenAuthenticationMiddleware.get_token(request))
 
-    @patch("am.lib.drf.middleware.get_authorization_header")
-    def test_call_not_token_auth(self, mock_get_auth_header):
-        mock_get_auth_header.return_value = b"Bearer sometoken"
-        self.middleware.is_token_auth = Mock(return_value=False)
-        response = self.middleware(self.request)
-        self.get_response.assert_called_with(self.request)
-        self.assertEqual(response, self.get_response.return_value)
-
-    @patch("am.lib.drf.middleware.get_authorization_header")
-    def test_call_already_authenticated(self, mock_get_auth_header):
-        mock_get_auth_header.return_value = b"Token sometoken"
-        self.middleware.is_token_auth = Mock(return_value=True)
-        self.request.auth = True
-        response = self.middleware(self.request)
-        self.get_response.assert_called_with(self.request)
-        self.assertEqual(response, self.get_response.return_value)
-
-    @patch("am.lib.drf.middleware.AMTokenAuthentication")
-    @patch("am.lib.drf.middleware.get_authorization_header")
-    @patch("am.lib.drf.middleware.login")
-    def test_call_successful_auth(self, mock_login, mock_get_auth_header, mock_auth_class):
-        mock_get_auth_header.return_value = b"Token sometoken"
-        self.middleware.is_token_auth = Mock(return_value=True)
-        self.request.auth = None
-        mock_auth_instance = MagicMock()
-        mock_auth_instance.authenticate.return_value = ("user", "token")
-        mock_auth_class.return_value = mock_auth_instance
-
-        response = self.middleware(self.request)
-        self.assertEqual(response, self.get_response.return_value)
-        self.assertEqual(self.request.user, "user")
-        mock_login.assert_called_with(self.request, "user", backend="django.contrib.auth.backends.ModelBackend")
-
-    @patch("am.lib.drf.middleware.knox_settings")
-    @patch("am.lib.drf.middleware.AMTokenAuthentication")
-    @patch("am.lib.drf.middleware.SmarterJournaledJsonErrorResponse")
-    @patch("am.lib.drf.middleware.logger")
-    def test_call_authentication_failed(self, mock_logger, mock_error_response, mock_auth_class, mock_knox_settings):
-        mock_knox_settings.AUTH_HEADER_PREFIX = b"Token"
-        # Set up the middleware to treat this as a token auth request
-        self.middleware.is_token_auth = Mock(return_value=True)
-        self.request.auth = None
-        # Set the header directly if your middleware uses it
-        self.middleware.authorization_header = b"Token sometoken"
-
-        mock_auth_instance = MagicMock()
-        mock_auth_instance.authenticate.side_effect = AuthenticationFailed("fail")
-        mock_auth_class.return_value = mock_auth_instance
-        mock_error_response.return_value = "error_response"
-
-        response = self.middleware(self.request)
-        self.assertEqual(response, "error_response")
-        mock_error_response.assert_called()
-        mock_logger.warning.assert_called()
+    def test_warn_if_expired(self):
+        self.assertFalse(self.middleware.warn_if_expired(self.token_record, self.admin_user))
+        self.token_record.created = timezone.now() - timedelta(days=10000)
+        with patch("am.lib.drf.middleware.logger") as mock_logger:
+            self.assertTrue(self.middleware.warn_if_expired(self.token_record, self.admin_user))
+        mock_logger.warning.assert_called_once()

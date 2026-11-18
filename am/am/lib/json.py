@@ -1,103 +1,37 @@
 """
-Overridden JSON utilities. The effective modifications are
-- Use DjangoJSONEncoder as the default encoder
+Overridden JSON utilities.
+
+The effective modifications are
+
+- Use :class:`AMJSONEncoder` (Django's ``DjangoJSONEncoder``) as the default encoder
 - Standardize indentation to 2 characters
-- Use str as the default for non-serializable objects
+- Use ``str`` for objects that the encoder can't otherwise serialize
 """
 
-import datetime
-import decimal
 import json
-import uuid
+from json import JSONDecodeError, load, loads  # noqa: F401 unmodified re-export
 
-# pylint: disable=unused-import
-from json import (  # unmodified re-export
-    JSONDecodeError,
-    JSONDecoder,
-    JSONEncoder,
-    load,
-    loads,
-)
+from django.core.serializers.json import DjangoJSONEncoder
 
 
-class Promise:
+class AMJSONEncoder(DjangoJSONEncoder):
     """
-    Base class for the proxy class created in the closure of the lazy function.
-    It's used to recognize promises in code.
-    """
+    Django's JSON encoder, which knows date/time, decimal, UUID and lazy translation.
 
-    pass
-
-
-def _get_duration_components(duration):
-    days = duration.days
-    seconds = duration.seconds
-    microseconds = duration.microseconds
-
-    minutes = seconds // 60
-    seconds %= 60
-
-    hours = minutes // 60
-    minutes %= 60
-
-    return days, hours, minutes, seconds, microseconds
-
-
-def is_aware(value):
-    """
-    Determine if a given datetime.datetime is aware.
-
-    The concept is defined in Python's docs:
-    https://docs.python.org/library/datetime.html#datetime.tzinfo
-
-    Assuming value.tzinfo is either None or a proper datetime.tzinfo,
-    value.utcoffset() implements the appropriate logic.
-    """
-    return value.utcoffset() is not None
-
-
-def duration_iso_string(duration):
-    if duration < datetime.timedelta(0):
-        sign = "-"
-        duration *= -1
-    else:
-        sign = ""
-
-    days, hours, minutes, seconds, microseconds = _get_duration_components(duration)
-    ms = ".{:06d}".format(microseconds) if microseconds else ""
-    return "{}P{}DT{:02d}H{:02d}M{:02d}{}S".format(sign, days, hours, minutes, seconds, ms)
-
-
-class DjangoJSONEncoder(json.JSONEncoder):
-    """
-    JSONEncoder subclass that knows how to encode date/time, decimal types, and
-    UUIDs.
+    types, falling back to ``str()`` for any other object.
     """
 
     def default(self, o):
-        # See "Date Time String Format" in the ECMA-262 specification.
-        if isinstance(o, datetime.datetime):
-            r = o.isoformat()
-            if o.microsecond:
-                r = r[:23] + r[26:]
-            if r.endswith("+00:00"):
-                r = r.removesuffix("+00:00") + "Z"
-            return r
-        elif isinstance(o, datetime.date):
-            return o.isoformat()
-        elif isinstance(o, datetime.time):
-            if is_aware(o):
-                raise ValueError("JSON can't represent timezone-aware times.")
-            r = o.isoformat()
-            if o.microsecond:
-                r = r[:12]
-            return r
-        elif isinstance(o, datetime.timedelta):
-            return duration_iso_string(o)
-        elif isinstance(o, (decimal.Decimal, uuid.UUID, Promise)):
-            return str(o)
-        else:
+        """
+        Serialize an object that the json module can't serialize by itself.
+
+        :param o: The object.
+        :returns: Its JSON-serializable representation.
+        """
+        try:
             return super().default(o)
+        except TypeError:
+            return str(o)
 
 
 def dumps(
@@ -115,22 +49,26 @@ def dumps(
     **kw,
 ):
     """
-    JSON dump with
-    - DjangoJSONEncoder as default encoder
-    - indent of 2
-    - default of str
-    """
+    JSON dump with.
 
+    - :class:`AMJSONEncoder` as default encoder
+    - indent of 2
+    - ``str`` for otherwise non-serializable objects, unless ``default`` is given
+
+    The arguments are those of :func:`json.dumps`.
+
+    :returns: The JSON string.
+    """
     return json.dumps(
         obj,
         skipkeys=skipkeys,
         ensure_ascii=ensure_ascii,
         check_circular=check_circular,
         allow_nan=allow_nan,
-        cls=cls or DjangoJSONEncoder,
+        cls=cls or AMJSONEncoder,
         indent=indent or 2,
         separators=separators,
-        default=default or str,
+        default=default,
         sort_keys=sort_keys,
         **kw,
     )

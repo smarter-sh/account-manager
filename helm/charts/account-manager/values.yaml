@@ -1,34 +1,102 @@
 # ==============================================================================
-# Smarter Platform - Helm Chart Values
+# Smarter Account Manager - Helm Chart Values
 # ==============================================================================
 #
-# Default configuration values for the Smarter Platform Helm chart.
+# Default configuration values for the Account Manager Helm chart:
+#   - the Django application server (gunicorn)
+#   - the Celery worker and beat scheduler
+#   - the init and migrate jobs, which create Account Manager's database and
+#     user on the shared MariaDB server and migrate it
+#   - Redis (the bitnami subchart)
 #
-# This file contains all configurable parameters for deploying the Smarter
-# application stack including:
-#   - Django application server
-#   - Celery workers and beat scheduler
-#   - Redis cache
-#   - Database connection
+# Account Manager has no database server of its own. It uses the MariaDB server
+# that the smarter Helm chart (smarter-sh/smarter, helm/charts/smarter) runs,
+# the bitnami mariadb subchart's Service smarter-mariadb in the Smarter
+# platform's namespace, with a database and a user of its own on that server.
 #
-# IMPORTANT: Replace all "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML" values
-# with actual credentials before deployment.
+# IMPORTANT: Replace all "SET-ME-IN-helm/charts/account-manager/values.yaml"
+# values before deployment. The deploy action
+# (.github/actions/deploy/action.yml) sets them from Kubernetes secrets.
 #
 # Usage:
-#   helm install smarter . -f values.yaml
-#   helm upgrade smarter . -f values.yaml
+#   helm upgrade --install account-manager . --namespace smarter-am-prod -f my-values.yaml
 #
-# Documentation: https://github.com/smarter-sh/smarter
+# Note:
+# The app.kubernetes.io/application-group label is used to identify pods to Calico
+# and kubernetes_network_policy_v1 resources in order to allow pod-level communication
+# between backing services. If the label is missing then the network policies are
+# assured to PREVENT communication.
 # ==============================================================================
 
+# -----------------------------------------------------------------------------
+## @param env Account Manager's environment. Every key is written into the Secret
+## <appName>-env (templates/secret-env.yaml), which every pod reads with envFrom.
+## A null value is left out of the Secret.
+# -----------------------------------------------------------------------------
+env:
+  # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are optional: prefer serviceAccount.awsRoleArn
+  # (IRSA). Static keys win over the role, so set them only for a cluster without IRSA.
+  AWS_REGION: "us-east-2"
 
+  ## Cache and Celery: the Redis of the redis subchart, am-redis-master in the release's namespace
+  CACHES_LOCATION: "SET-ME-IN-helm/charts/account-manager/values.yaml"
+  CELERY_BROKER_URL: "SET-ME-IN-helm/charts/account-manager/values.yaml"
+  CELERY_RESULT_BACKEND: "SET-ME-IN-helm/charts/account-manager/values.yaml"
+
+  DEBUG_MODE: "false"
+  ## e.g. am.settings.prod, am.settings.alpha
+  DJANGO_SETTINGS_MODULE: "am.settings.prod"
+  DUMP_DEFAULTS: "False"
+  ## alpha, beta, next or prod
+  ENVIRONMENT: "prod"
+  ROOT_DOMAIN: "example.com"
+  SECRET_KEY: "SET-ME-IN-helm/charts/account-manager/values.yaml"
+
+  ## The Docker image of every pod. Empty: global.image.repository:global.image.tag
+  AM_DOCKER_IMAGE: ""
+
+  ## Database: the SHARED MariaDB server of the smarter Helm chart.
+  ## AM_MYSQL_HOST is that server's in-cluster name, the Service smarter-mariadb in the
+  ## Smarter platform's namespace: smarter-mariadb.<smarter-namespace>.svc.cluster.local,
+  ## e.g. smarter-mariadb.smarter-ubc-alpha.svc.cluster.local.
+  AM_MYSQL_HOST: "smarter-mariadb.SET-ME-SMARTER-NAMESPACE.svc.cluster.local"
+  AM_MYSQL_PORT: "3306"
+  ## Account Manager's own database and user on that server, which job-init.yaml creates
+  AM_MYSQL_DATABASE: "SET-ME-IN-helm/charts/account-manager/values.yaml"
+  AM_MYSQL_USER: "SET-ME-IN-helm/charts/account-manager/values.yaml"
+  AM_MYSQL_PASSWORD: "SET-ME-IN-helm/charts/account-manager/values.yaml"
+  ## the shared server's root account, which job-init.yaml creates the database and user as
+  AM_MYSQL_ROOT_USERNAME: "root"
+  AM_MYSQL_ROOT_PASSWORD: "SET-ME-IN-helm/charts/account-manager/values.yaml"
+
+  ## The admin account that job-init.yaml creates (manage.py create_account_admin)
+  AM_LOGIN_URL: "https://am.example.com/login/"
+  AM_ADMIN_USERNAME: "admin"
+  AM_ADMIN_PASSWORD: "SET-ME-IN-helm/charts/account-manager/values.yaml"
+  AM_ADMIN_EMAIL: "admin@example.com"
+
+  ## SMTP
+  SMTP_HOST: "SET-ME-IN-helm/charts/account-manager/values.yaml"
+  SMTP_PORT: "587"
+  SMTP_USE_SSL: "false"
+  SMTP_USE_TLS: "true"
+  SMTP_USERNAME: "SET-ME-IN-helm/charts/account-manager/values.yaml"
+  SMTP_PASSWORD: "SET-ME-IN-helm/charts/account-manager/values.yaml"
+
+
+# -----------------------------------------------------------------------------
 # Global Configuration
-# ----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 global:
+  # the name of the Deployments, the Service (which terraform/'s ingress routes to), the
+  # ServiceAccount and the Secret <appName>-env, and the value of every resource's
+  # app.kubernetes.io/application-group label
+  appName: account-manager
   image:
     pullPolicy: Always
-    repository: 090511222473.dkr.ecr.us-east-2.amazonaws.com/smarter-am-prod
-    tag: v0.13.38
+    # used when env.AM_DOCKER_IMAGE is empty, e.g. <registry>/smarter-am-prod and a release tag
+    repository: ""
+    tag: ""
   affinity:
     nodeAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
@@ -39,8 +107,6 @@ global:
                 operator: In
                 values:
                   - smarter
-  imagePullSecrets:
-    - name: dockerhub-secret
 
   tolerations:
     - key: "node-group"
@@ -48,11 +114,33 @@ global:
       value: "smarter"
       effect: "NoSchedule"
 
+  # The security contexts of the pods that run the Account Manager image: the app, the
+  # Celery worker, beat and the init and migrate jobs. They run as am_user, the user that
+  # the Dockerfile creates (uid and gid 1000). runAsGroup must stay 1000: with only
+  # runAsUser set, the process's group would be root's. The root filesystem is read-only;
+  # the directories that the processes write are emptyDirs (templates/_helpers.tpl,
+  # am.writableVolumes).
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
 
+
+# -----------------------------------------------------------------------------
 # Application Configuration
-# ----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 app:
   replicaCount: 1
+  # gunicorn --workers: sync worker processes per pod
+  workers: 2
   resources:
     requests:
       cpu: "500m"
@@ -60,6 +148,10 @@ app:
     limits:
       cpu: "2"
       memory: "4Gi"
+  # extra environment variables of the app pods and the jobs, as [{name, value}]. Not secret:
+  # these are written into the pod spec. Secrets go in env.
+  env: []
+  extraVolumes: []
   extraVolumeMounts: []
 
 worker:
@@ -71,8 +163,12 @@ worker:
     limits:
       cpu: "1"
       memory: "2Gi"
+  env: []
+  extraVolumes: []
+  extraVolumeMounts: []
 
 beat:
+  # exactly one: two beats schedule every periodic task twice
   replicaCount: 1
   resources:
     requests:
@@ -81,133 +177,41 @@ beat:
     limits:
       cpu: "500m"
       memory: "1Gi"
-
-database:
-  type: mysql   # Options: mysql, mariadb, external
+  env: []
+  extraVolumes: []
+  extraVolumeMounts: []
 
 ## @param deployTimestamp Deployment timestamp for forcing pod restarts
 deployTimestamp: ""
 
 deployment:
   containerPort: 8000
-## @param env Environment variables for the Smarter application
-env:
-  ## @param env.AWS_ACCESS_KEY_ID AWS access key ID
-  AWS_ACCESS_KEY_ID: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
 
-  ## AWS Configuration
-  ## @param env.AWS_REGION AWS region
-  AWS_REGION: "us-east-2"
+service:
+  port: 8000
+  targetPort: 8000
 
-  ## @param env.AWS_SECRET_ACCESS_KEY AWS secret access key
-  AWS_SECRET_ACCESS_KEY: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
+# -----------------------------------------------------------------------------
+# Database initialization
+# -----------------------------------------------------------------------------
+databaseInit:
+  # post-install/post-upgrade Job (job-init.yaml): create the database and its user on the
+  # shared MariaDB server, migrate, initialize. Also a pre-upgrade Job that migrates before the
+  # rollout (job-migrate.yaml), so that new pods never run without their schema.
+  enabled: true
 
-  ## Cache and Celery Configuration
-  ## @param env.CACHES_LOCATION Redis cache location
-  CACHES_LOCATION: "redis://:smarter@smarter-redis-master.smarter-platform-prod.svc.cluster.local:6379/1"
+# -----------------------------------------------------------------------------
+# Account Manager's ServiceAccount (templates/serviceaccount.yaml)
+# -----------------------------------------------------------------------------
+serviceAccount:
+  # the IAM role (IRSA) that the pods use for S3 and SES, e.g.
+  # arn:aws:iam::<account>:role/<namespace>-account-manager. Empty: the pods use
+  # env.AWS_ACCESS_KEY_ID and env.AWS_SECRET_ACCESS_KEY.
+  awsRoleArn: ""
 
-  ## @param env.CELERY_BROKER_URL Celery broker URL
-  CELERY_BROKER_URL: "redis://:smarter@smarter-redis-master.smarter-platform-prod.svc.cluster.local:6379/1"
-
-  ## @param env.CELERY_RESULT_BACKEND Celery result backend
-  CELERY_RESULT_BACKEND: "redis://:smarter@smarter-redis-master.smarter-platform-prod.svc.cluster.local:6379/1"
-
-  ## @param env.DEBUG_MODE Enable Django debug mode
-  DEBUG_MODE: "false"
-
-  ## @param env.DUMP_DEFAULTS Dump default configuration
-  DUMP_DEFAULTS: "False"
-
-  ## Django Configuration
-  ## @param env.DJANGO_SETTINGS_MODULE Django settings module
-  DJANGO_SETTINGS_MODULE: "smarter.settings.prod"
-
-  ## @param env.ENVIRONMENT Deployment environment (development, staging, production)
-  ENVIRONMENT: "prod"
-
-  ## Encryption
-  ## @param env.FERNET_ENCRYPTION_KEY Fernet encryption key
-  FERNET_ENCRYPTION_KEY: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
-  ## Email Configuration
-  ## @param env.MAILCHIMP_API_KEY Mailchimp API key
-  MAILCHIMP_API_KEY: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
-  ## @param env.MAILCHIMP_LIST_ID Mailchimp list ID
-  MAILCHIMP_LIST_ID: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
-  ## Database Configuration
-  ## @param env.MYSQL_HOST MySQL host
-  MYSQL_HOST: "mysql"
-
-  ## @param env.MYSQL_PORT MySQL port
-  MYSQL_PORT: "3306"
-
-  ## @param env.MYSQL_DATABASE MySQL database name
-  MYSQL_DATABASE: "smarter_platform_prod"
-
-  ## @param env.MYSQL_USER MySQL user
-  MYSQL_USER: "smarter_platform_prod"
-
-  ## @param env.MYSQL_PASSWORD MySQL password
-  MYSQL_PASSWORD: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
-  ## @param env.MYSQL_ROOT_USERNAME MySQL root username
-  MYSQL_ROOT_USERNAME: "root"
-
-  ## @param env.MYSQL_ROOT_PASSWORD MySQL root password
-  MYSQL_ROOT_PASSWORD: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
-  ## @param env.NAMESPACE Kubernetes namespace
-  NAMESPACE: "smarter-platform-prod"
-
-  ## @param env.ROOT_DOMAIN Root domain for the application
-  ROOT_DOMAIN: "example.com"
-
-  ## @param env.SECRET_KEY Django secret key
-  SECRET_KEY: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
-  ## @param env.AM_DOCKER_IMAGE Docker image for Smarter
-  AM_DOCKER_IMAGE: "090511222473.dkr.ecr.us-east-2.amazonaws.com/smarter-am-alpha:latest"
-
-  ## Admin Configuration
-  ## @param env.AM_LOGIN_URL Smarter login URL
-  AM_LOGIN_URL: "https://platform.example.com/login/"
-
-  ## @param env.AM_ADMIN_USERNAME Smarter admin username
-  AM_ADMIN_USERNAME: "admin"
-
-  ## @param env.AM_ADMIN_PASSWORD Smarter admin password
-  AM_ADMIN_PASSWORD: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
-  ## @param env.AM_ADMIN_EMAIL Smarter admin email
-  AM_ADMIN_EMAIL: "admin@example.com"
-
-  ## SMTP Configuration
-  ## @param env.SMTP_HOST SMTP host
-  SMTP_HOST: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
-  ## @param env.SMTP_PORT SMTP port
-  SMTP_PORT: "587"
-
-  ## @param env.SMTP_USE_SSL Use SSL for SMTP
-  SMTP_USE_SSL: "false"
-
-  ## @param env.SMTP_USE_TLS Use TLS for SMTP
-  SMTP_USE_TLS: "true"
-
-  ## @param env.SMTP_USERNAME SMTP username
-  SMTP_USERNAME: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
-  ## @param env.SMTP_PASSWORD SMTP password
-  SMTP_PASSWORD: "SET-ME-IN-HELM-CHARTS-SMARTER-VALUES-YAML"
-
+# -----------------------------------------------------------------------------
 # Backing Services Configuration
-# ----------------------------------------------------------------------------
-
-names:
-  appName: account-manager
-
+# -----------------------------------------------------------------------------
 redis:
   enabled: true
   external:
@@ -220,6 +224,8 @@ redis:
     password: "am"
   architecture: standalone
   master:
+    podLabels:
+      app.kubernetes.io/application-group: "{{ .Values.global.appName }}"
     containerSecurityContext:
       enabled: true
     persistence:
@@ -237,6 +243,3 @@ redis:
     service:
       headless:
         sessionAffinity: None
-service:
-  port: 8000
-  targetPort: 8000

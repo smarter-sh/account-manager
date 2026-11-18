@@ -1,17 +1,19 @@
-"""test AMAuthToken, AMAuthTokenManager class"""
+"""Test AMAuthToken, AMAuthTokenManager class."""
 
 from datetime import datetime, timedelta
 from logging import getLogger
-from unittest.mock import Mock, patch
+from unittest.mock import patch
+
+from django.utils import timezone
 
 from am.apps.account.tests.factories import (
     admin_user_factory,
     factory_account_teardown,
 )
+from am.common.exceptions import AMBusinessRuleViolation
 from am.lib.unittest.base_classes import AMTestBase
 
 from ..models import AMAuthToken
-
 
 logger = getLogger(__name__)
 
@@ -34,16 +36,17 @@ class TestAMAuthTokenModels(AMTestBase):
         except AMAuthToken.DoesNotExist:
             pass
         factory_account_teardown(user=self.admin_user, account=self.account, user_profile=self.user_profile)
-        super().tearDownClass()
+        super().tearDown()
 
     def test_save_only_staff(self):
         self.auth_token.user.is_staff = False
-        with self.assertRaises(Exception):
+        with self.assertRaises(AMBusinessRuleViolation):
             self.auth_token.save()
 
     def test_save_sets_created(self):
         self.auth_token.user.is_staff = True
-        self.auth_token.created = None
+        # deliberately None: save() sets it
+        self.auth_token.created = None  # pyright: ignore[reportAttributeAccessIssue]
         with patch("am.lib.drf.models.timezone") as mock_tz:
             now = datetime(2024, 1, 1)
             mock_tz.now.return_value = now
@@ -52,58 +55,34 @@ class TestAMAuthTokenModels(AMTestBase):
                 self.assertEqual(self.auth_token.created, now)
                 mock_super_save.assert_called_once()
 
-    def test_has_permissions(self):
-        user = Mock(is_authenticated=True, is_staff=True, is_superuser=False)
-        self.assertTrue(self.auth_token.has_permissions(user))
-        user = Mock(is_authenticated=True, is_staff=False, is_superuser=True)
-        self.assertTrue(self.auth_token.has_permissions(user))
-        user = Mock(is_authenticated=True, is_staff=False, is_superuser=False)
-        self.assertFalse(self.auth_token.has_permissions(user))
-        user = Mock(is_authenticated=False, is_staff=True, is_superuser=True)
-        self.assertFalse(self.auth_token.has_permissions(user))
-        user = object()
-        self.assertFalse(self.auth_token.has_permissions(user))
+    def test_create_returns_record_and_token(self):
+        """The manager returns the saved record and the clear-text token, which only its digest is stored for."""
+        self.assertIsNotNone(self.auth_token.pk)
+        self.assertTrue(self.auth_token.is_active)
+        self.assertIsNone(self.auth_token.expiry)
+        self.assertTrue(self.token_key.startswith(self.auth_token.token_key))
+        self.assertNotIn(self.token_key, self.auth_token.digest)
 
-    def test_activate_deactivate_toggle(self):
-        with patch.object(self.auth_token, "save") as mock_save:
-            self.auth_token.is_active = False
-            self.auth_token.activate()
-            self.assertTrue(self.auth_token.is_active)
-            mock_save.assert_called()
-            self.auth_token.deactivate()
-            self.assertFalse(self.auth_token.is_active)
-            self.auth_token.toggle_active()
-            self.assertTrue(self.auth_token.is_active)
+    def test_create_logs_key_id_not_token(self):
+        with patch("am.lib.drf.models.logger") as mock_logger:
+            auth_token, token = AMAuthToken.objects.create(user=self.admin_user, name="logged")
+        self.addCleanup(auth_token.delete)
+        logged = str(mock_logger.info.call_args)
+        self.assertIn(str(auth_token.key_id), logged)
+        self.assertNotIn(auth_token.token_key, logged)
+        self.assertNotIn(token, logged)
 
-    def test_accessed_sets_last_used_at(self):
-        with patch.object(self.auth_token, "save") as mock_save:
-            self.auth_token.last_used_at = None
-            with patch("am.lib.drf.models.datetime") as mock_dt:
-                now = datetime(2024, 1, 1, 12, 0, 0)
-                mock_dt.now.return_value = now
-                self.auth_token.accessed()
-                self.assertEqual(self.auth_token.last_used_at, now)
-                mock_save.assert_called_once()
+    def test_create_with_expiry_and_prefix(self):
+        before = timezone.now()
+        auth_token, token = AMAuthToken.objects.create(
+            user=self.admin_user, name="expiring", expiry=timedelta(days=1), prefix="am_"
+        )
+        self.addCleanup(auth_token.delete)
+        self.assertTrue(token.startswith("am_"))
+        self.assertGreater(auth_token.expiry, before + timedelta(hours=23))
 
-    def test_accessed_updates_if_older_than_5min(self):
-        with patch.object(self.auth_token, "save") as mock_save:
-            old_time = datetime.now() - timedelta(minutes=10)
-            self.auth_token.last_used_at = old_time
-            with patch("am.lib.drf.models.datetime") as mock_dt:
-                now = datetime.now()
-                mock_dt.now.return_value = now
-                self.auth_token.accessed()
-                self.assertEqual(self.auth_token.last_used_at, now)
-                mock_save.assert_called_once()
-
-    def test_accessed_does_not_update_if_recent(self):
-        with patch.object(self.auth_token, "save") as mock_save:
-            recent_time = datetime.now()
-            self.auth_token.last_used_at = recent_time
-            with patch("am.lib.drf.models.datetime") as mock_dt:
-                mock_dt.now.return_value = recent_time
-                self.auth_token.accessed()
-                mock_save.assert_not_called()
+    def test_identifier_masks_digest(self):
+        self.assertEqual(self.auth_token.identifier, "******" + self.auth_token.digest[-4:])
 
     def test_str_returns_identifier(self):
         self.auth_token.digest = "digestvalue"
