@@ -1,12 +1,30 @@
+# -----------------------------------------------------------------------------------
+# Purpose: Kubernetes Service of the Account Manager application server.
+#
+# Its name, <appName>, is the service that the ingress in terraform/ routes to.
+#
+# Note:
+# The app.kubernetes.io/application-group label is used to identify pods to Calico
+# and kubernetes_network_policy_v1 resources in order to allow pod-level communication
+# between backing services. If the label is missing then the network policies are
+# assured to PREVENT communication.
+# -----------------------------------------------------------------------------------
 apiVersion: v1
 kind: Service
 metadata:
-  name: "{{ .Values.names.appName }}"
-  namespace: "{{ .Values.env.NAMESPACE }}"
-
+  name: "{{ .Values.global.appName }}"
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    meta.helm.sh/release-name: "{{ .Release.Name }}"
+    meta.helm.sh/release-namespace: "{{ .Release.Namespace }}"
+    meta.helm.sh/application-version: "{{ .Chart.Version }}"
+  labels:
+    {{- include "am.commonLabels" . | nindent 4 }}
+    app.kubernetes.io/name: "{{ .Values.global.appName }}"
 spec:
   selector:
-    app.kubernetes.io/name: "{{ .Values.names.appName }}"
+    app.kubernetes.io/component: api
+    app.kubernetes.io/application-group: "{{ .Values.global.appName }}"
   ports:
     - port: {{ .Values.service.port }}
       protocol: TCP

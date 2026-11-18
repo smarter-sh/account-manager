@@ -2,17 +2,19 @@
 #------------------------------------------------------------------------------
 # - Deploy to AWS Elastic Kubernetes Service (EKS)
 #
-# IMPORTANT: Before running this workflow, ensure that you have first built your
-# AWS infrastructure using the [Smarter Infrastructure repository](https://github.com/smarter-sh/smarter-infrastructure).
-# Additionally, make sure the following secrets are configured in your
-# [GitHub repository settings](https://github.com/smarter-sh/smarter/settings/secrets/actions):
+# IMPORTANT: Before running this workflow, ensure that:
+#
+# - the Smarter platform is deployed to the same environment: Account Manager
+#   uses its MariaDB server (the Service smarter-mariadb in the namespace
+#   <SMARTER_NAMESPACE_BASE>-<environment>) and has none of its own;
+# - terraform/aws has created Account Manager's namespace and its Kubernetes
+#   secrets (mysql-am, mysql-root, am-admin, am-django-secret-key, aws-ses-config);
+# - the following secrets are configured in the
+#   [GitHub repository settings](https://github.com/smarter-sh/account-manager/settings/secrets/actions):
 #
 # AWS_ACCESS_KEY_ID
 # AWS_REGION
 # AWS_SECRET_ACCESS_KEY
-# PAT
-# SMTP_PASSWORD
-# SMTP_USERNAME
 #------------------------------------------------------------------------------
 name: Deploy
 
@@ -25,6 +27,11 @@ permissions:
 env:
   AWS_REGION: us-east-2
   ROOT_DOMAIN: "smarter.sh"
+  # the EKS cluster that Account Manager is deployed to
+  EKS_CLUSTER_NAME: "apps-hosting-service"
+  # the Smarter platform's namespace is <SMARTER_NAMESPACE_BASE>-<environment>; its
+  # smarter-mariadb Service is the shared database server
+  SMARTER_NAMESPACE_BASE: "smarter-ubc"
 
 jobs:
   deploy:
@@ -59,6 +66,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
           root-domain: ${{ env.ROOT_DOMAIN }}
+          eks-cluster-name: ${{ env.EKS_CLUSTER_NAME }}
+          smarter-namespace-base: ${{ env.SMARTER_NAMESPACE_BASE }}
 
       - name: Send Email
         uses: ./.github/actions/send-mail
