@@ -21,7 +21,7 @@ class Command(AMCommand):
         parser.add_argument("--email", type=str, help="The email address")
 
     def handle(self, *args, **options):
-        """create the superuser account."""
+        """Create the superuser account."""
         self.handle_begin()
 
         account_number = options["account_number"]
@@ -35,34 +35,33 @@ class Command(AMCommand):
             user_profile = UserProfile.objects.get(user__username=username)
             account = user_profile.account
             email = email or user_profile.user.email
+        elif account_number or company_name:
+            try:
+                account = (
+                    Account.objects.get(account_number=account_number)
+                    if account_number
+                    else Account.objects.get(company_name=company_name)
+                )
+            except Account.DoesNotExist as e:
+                self.handle_completed_failure(e, msg=f"Account {account_number or company_name} not found.")
+                return
+            if not email:
+                raise AMValueError("You must provide an email address with an account number or company name.")
         elif email:
             user_profile = UserProfile.objects.get(user__email=email)
             account = user_profile.account
         else:
-            if options["account_number"]:
-                try:
-                    account = Account.objects.get(account_number=account_number)
-                except Account.DoesNotExist as e:
-                    self.handle_completed_failure(e, msg=f"Account {account_number} not found.")
-                    return
-            elif options["company_name"]:
-                try:
-                    account = Account.objects.get(company_name=company_name)
-                except Account.DoesNotExist as e:
-                    self.handle_completed_failure(e, msg=f"Account {company_name} not found.")
-                    return
-            else:
-                raise AMValueError("You must provide either an account number or a company name.")
-
             raise AMValueError(
-                "You must provide either a username or an email address and an account number or company name."
+                "You must provide either a username, or an email address with an optional account number or company name."
             )
 
-        account_contact, _ = AccountContact.objects.get_or_create(
+        account_contact, created = AccountContact.objects.get_or_create(
             account=account,
             email=email,
         )
 
-        account_contact.send_welcome_email()
+        # AccountContact.save() already welcomes a new contact.
+        if not created:
+            account_contact.send_welcome_email()
 
         self.handle_completed_success()

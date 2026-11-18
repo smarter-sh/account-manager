@@ -1,36 +1,22 @@
 # pylint: disable=W0613
-"""
-Web server views for the docs app
-"""
+"""Web server views for the docs app."""
+
 import os
-from datetime import datetime
 
 from django.http import FileResponse, HttpResponse
 from django.views import View
 
-from am.common.conf import am_settings
-from am.lib.django.view_helpers import AMWebTxtView, AMWebXmlView
+from am.lib.django.view_helpers import AMWebTxtView
 
 
 class RobotsTxtView(AMWebTxtView):
-    """View to serve the robots.txt file"""
+    """View to serve the robots.txt file."""
 
     template_path = "robots.txt"
 
 
-class SitemapXmlView(AMWebXmlView):
-    """View to serve the sitemap.xml file"""
-
-    template_path = "sitemap.xml"
-    context = {
-        "base_url": am_settings.environment_url,
-        "lastmod": datetime.now().strftime("%Y-%m-01"),
-        "changefreq": "monthly",
-    }
-
-
 class FaviconView(View):
-    """View to serve the favicon.ico file"""
+    """View to serve the favicon.ico file."""
 
     def get(self, request, *args, **kwargs):
         file_path = os.path.join("am", "static", "images", "logo", "favicon.ico")
@@ -38,7 +24,7 @@ class FaviconView(View):
 
 
 class HealthzView(View):
-    """View to serve the healthz endpoint"""
+    """View to serve the healthz endpoint."""
 
     def get(self, request, *args, **kwargs):
         return HttpResponse("OK", content_type="text/plain")
@@ -46,7 +32,9 @@ class HealthzView(View):
 
 class ReadinessView(View):
     """
-    View to serve the readiness endpoint. Instantiate a ChatBotHelper object to
+    View to serve the readiness endpoint.
+
+    Instantiate a ChatBotHelper object to
     force readiness of platform. This is the most likely collection of Python
     objects that will be used in the early stages of the application lifecycle.
 

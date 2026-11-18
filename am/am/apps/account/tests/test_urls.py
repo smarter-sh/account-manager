@@ -1,47 +1,41 @@
-# pylint: disable=wrong-import-position
-"""Test API end points."""
+"""Test the url conf of the account api (``am.apps.account.api.v1.urls``)."""
 
-from django.test import Client
-from django.urls import reverse
+from django.test import SimpleTestCase
+from django.urls import resolve, reverse
 
-# our stuff
-from am.apps.account.tests.mixins import TestAccountMixin
+from am.apps.account.api.v1.views.account import AccountListView, AccountView
+from am.apps.account.api.v1.views.payment_methods import (
+    PaymentMethodsListView,
+    PaymentMethodView,
+)
+from am.apps.account.api.v1.views.subscription_status import SubscriptionStatusView
+from am.apps.account.api.v1.views.user import UserListView, UserView
 
 
-class TestUrls(TestAccountMixin):
-    """Test Account views."""
+class TestUrls(SimpleTestCase):
+    """Every account api url name reverses to its path, which resolves to its view."""
 
-    def setUp(self):
-        """Set up test fixtures."""
-        super().setUp()
-        self.client = Client()
+    namespace = "api:v1:account:"
 
-    def tearDown(self):
+    def assert_route(self, name: str, args: list, path: str, view_class):
+        """
+        Assert that ``name`` reverses to ``path``, and that ``path`` resolves to ``view_class``.
 
-        if self.client is not None:
-            self.client.logout()
-        self.client = None
-        super().tearDown()
+        :param name: The url name, without the namespace.
+        :param args: The url's arguments.
+        :param path: The expected path.
+        :param view_class: The expected view class.
+        """
+        self.assertEqual(reverse(self.namespace + name, args=args), path)
+        self.assertIs(resolve(path).func.view_class, view_class)  # type: ignore[attr-defined]
 
-    def test_account_view(self):
-        """test that we can see the account view and that it matches the account data."""
-        namespace = "account"
-
-        def verify_response(reverse_name: str, status_code):
-            url = reverse(reverse_name)
-            print(f"Testing URL: {url}")
-            if not self.client:
-                self.fail("Client is not initialized.")
-            response = self.client.get(url)
-            self.assertEqual(response.status_code, status_code)
-
-        verify_response(f"{namespace}:account_login", 200)
-        verify_response(f"{namespace}:account_logout", 302)
-        verify_response(f"{namespace}:account_register", 200)
-        verify_response(f"{namespace}:account_password_reset_request", 200)
-        verify_response(f"{namespace}:account_password_confirm", 200)
-
-        if not self.client:
-            self.fail("Client is not initialized.")
-        self.client.force_login(self.non_admin_user)
-        verify_response(f"{namespace}:account_deactivate", 200)
+    def test_routes(self):
+        """Test each route of the account api."""
+        prefix = "/api/v1/accounts/"
+        self.assert_route("account_list_view", [], prefix, AccountListView)
+        self.assert_route("subscription_status_view", [], prefix + "subscription-status/", SubscriptionStatusView)
+        self.assert_route("account_view", [7], prefix + "7/", AccountView)
+        self.assert_route("account_users_list_view", [], prefix + "users/", UserListView)
+        self.assert_route("account_user_view", [7], prefix + "users/7/", UserView)
+        self.assert_route("account_payment_methods_list_view", [], prefix + "payment-methods/", PaymentMethodsListView)
+        self.assert_route("account_payment_method_view", [7], prefix + "payment-methods/7/", PaymentMethodView)

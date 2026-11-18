@@ -1,9 +1,6 @@
-"""
-URLs for Account Manager Api.
-"""
+"""URLs for Account Manager Api."""
 
 from django.urls import include, path
-
 
 # pylint: disable=C0103
 name_prefix = "root"

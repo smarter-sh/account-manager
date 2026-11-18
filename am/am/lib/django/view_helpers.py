@@ -2,17 +2,13 @@
 
 import logging
 import re
-from http import HTTPStatus
 from typing import Optional
 
-from django import template
-from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
-from django.utils.cache import patch_vary_headers
 from django.utils.decorators import method_decorator
 from django.views import View
-from django.views.decorators.cache import cache_control, cache_page, never_cache
+from django.views.decorators.cache import never_cache
 
 from am.common.conf import am_settings
 from am.lib.django import waffle
@@ -28,8 +24,6 @@ def should_log(level):
 
 base_logger = logging.getLogger(__name__)
 logger = WaffleSwitchedLoggerWrapper(base_logger, should_log)
-
-register = template.Library()
 
 
 def redirect_and_expire_cache(path: str = "/"):
@@ -55,7 +49,7 @@ class AMView(View, AMRequestMixin):
 
     All other view classes in the platform are designed to extend this base, inheriting its
     core logic and conventions. This approach centralizes common behaviors, such as context management,
-    template rendering, HTML minification, and logging, enabling maintainable and scalable
+    template rendering, HTML comment removal, and logging, enabling maintainable and scalable
     development across the platform.
 
     The ``AMView`` class is intended to be subclassed, allowing developers to build
@@ -70,6 +64,7 @@ class AMView(View, AMRequestMixin):
     def __init__(self, *args, **kwargs):
         """
         Initialize the AMView with request and other arguments.
+
         This method initializes the AMRequestMixin with the request.
 
         :param args: Positional arguments, where the first argument is expected to be the HttpRequest.
@@ -78,16 +73,14 @@ class AMView(View, AMRequestMixin):
         :return: None
         :rtype: None
         """
-        request: Optional[HttpRequest] = None
+        request: Optional[HttpRequest] = kwargs.pop("request", None)
         if args:
-            request = args[0]
-        elif "request" in kwargs:
-            request = kwargs["request"]
+            request, *args = args  # type: ignore[assignment]
 
         AMRequestMixin.__init__(self, request, *args, **kwargs)
-        super().__init__(*args, **kwargs)
+        # Django's View.__init__() takes keyword arguments only.
+        super().__init__(**kwargs)
 
-    @register.filter
     def remove_comments(self, html):
         """
         Remove HTML comments from an html string.
@@ -99,21 +92,9 @@ class AMView(View, AMRequestMixin):
         """
         return re.sub(r"<!--.*?-->", "", html)
 
-    def minify_html(self, html):
-        """
-        Minify an html string.
-
-        :param html: The HTML string to minify.
-        :type html: str
-        :return: The minified HTML string.
-        :rtype: str
-        """
-        logger.error("%s.minify_html() is disabled.", self.formatted_class_name)
-        return html
-
     def render_clean_html(self, request: HttpRequest, template_path, context=None):
         """
-        Render a template as a string, with comments removed and minified.
+        Render a template as a string, with HTML comments removed.
 
         :param request: The HTTP request object.
         :type request: HttpRequest
@@ -123,9 +104,9 @@ class AMView(View, AMRequestMixin):
         :type context: dict, optional
         :return: The rendered, cleaned HTML string.
         :rtype: str
+        :raises Exception: Whatever rendering the template raises, after logging it.
         """
         context = context or self.context
-        response = None
         try:
             response = render(request=request, template_name=template_path, context=context)
         # pylint: disable=W0718
@@ -138,16 +119,15 @@ class AMView(View, AMRequestMixin):
                 e,
                 exc_info=True,
             )
-            return HttpResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            raise
 
         html = response.content.decode(response.charset)
-        html_no_comments = self.remove_comments(html=html)
-        minified_html = self.minify_html(html=html_no_comments)
-        return minified_html
+        return self.remove_comments(html=html)
 
     def setup(self, request: HttpRequest, *args, **kwargs):
         """
         Setup the view with the request and any additional arguments.
+
         This method initializes the AMRequestMixin with the request.
 
         :param request: The HTTP request object.
@@ -168,31 +148,19 @@ class AMView(View, AMRequestMixin):
         return super().setup(request, *args, **kwargs)
 
 
-class AMWebXmlView(AMView):
-    """
-    Base view for smarter xml web views.
-    """
-
-    def get(self, request):
-        return render(request=request, template_name=self.template_path, context=self.context)
-
-
 class AMWebTxtView(AMView):
-    """
-    Base view for smarter xml web views.
-    """
+    """Base view for plain text web views, such as robots.txt."""
 
     def get(self, request):
-        minified_html = self.render_clean_html(request, template_path=self.template_path, context=self.context)
-        return HttpResponse(content=minified_html, content_type="text/plain")
+        html = self.render_clean_html(request, template_path=self.template_path, context=self.context)
+        return HttpResponse(content=html, content_type="text/plain")
 
 
 class AMWebHtmlView(AMView):
     """
     Base view for smarter web views.
-    Includes helpers for rendering, minifying and stripping out developer comments.
 
-
+    Includes helpers for rendering and stripping out developer comments.
     """
 
     # pylint: disable=W0613
@@ -209,8 +177,8 @@ class AMWebHtmlView(AMView):
         :return: An HttpResponse with the cleaned HTML content.
         :rtype: HttpResponse
         """
-        minified_html = self.render_clean_html(request, template_path, context)
-        return HttpResponse(content=minified_html, content_type="text/html")
+        html = self.render_clean_html(request, template_path, context)
+        return HttpResponse(content=html, content_type="text/html")
 
     def get(self, request, *args, **kwargs):
         """
@@ -229,171 +197,9 @@ class AMWebHtmlView(AMView):
 @method_decorator(never_cache, name="dispatch")
 class AMNeverCachedWebView(AMWebHtmlView):
     """
-    An optimized web view that requires authentication and is never cached.
+    A web view whose responses are never cached.
 
-    This class combines two critical behaviors for secure and dynamic web applications:
-
-    1. **Authentication Enforcement**: Inherits from `AMAuthenticatedWebView`, which applies the
-       `@login_required` decorator to the `dispatch` method. This ensures that only authenticated users
-       can access the view. If an unauthenticated user attempts access, they are redirected to the login page,
-       and the cache is expired to prevent sensitive data leakage.
-
-    2. **Cache Prevention**: Uses the `@never_cache` decorator (applied via `method_decorator` to the
-       `dispatch` method). This instructs Django and downstream proxies/browsers to never cache responses
-       from this view. This is essential for views that display user-specific or sensitive information,
-       ensuring that no part of the response is stored or reused.
-
-    By combining these decorators, `AMAuthenticatedNeverCachedWebView` guarantees that:
-    - Only logged-in users can access the view.
-    - Every response is generated fresh for each request, with no caching at any layer.
-
-    This makes it ideal for pages displaying private, frequently changing, or security-sensitive data.
+    The ``@never_cache`` decorator, applied to ``dispatch``, tells browsers and proxies not to
+    store the response. The view does not require authentication: subclasses that need it,
+    such as the login page's view, check it themselves.
     """
-
-
-class AMAuthenticatedWebView(AMWebHtmlView):
-    """
-    An optimized view that requires authentication.
-
-    This class uses the `@login_required` decorator, applied via Django's `method_decorator` to the `dispatch` method.
-    The `@login_required` decorator ensures that only authenticated users can access any HTTP method (GET, POST, etc.)
-    on this view. If an unauthenticated user attempts to access the view, they are redirected to the login page.
-    Additionally, the `dispatch` method is overridden to expire any cache for anonymous users, further protecting
-    sensitive data from being stored or leaked.
-
-    The view also includes helpers for retrieving the account and user profile associated with the request,
-    and will force a 404 response for users who do not have a valid profile, ensuring that only properly
-    provisioned users can access protected resources.
-
-    By enforcing authentication at the dispatch level, this view provides a robust foundation for building
-    secure, user-specific pages in the Account Manager.
-
-    This combination makes the view ideal for admin pages that display sensitive or frequently changing data, ensuring
-    both strict access control and cache prevention.
-
-    Bug Fix:
-
-        Fixed a bug where Django method decorators were raising exceptions for unauthenticated
-        users instead of redirecting them to the login page. Replaced the decorators
-        with explicit checks in the `dispatch` method.
-
-    .. changelog::
-
-        :versionadded: v0.13.39
-    """
-
-    def dispatch(self, request: HttpRequest, *args, **kwargs):
-        """
-        Dispatch the request, redirecting to login if the user is anonymous.
-
-        :param request: The HTTP request object.
-        :type request: HttpRequest
-        :return: An HttpResponse object.
-        :rtype: HttpResponse
-        """
-        if hasattr(request, "user") and hasattr(request.user, "is_authenticated") and request.user.is_authenticated:
-            response = super().dispatch(request, *args, **kwargs)
-            patch_vary_headers(response, ["Cookie"])
-            return response
-
-        return redirect_and_expire_cache(path="/login/")
-
-
-@method_decorator(cache_control(max_age=settings.ACCOUNT_CACHE_EXPIRATION), name="dispatch")
-@method_decorator(cache_page(settings.ACCOUNT_CACHE_EXPIRATION), name="dispatch")
-class AMAuthenticatedCachedWebView(AMAuthenticatedWebView):
-    """
-    An optimized and cached web view that requires authentication.
-
-    This class uses two important Django decorators, both applied via `method_decorator` to the `dispatch` method:
-
-    1. **@cache_control**: Sets HTTP cache headers on responses from this view, specifying the maximum age for cached content.
-       This instructs browsers and proxies to cache the response for a defined period, improving performance for repeat visits.
-
-    2. **@cache_page**: Enables full-page caching at the Django view level, storing rendered responses in the cache backend.
-       This dramatically reduces server load and speeds up response times for authenticated users accessing the same content.
-
-    Both decorators work together to ensure that authenticated users receive cached content when appropriate, while still
-    enforcing authentication via the parent class (`AMAuthenticatedWebView`), which uses the `@login_required` decorator.
-
-    This view is ideal for pages where content is user-specific but does not change frequently, allowing for efficient caching
-    without compromising security. The dispatch method also patches vary headers to ensure proper cache differentiation based
-    on cookies, further protecting user data.
-    """
-
-    def dispatch(self, request: HttpRequest, *args, **kwargs):
-        """
-        Dispatch the request and patch vary headers for successful responses.
-
-        :param request: The HTTP request object.
-        :type request: HttpRequest
-        :return: An HttpResponse object.
-        :rtype: HttpResponse
-        """
-        response = super().dispatch(request, *args, **kwargs)
-        if response.status_code > 299:
-            return response
-        patch_vary_headers(response, ["Cookie"])
-        return response
-
-
-@method_decorator(never_cache, name="dispatch")
-class AMAuthenticatedNeverCachedWebView(AMAuthenticatedWebView):
-    """
-    An optimized web view that requires authentication and is never cached.
-
-    This class uses two key Django decorators, both applied via `method_decorator` to the `dispatch` method:
-
-    1. **@login_required** (inherited from `AMAuthenticatedWebView`): Ensures that only authenticated users can access any HTTP method (GET, POST, etc.) on this view. If an unauthenticated user attempts access, they are redirected to the login page and the cache is expired to prevent sensitive data leakage.
-
-    2. **@never_cache**: Explicitly instructs browsers, proxies, and Django itself to never cache responses from this view. This is critical for views that display user-specific or sensitive information, ensuring that no part of the response is stored or reused.
-
-    By combining these decorators, this view guarantees that:
-    - Only logged-in users can access the view.
-    - Every response is generated fresh for each request, with no caching at any layer.
-
-    This makes it ideal for pages displaying private, frequently changing, or security-sensitive data, where both authentication and cache prevention are essential.
-    """
-
-
-class AMAdminWebView(AMAuthenticatedNeverCachedWebView):
-    """
-    An admin-only optimized web view that is never cached.
-
-    This class uses the `@staff_member_required` decorator, applied via Django's `method_decorator` to the `dispatch` method.
-    The `@staff_member_required` decorator ensures that only users who are marked as staff in Django's authentication system
-    can access any HTTP method (GET, POST, etc.) on this view. Non-staff users are redirected to the admin login page.
-
-    In addition, this view inherits from `AMAuthenticatedNeverCachedWebView`, which itself applies both the
-    `@login_required` and `@never_cache` decorators. This means:
-    - Only authenticated staff members can access the view.
-    - Every response is generated fresh for each request, with no caching at any layer.
-
-    This combination makes the view ideal for admin pages that display sensitive or frequently changing data, ensuring
-    both strict access control and cache prevention.
-
-    Bug Fix:
-
-        Fixed a bug where Django method decorators were raising exceptions for unauthenticated
-        users instead of redirecting them to the login page. Replaced the decorators
-        with explicit checks in the `dispatch` method.
-
-    .. changelog::
-
-        :versionadded: v0.13.39
-    """
-
-    def dispatch(self, request: HttpRequest, *args, **kwargs):
-        # Enforce login_required
-        user = getattr(request, "user", None)
-        if not (user and getattr(user, "is_authenticated", False)):
-            return redirect_and_expire_cache(path="/login/")
-
-        # Enforce staff_member_required
-        if not getattr(user, "is_staff", False):
-            # Redirect to admin login page for non-staff users
-            return redirect_and_expire_cache(path="/admin/login/?next=" + request.path)
-
-        response = super().dispatch(request, *args, **kwargs)
-        patch_vary_headers(response, ["Cookie"])
-        return response

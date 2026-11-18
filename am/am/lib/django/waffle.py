@@ -1,5 +1,5 @@
 """
-account.lib.django.waffle
+Account.lib.django.waffle
 ------------------------------
 
 Enhanced, managed Django-waffle wrapper with short-lived Redis-based caching
@@ -10,7 +10,6 @@ Features:
 - Caching: Integrates short-lived Redis-based caching to optimize feature flag (switch) checks.
 - Database Readiness Handling: Implements safeguards to prevent errors when the database is not ready.
 - Feature Flag Management: Centralized mechanism to check if a feature flag (switch) is active.
-- Custom Django Admin: Customized Django Admin class for managing waffle switches.
 - Fixed Set of Switches: Defines a fixed set of waffle switches for the Account Manager API.
 
 .. important::
@@ -45,8 +44,6 @@ import logging
 import waffle as waffle_orig
 from django.db import connections
 from django.db.utils import OperationalError, ProgrammingError
-from waffle.admin import SwitchAdmin
-
 
 # Also catch MySQLdb.OperationalError for lower-level DB errors
 try:
@@ -57,7 +54,6 @@ except ImportError:
     MySQLdbOperationalError = None
 
 from am.common.helpers.console_helpers import formatted_text_green
-
 
 logger = logging.getLogger(__name__)
 prefix = formatted_text_green("am.lib.django.waffle.switch_is_active()")
@@ -70,18 +66,6 @@ class DbState:
 
 
 db_state = DbState()
-
-
-class SmarterSwitchAdmin(SwitchAdmin):
-    """
-    Customized Django Admin console for managing Waffle switches.
-    This class restricts access to the module to superusers only.
-    """
-
-    ordering = ("name",)
-
-    def has_module_permission(self, request):
-        return hasattr(request, "user") and hasattr(request.user, "is_superuser") and request.user.is_superuser  # type: ignore[return-value]
 
 
 class AMWaffleSwitches:
@@ -106,7 +90,6 @@ class AMWaffleSwitches:
 
             if switch_is_active(AMWaffleSwitches.API_LOGGING):
                 print("API logging is enabled.")
-
     """
 
     ACCOUNT_LOGGING = "log_account"
@@ -117,9 +100,6 @@ class AMWaffleSwitches:
 
     CACHE_LOGGING = "log_caching"
     """Enables detailed logging for caching operations including cache hits, misses, and errors."""
-
-    CSRF_SUPPRESS_FOR_CHATBOTS = "disable_csrf_middleware_for_chatbots"
-    """Disables CSRF middleware checks for chat completion endpoints."""
 
     MIDDLEWARE_LOGGING = "log_middleware"
     """Enables detailed diagnostic logging for all middleware operations."""
@@ -146,7 +126,6 @@ class AMWaffleSwitches:
             self.ACCOUNT_LOGGING,
             self.API_LOGGING,
             self.CACHE_LOGGING,
-            self.CSRF_SUPPRESS_FOR_CHATBOTS,
             self.MIDDLEWARE_LOGGING,
             self.REACTAPP_DEBUG_MODE,
             self.REQUEST_MIXIN_LOGGING,
@@ -158,7 +137,8 @@ class AMWaffleSwitches:
 
 def is_database_ready(alias="default"):
     """
-    Check if the database is ready by verifying the connection and
+    Check if the database is ready by verifying the connection and.
+
     the existence of the waffle_switch table.
 
     :param alias: The database alias to check.

@@ -1,12 +1,15 @@
+from typing import Optional
+
 from rest_framework.authentication import BaseAuthentication
 
-from am.apps.account.models import Account
+from am.apps.account.models import Account, User
 from am.apps.account.utils import get_cached_admin_user_for_account
 
 
 class AMAuthentication(BaseAuthentication):
     """
     Custom authentication class for Account Manager.
+
     This class can be extended to implement specific authentication logic.
 
     This is used to verify the payment status of the account associated with the
@@ -17,7 +20,7 @@ class AMAuthentication(BaseAuthentication):
     managed platform: the domain name of the request
     """
 
-    def authenticate(self, request):
+    def authenticate(self, request) -> Optional[tuple[User, str]]:
         # Implement custom authentication logic here
         token = request.headers.get("X-API-KEY")
         if not token:

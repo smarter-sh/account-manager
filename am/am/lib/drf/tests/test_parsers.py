@@ -1,4 +1,4 @@
-"""test YAMLParser class"""
+"""Test YAMLParser class."""
 
 from io import BytesIO
 
@@ -23,11 +23,14 @@ class TestYAMLParser(AMTestBase):
         self.assertEqual(result, {"foo": "bar", "baz": 123})
 
     def test_parse_invalid_yaml(self):
-        # This will raise a yaml.YAMLError, not ValueError, so it will propagate
-        yaml_data = b"foo: [unclosed"
-        stream = BytesIO(yaml_data)
-        with self.assertRaises(Exception):
+        """Malformed YAML is a ParseError, which DRF answers with 400, not a server error."""
+        stream = BytesIO(b"foo: [unclosed")
+        with self.assertRaises(ParseError):
             self.parser.parse(stream)
+
+    def test_parse_invalid_utf8(self):
+        with self.assertRaises(ParseError):
+            self.parser.parse(BytesIO(b"\xff\xfe"))
 
     def test_parse_value_error(self):
         # Simulate a ValueError by patching stream.read to raise ValueError

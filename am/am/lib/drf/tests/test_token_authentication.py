@@ -1,16 +1,14 @@
-"""Test AMTokenAuthentication class"""
+"""Test AMTokenAuthentication class."""
 
-import time
+from unittest.mock import patch
 
 from django.utils import timezone
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.test import APIRequestFactory
 
 from am.apps.account.tests.mixins import TestAccountMixin
 from am.lib.drf.models import AMAuthToken
-from am.lib.drf.token_authentication import (
-    AMTokenAuthentication,
-    AMTokenAuthenticationError,
-)
+from am.lib.drf.token_authentication import AMTokenAuthentication
 
 
 class TestAMTokenAuthentication(TestAccountMixin):
@@ -24,32 +22,43 @@ class TestAMTokenAuthentication(TestAccountMixin):
         self.smarter_auth_token, self.token_key = AMAuthToken.objects.create(
             name=self.name,
             user=self.admin_user,
-            description="TestAMTokenAuthenticationMiddleware() test description",
+            description="TestAMTokenAuthentication() test description",
         )  # type: ignore
-
-    def tearDown(self):
-        super().tearDown()
-        self.smarter_auth_token.delete()
+        self.addCleanup(self.smarter_auth_token.delete)
 
     def test_authenticate_credentials_active_token(self):
         start_time = timezone.now()
-        token_key_bytes = self.token_key.encode()
-        authenticated_user, self.smarter_auth_token = self.auth.authenticate_credentials(token_key_bytes)
-        # Simulate some processing time to avoid a race condition with the
-        # Django signal that updates last_used_at
-        time.sleep(1)
+        user, auth_token = self.auth.authenticate_credentials(self.token_key.encode())
+        self.assertEqual(user, self.admin_user)
+        self.assertEqual(auth_token, self.smarter_auth_token)
         self.smarter_auth_token.refresh_from_db()
-        self.assertTrue(authenticated_user.is_authenticated)
-        self.assertTrue(self.smarter_auth_token.is_active)
-        self.assertEqual((authenticated_user, self.smarter_auth_token), (self.admin_user, self.smarter_auth_token))
-        self.assertLess(start_time, self.smarter_auth_token.last_used_at)
+        self.assertLessEqual(start_time, self.smarter_auth_token.last_used_at)
 
-    def test_authenticate_credentials_inactive_token(self):
+    def test_authenticate_via_header(self):
+        request = APIRequestFactory().get("/api/", HTTP_AUTHORIZATION=f"Token {self.token_key}")
+        result = self.auth.authenticate(request)
+        assert result is not None
+        user, auth_token = result
+        self.assertEqual(user, self.admin_user)
+        self.assertEqual(auth_token.pk, self.smarter_auth_token.pk)
+
+    def test_inactive_token_is_refused_at_once(self):
+        """Deactivating a key takes effect on the next request (no cached authentication)."""
+        self.auth.authenticate_credentials(self.token_key.encode())
         self.smarter_auth_token.is_active = False
         self.smarter_auth_token.save()
-        with self.assertRaises(AuthenticationFailed):
-            self.auth.authenticate_credentials(self.token_key[:1])
+        with self.assertRaisesRegex(AuthenticationFailed, "Api key is not activated."):
+            self.auth.authenticate_credentials(self.token_key.encode())
 
-    def test_smarter_token_authentication_error_message(self):
-        err = AMTokenAuthenticationError()
-        self.assertEqual(err.get_formatted_err_message, "Smarter Token Authentication error")
+    def test_token_must_be_bytes(self):
+        with self.assertRaisesRegex(AuthenticationFailed, "Expected bytes"):
+            self.auth.authenticate_credentials(self.token_key)  # type: ignore[arg-type]
+
+    def test_unknown_token(self):
+        with self.assertRaises(AuthenticationFailed):
+            self.auth.authenticate_credentials(b"0" * 64)
+
+    def test_non_user_is_refused(self):
+        with patch("knox.auth.TokenAuthentication.authenticate_credentials", return_value=(object(), None)):
+            with self.assertRaisesRegex(AuthenticationFailed, "Invalid token"):
+                self.auth.authenticate_credentials(self.token_key.encode())

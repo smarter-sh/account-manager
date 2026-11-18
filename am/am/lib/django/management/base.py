@@ -70,11 +70,7 @@ class AMCommand(BaseCommand):
 
     - If ``handle_completed_failure`` is called with an exception, the process will exit with code 1.
     - Do not override ``__init__`` unless necessary; always call ``super().__init__``.
-
     """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
     def handle_begin(self):
         self.stdout.write("-" * 35 + " manage.py " + "-" * 34)
@@ -97,7 +93,7 @@ class AMCommand(BaseCommand):
         self.stdout.write(self.style.ERROR("-" * 80))
         if msg:
             self.stdout.write(self.style.ERROR(msg))
-        msg = f"{self.__module__} failed" + f" with error: {err}" if err else "."
+        msg = f"{self.__module__} failed" + (f" with error: {err}" if err else ".")
         self.stdout.write(self.style.ERROR(msg))
         self.stdout.write(self.style.ERROR("-" * 80))
         if err:
@@ -105,7 +101,8 @@ class AMCommand(BaseCommand):
 
     def create_parser(self, prog_name, subcommand, **kwargs):
         """
-        Create and return the ``ArgumentParser`` which will be used to
+        Create and return the ``ArgumentParser`` which will be used to.
+
         parse the arguments to this command.
         """
         parser = super().create_parser(prog_name, subcommand, **kwargs)

@@ -1,90 +1,68 @@
 # pylint: disable=W0707,W0718
-"""Account views for Account Manager API."""
-import logging
+"""Base classes of the account views of the Account Manager API."""
 
-from django.http.response import HttpResponseForbidden
+from typing import Optional
 
-from am.apps.account.models import User, UserProfile
+from rest_framework.exceptions import PermissionDenied
+
+from am.apps.account.models import Account, User, UserProfile, get_resolved_user
 from am.apps.account.serializers import AccountSerializer
-from am.common.conf import am_settings
-from am.common.utils import is_authenticated_request, smarter_build_absolute_uri
-from am.lib.django import waffle
-from am.lib.django.waffle import AMWaffleSwitches
 from am.lib.drf.views.token_authentication_helpers import (
     AMAdminAPIView,
     AMAdminListAPIView,
 )
-from am.lib.logging import WaffleSwitchedLoggerWrapper
 
 
-def should_log(level):
-    """Check if logging should be done based on the waffle switch."""
-    return waffle.switch_is_active(AMWaffleSwitches.ACCOUNT_LOGGING) and level >= am_settings.log_level
+class AccountViewMixin:
+    """
+    Helpers that the account views share to decide what the request user may see.
+
+    A superuser may see every Account. A staff user may see only the Account of
+    their own UserProfile.
+    """
+
+    request: object
+
+    @property
+    def request_user(self) -> Optional[User]:
+        """
+        The request's user, resolved to a :class:`User`.
+
+        :returns: The user, or None for an anonymous request.
+        """
+        user = get_resolved_user(self.request.user)  # type: ignore[attr-defined]
+        return user if isinstance(user, User) else None
+
+    @property
+    def is_request_superuser(self) -> bool:
+        """
+        Whether the request's user is a superuser.
+
+        :returns: True for a superuser.
+        """
+        user = self.request_user
+        return bool(user and user.is_superuser)
+
+    def get_request_user_account(self) -> Account:
+        """
+        The Account of the request user's UserProfile.
+
+        :returns: The Account.
+        :raises PermissionDenied: when the request user has no UserProfile.
+        """
+        user_profile = UserProfile.objects.filter(user=self.request_user).order_by("pk").first()
+        if user_profile is None:
+            raise PermissionDenied("You are not associated with any account.")
+        return user_profile.account
 
 
-base_logger = logging.getLogger(__name__)
-logger = WaffleSwitchedLoggerWrapper(base_logger, should_log)
-
-
-class AccountViewBase(AMAdminAPIView):
+class AccountViewBase(AccountViewMixin, AMAdminAPIView):
     """Base class for account views."""
 
     serializer_class = AccountSerializer
 
-    def dispatch(self, request, *args, **kwargs):
-        response = super().dispatch(request, *args, **kwargs)
-        if response.status_code < 300 and isinstance(request.user, User):
-            # we now have to consider superuser accounts that are associated with multiple accounts
-            self.user_profile = UserProfile.objects.filter(user=request.user).first()
-        return response
 
-
-class AccountListViewBase(AMAdminListAPIView):
+class AccountListViewBase(AccountViewMixin, AMAdminListAPIView):
     """Base class for account list views."""
 
     serializer_class = AccountSerializer
-
-    def dispatch(self, request, *args, **kwargs):
-        try:
-            response = super().dispatch(request, *args, **kwargs)
-        except AttributeError:
-            # catches an error raised by a decorator elsewhere in the stack that
-            # barfs when the user object is None
-            # File "/home/smarter_user/venv/lib/python3.12/site-packages/django/contrib/admin/views/decorators.py", line 13, in <lambda>
-            return HttpResponseForbidden("Forbidden: Invalid or missing authentication credentials.")
-
-        logger.info(
-            "%s.dispatch() - request: %s, user: %s",
-            self.formatted_class_name,
-            request,
-            request.user.username if request.user else "Anonymous",  # type: ignore[assignment]
-        )
-        if response.status_code < 300 and isinstance(request.user, User):
-            # we now have to consider superuser accounts that are associated with multiple accounts
-            self.user_profile = UserProfile.objects.filter(user=request.user).first()
-        return response
-
-    def setup(self, request, *args, **kwargs):
-        """Setup the view. This is called by Django before dispatch() and is used to set up the view for the request."""
-        super().setup(request, *args, **kwargs)
-        if not hasattr(self.request, "user") or not isinstance(self.request.user, User):
-            logger.warning(
-                "%s.setup() - request has no user or user is not an instance of User: %s",
-                self.formatted_class_name,
-                self.request.user,
-            )
-        else:
-            if not is_authenticated_request(self.request):
-                logger.warning(
-                    "%s.setup() - request user is not authenticated: %s",
-                    self.formatted_class_name,
-                    self.request.user,
-                )
-        logger.info(
-            "%s.setup() - request: %s, user: %s, user_profile: %s is_authenticated: %s",
-            self.formatted_class_name,
-            smarter_build_absolute_uri(self.request),
-            self.request.user.username if self.request.user else "Anonymous",  # type: ignore[assignment]
-            self.user_profile,
-            is_authenticated_request(self.request),
-        )

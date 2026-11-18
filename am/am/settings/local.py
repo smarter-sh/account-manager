@@ -15,7 +15,6 @@ from am.common.conf import am_settings
 
 from .base import *
 
-
 if am_settings.developer_mode:
     # dev only:
     # Bootstrap theme source files and static assets.
@@ -37,9 +36,6 @@ ENVIRONMENT_API_DOMAIN = am_settings.environment_api_domain
 
 ACCOUNT_ALLOWED_HOSTS.extend(LOCAL_HOSTS)
 
-MIDDLEWARE += [
-    "am.lib.django.middleware.cors.SmarterCorsMiddleware",
-]
 CORS_ALLOWED_ORIGINS += [
     "http://127.0.0.1:8000",  # Django
     "http://localhost:8000",

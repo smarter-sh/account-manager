@@ -1,6 +1,8 @@
 # pylint: disable=C0302,unused-wildcard-import, wildcard-import, unused-import, wrong-import-position
 """
-Account Manager base settings module, shared by all environments. See am_settings
+Account Manager base settings module, shared by all environments.
+
+See am_settings
 for strongly-typed, project-specific settings overrides.
 
 notes:
@@ -30,11 +32,9 @@ from oscar.defaults import *  # pyright: ignore[reportWildcardImportFromLibrary]
 from am.__version__ import __version__ as smarter_version
 from am.common.conf import am_settings
 from am.common.const import ACCOUNT_MANAGER_SUBDOMAIN
-from am.common.helpers.aws_helpers import aws_helper
 
 # Add proprietary settings for the project
 from .account_manager import *  # noqa: E402, F401, W0401
-
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 ALLOWED_HOSTS = ACCOUNT_ALLOWED_HOSTS
 """
 A list of strings representing the host/domain names that this Django site can serve.
+
 Account Manager implements its own middleware to validate host names.
 
 Default: ["*"]
@@ -52,6 +53,7 @@ See: https://docs.djangoproject.com/en/stable/ref/settings/#allowed-hosts
 LOCAL_HOSTS = am_settings.local_hosts
 """
 Supplemental list of local host/domain names that this Django site can serve.
+
 This is specicific to Account Manager and not officially part of Django settings.
 """
 
@@ -62,6 +64,7 @@ if "collectstatic" in sys.argv:
 CORS_ORIGIN_ALLOW_ALL = False
 """
 A boolean that determines whether to allow all origins to make cross-site HTTP requests.
+
 Account Manager defaults this to False and uses CORS_ALLOWED_ORIGIN_REGEXES to restrict allowed origins.
 See account.lib.django.middleware.cors.SmarterCorsMiddleware.
 
@@ -83,7 +86,9 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "origin",
 ]
 """
-A list of non-standard HTTP headers that are allowed in cross-site HTTP requests. Smarter
+A list of non-standard HTTP headers that are allowed in cross-site HTTP requests.
+
+Smarter
 Chat frontends pass the Account Manager API key in the 'x-api-key' header.
 
 See `React Integration <https://docs.smarter.sh/en/latest/developers/architecture/lib/react-integration.html#django-react-integration>`__
@@ -92,6 +97,7 @@ See `React Integration <https://docs.smarter.sh/en/latest/developers/architectur
 CORS_ALLOW_CREDENTIALS = True
 """
 A boolean that determines whether to allow cookies to be included in cross-site HTTP requests.
+
 Account Manager defaults this to True to allow session cookies to be sent by smarter-chat React frontends.
 
 See `React Integration <https://docs.smarter.sh/en/latest/developers/architecture/lib/react-integration.html#django-react-integration>`__
@@ -103,6 +109,7 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 ]
 """
 A list of regular expressions representing the origins that are allowed to make cross-site HTTP requests.
+
 Account Manager uses this setting to restrict allowed origins for CORS requests from smarter-chat React frontends.
 
 See `React Integration <https://docs.smarter.sh/en/latest/developers/architecture/lib/react-integration.html#django-react-integration>`__
@@ -124,7 +131,9 @@ CORS_ALLOWED_ORIGINS.extend(
 )
 
 """
-A list of origins that are allowed to make cross-site HTTP requests. This is initialized here as an empty list
+A list of origins that are allowed to make cross-site HTTP requests.
+
+This is initialized here as an empty list
 because base_aws.py and other environment-specific settings files will append to this list based on derived
 settings values in am_settings.
 
@@ -136,7 +145,9 @@ See `React Integration <https://docs.smarter.sh/en/latest/developers/architectur
 # -------------------------------
 CSRF_COOKIE_SECURE = False
 """
-A boolean that determines whether the CSRF cookie should be marked as "secure". This is set to
+A boolean that determines whether the CSRF cookie should be marked as "secure".
+
+This is set to
 False in base settings but **should** be set to True in production environments. Note that
 there are challenges with setting this to True if the Account Manager is behind a load balancer or
 reverse proxy that terminates SSL.
@@ -149,7 +160,9 @@ See:
 
 CSRF_COOKIE_NAME = "csrftoken"
 """
-The name of the CSRF cookie. Default is 'csrftoken'. This is a placeholder for Account Manager-specific
+The name of the CSRF cookie.
+
+Default is 'csrftoken'. This is a placeholder for Account Manager-specific
 functionality in account.lib.django.middleware.csrf.SmarterCsrfViewMiddleware.
 
 See:
@@ -160,7 +173,9 @@ See:
 
 CSRF_COOKIE_SAMESITE = "lax"
 """
-The value for the SameSite flag on the CSRF cookie. Default is 'Lax'. Smarters needs
+The value for the SameSite flag on the CSRF cookie.
+
+Default is 'Lax'. Smarters needs
 this to be 'Lax' to support cross-site requests from smarter-chat React frontends.
 
 See:
@@ -171,7 +186,9 @@ See:
 
 CSRF_COOKIE_AGE = 60 * 60 * 24
 """
-The age of the CSRF cookie, in seconds. Default is 60 * 60 * 24 (1 day). This is a placeholder
+The age of the CSRF cookie, in seconds.
+
+Default is 60 * 60 * 24 (1 day). This is a placeholder
 for Smarter-specific functionality in account.lib.django.middleware.csrf.SmarterCsrfViewMiddleware.
 The default value should be sufficient for most use cases, unless your use case involves
 e-commerce checkouts that need a shorter CSRF token lifetime.
@@ -183,7 +200,9 @@ See:
 
 CSRF_COOKIE_DOMAIN = am_settings.environment_domain
 """
-The domain to use for the CSRF cookie. This is set to the Account Manager domain derived
+The domain to use for the CSRF cookie.
+
+This is set to the Account Manager domain derived
 from am_settings.
 
 See:
@@ -193,7 +212,9 @@ See:
 
 CSRF_COOKIE_PATH = "/"
 """
-The path to use for the CSRF cookie. Default is '/'.
+The path to use for the CSRF cookie.
+
+Default is '/'.
 
 See:
 
@@ -202,7 +223,9 @@ See:
 
 CSRF_COOKIE_HTTPONLY = False
 """
-A boolean that determines whether the CSRF cookie should be marked as "HttpOnly". Default is False
+A boolean that determines whether the CSRF cookie should be marked as "HttpOnly".
+
+Default is False
 because the smarter-chat React frontend needs to read the CSRF cookie value via JavaScript to
 include it in the 'X-CSRFToken' header of HTTP requests.
 
@@ -213,7 +236,9 @@ See:
 
 CSRF_HEADER_NAME = "HTTP_X_CSRFTOKEN"
 """
-The name of the HTTP header that carries the CSRF token value. Default is 'HTTP_X_CSRFTOKEN',
+The name of the HTTP header that carries the CSRF token value.
+
+Default is 'HTTP_X_CSRFTOKEN',
 which corresponds to the 'X-CSRFToken' header sent by smarter-chat React frontends.
 
 See:
@@ -226,7 +251,9 @@ See:
 CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ACCOUNT_ALLOWED_HOSTS]
 
 """
-A list of trusted origins for cross-site request forgery protection. This is initialized
+A list of trusted origins for cross-site request forgery protection.
+
+This is initialized
 here with the Account Manager and API domains derived from am_settings.
 
 See:
@@ -236,7 +263,8 @@ See:
 
 CSRF_USE_SESSIONS = False
 """
-A boolean that determines whether to store the CSRF token in the user session instead of
+A boolean that determines whether to store the CSRF token in the user session instead of.
+
 a cookie. Default is False because smarter-chat React frontends rely on the CSRF cookie.
 
 See:
@@ -245,14 +273,10 @@ See:
 """
 
 ENVIRONMENT_DOMAIN = am_settings.environment_domain
-"""
-The Account Manager environment domain derived from am_settings.
-"""
+"""The Account Manager environment domain derived from am_settings."""
 
 ENVIRONMENT_API_DOMAIN = am_settings.environment_api_domain
-"""
-The Account Manager API domain derived from am_settings.
-"""
+"""The Account Manager API domain derived from am_settings."""
 
 
 # -------------------------------
@@ -262,7 +286,9 @@ The Account Manager API domain derived from am_settings.
 # This can be 'Lax', 'Strict', 'None', or False to disable the flag.
 SESSION_COOKIE_SAMESITE = "lax"
 """
-The value for the SameSite flag on the session cookie. Default is 'Lax'. Smarters needs
+The value for the SameSite flag on the session cookie.
+
+Default is 'Lax'. Smarters needs
 this to be 'Lax' to support cross-site requests from smarter-chat React frontends.
 
 See:
@@ -272,7 +298,9 @@ See:
 
 SESSION_COOKIE_SECURE = False
 """
-A boolean that determines whether the session cookie should be marked as "secure". This is set to
+A boolean that determines whether the session cookie should be marked as "secure".
+
+This is set to
 False in base settings but **should** be set to True in production environments. Note that
 there are challenges with setting this to True if the Account Manager is behind a load balancer or
 reverse proxy that terminates SSL.
@@ -284,7 +312,9 @@ See:
 
 SESSION_COOKIE_NAME = "sessionid"
 """
-The name of the session cookie. Default is 'sessionid'.
+The name of the session cookie.
+
+Default is 'sessionid'.
 
 See:
 
@@ -293,13 +323,17 @@ See:
 
 SESSION_COOKIE_AGE = CSRF_COOKIE_AGE
 """
-The age of the session cookie, in seconds. Default is 1209600 (2 weeks). Here it is set to match
+The age of the session cookie, in seconds.
+
+Default is 1209600 (2 weeks). Here it is set to match
 the CSRF cookie age. This is a placeholder.
 """
 
 SESSION_COOKIE_DOMAIN = am_settings.environment_domain
 """
-The domain to use for the session cookie. This is set to the Account Manager domain derived
+The domain to use for the session cookie.
+
+This is set to the Account Manager domain derived
 from am_settings.
 
 See:
@@ -309,7 +343,9 @@ See:
 
 SESSION_COOKIE_PATH = "/"
 """
-The path to use for the session cookie. Default is '/'. This is a placeholder.
+The path to use for the session cookie.
+
+Default is '/'. This is a placeholder.
 
 See:
 
@@ -318,7 +354,9 @@ See:
 
 SESSION_COOKIE_HTTPONLY = True
 """
-A boolean that determines whether the session cookie should be marked as "HttpOnly". Default is True.
+A boolean that determines whether the session cookie should be marked as "HttpOnly".
+
+Default is True.
 
 See:
 
@@ -327,7 +365,9 @@ See:
 
 SECURE_PROXY_SSL_HEADER = None
 """
-A tuple representing a header/value combination that signifies a request is secure. This is set to None in base settings
+A tuple representing a header/value combination that signifies a request is secure.
+
+This is set to None in base settings
 and **should** be set appropriately in production environments if the Account Manager is behind
 a load balancer or reverse proxy that terminates SSL.
 
@@ -372,7 +412,9 @@ STORAGES["staticfiles"] = {
     "OPTIONS": {},
 }
 """
-The Django storages configuration for Account Manager. Uses AWS S3 if AWS is configured,
+The Django storages configuration for Account Manager.
+
+Uses AWS S3 if AWS is configured,
 otherwise uses local filesystem storage.
 
 See: https://docs.djangoproject.com/en/5.0/ref/settings/#std:setting-STORAGES
@@ -380,7 +422,9 @@ See: https://docs.djangoproject.com/en/5.0/ref/settings/#std:setting-STORAGES
 
 DEFAULT_FILE_STORAGE = am_settings.django_default_file_storage
 """
-The default file storage backend for Django. Uses AWS S3 if AWS is configured,
+The default file storage backend for Django.
+
+Uses AWS S3 if AWS is configured,
 otherwise uses local filesystem storage. am_settings determines the appropriate
 value based on whether or not it detects AWS authentication configuration in
 the running environment.
@@ -390,18 +434,21 @@ See: https://docs.djangoproject.com/en/5.0/ref/settings/#default-file-storage
 
 AWS_ACCESS_KEY_ID = am_settings.aws_access_key_id.get_secret_value()
 """
-Supplemental setting for configuring AWS support. The AWS access key ID
+Supplemental setting for configuring AWS support.
+
+The AWS access key ID
 is retrieved and validated in am_settings.
 
 For production deployments the chain of custody should be:
 
 GitHub Secrets -> GitHub Actions -> environment variable -> am_settings -> Django AWS_ACCESS_KEY_ID.
-
 """
 
 AWS_SECRET_ACCESS_KEY = am_settings.aws_secret_access_key.get_secret_value()
 """
-Supplemental setting for configuring AWS support. The AWS secret access key
+Supplemental setting for configuring AWS support.
+
+The AWS secret access key
 is retrieved and validated in am_settings.
 
 For production deployments the chain of custody should be:
@@ -411,19 +458,25 @@ GitHub Secrets -> GitHub Actions -> environment variable -> am_settings -> Djang
 
 AWS_STORAGE_BUCKET_NAME = am_settings.aws_s3_bucket_name
 """
-Supplemental setting for configuring AWS S3 storage support. The S3 bucket name
+Supplemental setting for configuring AWS S3 storage support.
+
+The S3 bucket name
 is derived in am_settings.
 """
 
 AWS_S3_REGION_NAME = am_settings.aws_region
 """
-Supplemental setting for configuring AWS support. The AWS region is
+Supplemental setting for configuring AWS support.
+
+The AWS region is
 retrieved and validated in am_settings.
 """
 
 AWS_QUERYSTRING_AUTH = False  # disable querystring auth for public files
 """
-Supplemental setting for configuring AWS S3 storage support. Disables
+Supplemental setting for configuring AWS S3 storage support.
+
+Disables
 querystring authentication for public files in favor of public-read ACL
 that is configured in the Smarter Terraform scripts.
 
@@ -438,7 +491,9 @@ See:
 
 SECRET_KEY = am_settings.secret_key
 """
-The secret key for this Django installation. This is retrieved and validated
+The secret key for this Django installation.
+
+This is retrieved and validated
 from am_settings. If not set, a random key is generated and logged as a warning.
 
 For production deployments the chain of custody should be:
@@ -453,11 +508,10 @@ if SECRET_KEY == am_settings.default_missing_value:
     random_bytes = random_string.encode("utf-8")
     hash_object = hashlib.sha256(random_bytes)
     SECRET_KEY = hash_object.hexdigest()
-    logger.warning("SECRET_KEY not set. Using randomized value: %s", SECRET_KEY)
+    logger.warning("SECRET_KEY not set. Using a randomized value.")
 
 logger.debug("PROJECT_ROOT: %s", PROJECT_ROOT)
 logger.debug("BASE_DIR: %s", BASE_DIR)
-logger.debug("SECRET_KEY: %s", SECRET_KEY)
 
 
 DEBUG = am_settings.debug_mode
@@ -484,7 +538,8 @@ See:
 
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 """
-The Django session engine configuration for Account Manager, using the cache backend
+The Django session engine configuration for Account Manager, using the cache backend.
+
 (Redis) for session storage. Storing sessions in Redis will preserve user sessions
 across multiple web server instances in a load-balanced environment, and also
 insulates from sessions being lost due to redeployments or restarts of web server.
@@ -506,7 +561,9 @@ See:
 
 CELERY_TASK_TIME_LIMIT = 30 * 60
 """
-The maximum time limit (in seconds) for Celery tasks in Account Manager. Default is 30 minutes.
+The maximum time limit (in seconds) for Celery tasks in Account Manager.
+
+Default is 30 minutes.
 Account Manager sets this primarily due to indeterminate AWS Route53 DNS resolution and propagation
 times when deploying ChatBots/Agents.
 
@@ -668,7 +725,9 @@ MIDDLEWARE = [
 
 ROOT_HOSTCONF = "am.hosts"
 """
-The root host configuration module for django-hosts. Account Manager hosts multiple subdomains
+The root host configuration module for django-hosts.
+
+Account Manager hosts multiple subdomains
 for web console, API, and chatbot apps. These are defined in account.hosts.
 
 See: https://django-hosts.readthedocs.io/en/latest/
@@ -676,7 +735,9 @@ See: https://django-hosts.readthedocs.io/en/latest/
 
 ROOT_URLCONF = "am.urls.console"
 """
-The root URL configuration module for Account Manager. This points to account.urls.console,
+The root URL configuration module for Account Manager.
+
+This points to account.urls.console,
 which defines the URL patterns for the Account Manager web console.
 
 See: https://docs.djangoproject.com/en/5.0/ref/settings/#root-urlconf
@@ -684,7 +745,9 @@ See: https://docs.djangoproject.com/en/5.0/ref/settings/#root-urlconf
 
 DEFAULT_HOST = ACCOUNT_MANAGER_SUBDOMAIN
 """
-The default host name for django-hosts. This is set to the Account Manager subdomain.
+The default host name for django-hosts.
+
+This is set to the Account Manager subdomain.
 
 See: https://django-hosts.readthedocs.io/en/latest/
 """
@@ -702,7 +765,6 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "am.apps.account.context_processors.base",
                 "oscar.apps.search.context_processors.search_form",
                 "oscar.apps.checkout.context_processors.checkout",
                 "oscar.apps.communication.notifications.context_processors.notifications",
@@ -744,10 +806,14 @@ DATABASES = {
         "PASSWORD": "am",
         "HOST": "am-mysql",  # Or an IP Address that your DB is hosted on
         "PORT": "3306",
+        # The unit tests' database. Defaults to test_am. Concurrent test runs against the
+        # same MySQL server each need their own, e.g. AM_TEST_DATABASE_NAME=test_am_2.
+        "TEST": {"NAME": os.environ.get("AM_TEST_DATABASE_NAME") or None},
     }
 }
 """
 The Django database configuration for Account Manager, using MySQL as the database backend.
+
 Account Manager **should** be able to support other common Sql databases supported by Django
 with minimal or no changes, but MySQL is the recommended and tested database backend.
 
@@ -774,7 +840,8 @@ AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
 )
 """
-The authentication backends for Account Manager as well as the default Django
+The authentication backends for Account Manager as well as the default Django.
+
 model backend.
 
 Note that Account Manager additionally implements its own custom key-based REST API
@@ -788,7 +855,9 @@ See:
 
 LOGIN_URL = "/login/"
 """
-The URL to redirect users to for login. Default is '/login/'. Do not change this
+The URL to redirect users to for login.
+
+Default is '/login/'. Do not change this
 value unless you know what you are doing.
 
 See: https://docs.djangoproject.com/en/5.0/ref/settings/#login-url
@@ -796,7 +865,9 @@ See: https://docs.djangoproject.com/en/5.0/ref/settings/#login-url
 
 LOGIN_REDIRECT_URL = "/"
 """
-The URL to redirect users to after successful login. Default is '/'.
+The URL to redirect users to after successful login.
+
+Default is '/'.
 Do not change this value unless you know what you are doing.
 
 See: https://docs.djangoproject.com/en/5.0/ref/settings/#login-redirect-url
@@ -804,7 +875,9 @@ See: https://docs.djangoproject.com/en/5.0/ref/settings/#login-redirect-url
 
 LOGOUT_REDIRECT_URL = "/"
 """
-The URL to redirect users to after logout. Default is '/'.
+The URL to redirect users to after logout.
+
+Default is '/'.
 Do not change this value unless you know what you are doing.
 
 See: https://docs.djangoproject.com/en/5.0/ref/settings/#logout-redirect-url
@@ -826,7 +899,8 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 """
-The password validation settings for Account Manager, using Django's built-in
+The password validation settings for Account Manager, using Django's built-in.
+
 password validators. These validators help ensure that user passwords
 meet minimum security requirements. These rules should be sufficient
 for most use cases, but can be customized as needed.
@@ -838,21 +912,26 @@ See: https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validator
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 LANGUAGE_CODE = "en-us"
 """
-The default language code for Account Manager. Default is 'en-us'.
+The default language code for Account Manager.
+
+Default is 'en-us'.
 
 See: https://docs.djangoproject.com/en/5.0/ref/settings/#language-code
 """
 
 TIME_ZONE = "UTC"
 """
-The default time zone for Account Manager. Default is 'UTC'.
+The default time zone for Account Manager.
+
+Default is 'UTC'.
 
 See: https://docs.djangoproject.com/en/5.0/ref/settings/#time-zone
 """
 
 USE_I18N = True
 """
-A boolean that specifies whether Django's internationalization system
+A boolean that specifies whether Django's internationalization system.
+
 should be enabled. Default is True. I18N support is important for
 Account Manager to support multiple languages and locales.
 
@@ -862,6 +941,7 @@ See: https://docs.djangoproject.com/en/5.0/ref/settings/#use-i18n
 USE_TZ = True
 """
 A boolean that specifies whether Django should use timezone-aware datetimes.
+
 Default is True. Timezone support is important for Account Manager to handle
 date and time data correctly across different time zones.
 
@@ -877,7 +957,9 @@ See: https://docs.djangoproject.com/en/5.0/ref/settings/#use-tz
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 STATIC_URL = "/static/"
 """
-The URL prefix for static files in Account Manager. Default is '/static/'. This values needs to
+The URL prefix for static files in Account Manager.
+
+Default is '/static/'. This values needs to
 be consistent with the STATICFILES_DIRS and STATIC_ROOT settings, and also
 needs to consider how the Dockerfile file system is structured for serving static files.
 
@@ -892,6 +974,7 @@ See:
 STATIC_ROOT = PROJECT_ROOT / "staticfiles"
 """
 The absolute file system path to the directory where static files will be collected.
+
 This is set to the 'staticfiles' directory in the project root. This directory
 is used by the 'collectstatic' management command to gather all static files
 from the various Django apps and store them in a single location for serving.
@@ -901,7 +984,8 @@ See: https://docs.djangoproject.com/en/5.0/ref/settings/#static-root
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 """
-A list of directories where Django will also look for static files, in addition
+A list of directories where Django will also look for static files, in addition.
+
 to each app's 'static' subdirectory. This is set to the 'static' directory
 in the BASE_DIR. This allows for global static files that are not tied to
 a specific app.
@@ -911,7 +995,9 @@ See: https://docs.djangoproject.com/en/5.0/ref/settings/#staticfiles-dirs
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 """
-The static files storage backend for Account Manager. This is set to use WhiteNoise's
+The static files storage backend for Account Manager.
+
+This is set to use WhiteNoise's
 CompressedStaticFilesStorage, which provides efficient static file serving
 with compression and caching support.
 
@@ -924,7 +1010,9 @@ of Django applications.
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 """
-The default primary key field type for Django models in Account Manager. This is set to 'BigAutoField', which
+The default primary key field type for Django models in Account Manager.
+
+This is set to 'BigAutoField', which
 is a 64-bit integer that automatically increments. This is suitable for most use cases and provides
 a large range of values for primary keys.
 
@@ -946,7 +1034,8 @@ REST_FRAMEWORK = {
     ],
 }
 """
-The Django REST Framework configuration for Account Manager, including default authentication classes,
+The Django REST Framework configuration for Account Manager, including default authentication classes,.
+
 permission classes, and parser classes.
 
 Do not change these values unless you know what you are doing. Even then, it's probably a bad idea.
@@ -965,7 +1054,8 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 """
-The configuration for the Simple JWT authentication library used by Django REST Framework
+The configuration for the Simple JWT authentication library used by Django REST Framework.
+
 in Account Manager. This includes settings for token lifetimes, signing algorithm, and
 authentication header types.
 See: https://django-rest-framework-simplejwt.readthedocs.io/en/latest/settings.html
@@ -1019,6 +1109,7 @@ DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"
 SMTP_SENDER = am_settings.smtp_sender
 """
 The default sender email address for outgoing emails from account.
+
 This is derived from am_settings.
 
 See: https://docs.djangoproject.com/en/5.0/topics/email/
@@ -1027,6 +1118,7 @@ See: https://docs.djangoproject.com/en/5.0/topics/email/
 SMTP_FROM_EMAIL = am_settings.smtp_from_email
 """
 The default "from" email address for outgoing emails from account.
+
 This is derived from am_settings.
 
 See: https://docs.djangoproject.com/en/5.0/topics/email/
@@ -1034,14 +1126,18 @@ See: https://docs.djangoproject.com/en/5.0/topics/email/
 
 SMTP_HOST = am_settings.smtp_host
 """
-The SMTP host for outgoing emails from account. This is derived from am_settings.
+The SMTP host for outgoing emails from account.
+
+This is derived from am_settings.
 
 See: https://docs.djangoproject.com/en/5.0/topics/email/
 """
 
 SMTP_PASSWORD = am_settings.smtp_password
 """
-The SMTP password for outgoing emails from account. This is derived from am_settings.
+The SMTP password for outgoing emails from account.
+
+This is derived from am_settings.
 When using AWS SES as the SMTP service, this is the SMTP password generated from the AWS SES console.
 Note that this is NOT the AWS secret access key, nor is it the AWS IAM user password.
 
@@ -1060,28 +1156,36 @@ See:
 
 SMTP_PORT = am_settings.smtp_port
 """
-The SMTP port for outgoing emails from account. This is derived from am_settings.
+The SMTP port for outgoing emails from account.
+
+This is derived from am_settings.
 
 See: https://docs.djangoproject.com/en/5.0/topics/email/
 """
 
 SMTP_USE_SSL = am_settings.smtp_use_ssl
 """
-A boolean that specifies whether to use SSL for SMTP connections in Account Manager. This is derived from am_settings.
+A boolean that specifies whether to use SSL for SMTP connections in Account Manager.
+
+This is derived from am_settings.
 
 See: https://docs.djangoproject.com/en/5.0/topics/email/
 """
 
 SMTP_USE_TLS = am_settings.smtp_use_tls
 """
-A boolean that specifies whether to use TLS for SMTP connections in Account Manager. This is derived from am_settings.
+A boolean that specifies whether to use TLS for SMTP connections in Account Manager.
+
+This is derived from am_settings.
 
 See: https://docs.djangoproject.com/en/5.0/topics/email/
 """
 
 SMTP_USERNAME = am_settings.smtp_username
 """
-The SMTP username for outgoing emails from account. This is derived from am_settings.
+The SMTP username for outgoing emails from account.
+
+This is derived from am_settings.
 When using AWS SES as the SMTP service, this is the SMTP password generated from the AWS SES console.
 Note that this is NOT the AWS secret access key, nor is it the AWS IAM user password.
 

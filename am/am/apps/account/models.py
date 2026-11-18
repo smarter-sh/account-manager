@@ -3,7 +3,6 @@
 # pylint: disable=missing-class-docstring
 
 import logging
-import os
 import random
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -30,9 +29,6 @@ from .signals import (
     new_charge_created,
     new_user_created,
 )
-
-
-HERE = os.path.abspath(os.path.dirname(__file__))
 
 
 def should_log(level):
@@ -68,6 +64,7 @@ PROVIDERS = [
 def welcome_email_context(first_name: str) -> dict:
     """
     Return the context for the welcome email template.
+
     templates/account/email/welcome.html
     """
 
@@ -116,7 +113,6 @@ def get_resolved_user(
 
             Handles edge cases such as lazy objects and test mocks.
 
-
     **Example usage**::
 
         from am.apps.account.models import get_resolved_user
@@ -128,7 +124,6 @@ def get_resolved_user(
 
             :class:`django.contrib.auth.models.User`
             :class:`django.utils.functional.SimpleLazyObject`
-
     """
     logger.info("get_resolved_user() called for user type: %s", type(user))
     if user is None:
@@ -227,14 +222,11 @@ class Account(TimestampedModel):
 
             The generated account number is zero-padded and segmented for readability.
 
-
         **Example usage**::
 
             from am.apps.account.models import Account
             account_number = Account.randomized_account_number()
             print(account_number)  # e.g., '1234-5678-9012'
-
-
         """
         ACCOUNT_NUMBER_SEGMENTS = 3
         ACCOUNT_NUMBER_SEGMENT_LENGTH = 4
@@ -269,28 +261,11 @@ class Account(TimestampedModel):
 
             account = Account(company_name="Acme Corp")
             account.save()  # Ensures account_number is unique and valid
-
         """
         if self.account_number == "9999-9999-9999":
             self.account_number = self.randomized_account_number()
         AMValidator.validate_account_number(self.account_number)
         super().save(*args, **kwargs)
-
-    @classmethod
-    def get_by_account_number(cls, account_number):
-        """
-        Retrieve an Account instance by its account number.
-
-        :param account_number: String. The account number to search for.
-        :returns: Optional[Account]
-            The Account instance if found, otherwise None.
-
-
-        """
-        try:
-            return cls.objects.get(account_number=account_number)
-        except cls.DoesNotExist:
-            return None
 
     # pylint: disable=missing-class-docstring
     class Meta:
@@ -321,10 +296,6 @@ class AccountContact(TimestampedModel):
     .. note::
 
         Contacts do not need to be registered users.
-
-    .. tip::
-
-        Use :meth:`send_email_to_account` to broadcast messages to all contacts.
 
     .. attention::
 
@@ -396,7 +367,6 @@ class AccountContact(TimestampedModel):
                 html=True,
                 from_email="support@smarter.com"
             )
-
         """
 
         email_helper.send_email(
@@ -422,7 +392,6 @@ class AccountContact(TimestampedModel):
         **Example usage**::
 
             contact.send_welcome_email()
-
         """
         context = welcome_email_context(first_name=self.first_name)
         html_template = render_to_string("account/email/welcome.html", context)
@@ -430,110 +399,6 @@ class AccountContact(TimestampedModel):
         subject = "Welcome to Smarter!"
         body = html_template
         self.send_email(subject=subject, body=body, html=True)
-
-    @classmethod
-    def get_primary_contact(cls, account: Account) -> Optional["AccountContact"]:
-        """
-        Retrieve the primary contact for a given account.
-
-        This method returns the first contact marked as primary for the specified account, or None if no such contact exists.
-
-        :param account: Instance of :class:`Account`. The account to search for a primary contact.
-        :returns: Optional[AccountContact]
-            The primary contact instance, or None if not found.
-
-        .. tip::
-
-            Use this method to quickly access the main point of contact for notifications or support.
-
-        **Example usage**::
-
-            primary_contact = AccountContact.get_primary_contact(account)
-            if primary_contact:
-                print(primary_contact.email)
-
-        """
-        return cls.objects.filter(account=account, is_primary=True).first()
-
-    # pylint: disable=too-many-arguments
-    @classmethod
-    def send_email_to_account(
-        cls, account: Account, subject: str, body: str, html: bool = False, from_email: Optional[str] = None
-    ) -> None:
-        """
-        Send an email to all contacts associated with a given account.
-
-        This method iterates over all contacts for the specified account and sends the provided message
-        to each contact's email address.
-
-        :param account: Instance of :class:`Account`. The account whose contacts will receive the email.
-        :param subject: String. The email subject line.
-        :param body: String. The email body content.
-        :param html: Boolean. If True, sends the email as HTML. Defaults to False.
-        :param from_email: String or None. Optional sender email address.
-
-        .. note::
-
-            Contacts marked as test contacts (`is_test=True`) will receive emails quietly.
-
-        .. tip::
-
-            Use this method for account-wide notifications or announcements.
-
-        **Example usage**::
-
-            AccountContact.send_email_to_account(
-                account=account,
-                subject="System Update",
-                body="We have updated our terms of service.",
-                html=False
-            )
-
-        """
-        contacts = cls.objects.filter(account=account)
-        for contact in contacts:
-            contact.send_email(subject=subject, body=body, html=html, from_email=from_email)
-
-    # pylint: disable=too-many-arguments
-    @classmethod
-    def send_email_to_primary_contact(
-        cls, account: Account, subject: str, body: str, html: bool = False, from_email: Optional[str] = None
-    ) -> None:
-        """
-        Send an email to the primary contact of a given account.
-
-        This method locates the primary contact for the specified account and sends the provided message.
-        If no primary contact exists, an error is logged.
-
-        :param account: Instance of :class:`Account`. The account whose primary contact will receive the email.
-        :param subject: String. The email subject line.
-        :param body: String. The email body content.
-        :param html: Boolean. If True, sends the email as HTML. Defaults to False.
-        :param from_email: String or None. Optional sender email address.
-
-        .. attention::
-
-            If no primary contact is found, no email is sent and an error is logged.
-
-        .. tip::
-
-            Use this method for urgent or important communications that require a single point of contact.
-
-        **Example usage**::
-
-            AccountContact.send_email_to_primary_contact(
-                account=account,
-                subject="Urgent: Action Required",
-                body="Please review your account settings.",
-                html=True
-            )
-
-        """
-        contact = cls.get_primary_contact(account)
-        if contact:
-            contact.send_email(subject=subject, body=body, html=html, from_email=from_email)
-        else:
-            logger.error("No primary contact found for account %s", account)
 
     def save(self, *args, **kwargs):
         """
@@ -559,7 +424,6 @@ class AccountContact(TimestampedModel):
 
             contact = AccountContact(account=account, email="jane@example.com", is_primary=True)
             contact.save()  # Ensures uniqueness and sends welcome email if needed
-
         """
         if self.is_primary:
             # Check for another primary contact for this account (excluding self if updating)
@@ -602,7 +466,6 @@ class UserProfile(TimestampedModel):
         from am.apps.account.models import UserProfile
         profile = UserProfile.objects.create(user=user, account=account)
         profile.add_to_account_contacts(is_primary=True)
-
     """
 
     # pylint: disable=missing-class-docstring
@@ -672,11 +535,11 @@ class UserProfile(TimestampedModel):
         **Example usage**::
 
             profile.save()
-
         """
         is_new = self.pk is None
 
-        if self.user is None or self.account is None:
+        # pylint: disable=no-member
+        if self.user_id is None or self.account_id is None:  # type: ignore[attr-defined]
             raise AMValueError("User and Account cannot be null")
         super().save(*args, **kwargs)
         if is_new:
@@ -688,51 +551,6 @@ class UserProfile(TimestampedModel):
                 "New user profile created for %s %s. Sending signal.", self.account.company_name, self.user.email
             )
             new_user_created.send(sender=self.__class__, user_profile=self)
-
-    @classmethod
-    def admin_for_account(cls, account: Account) -> User:
-        """
-        Return the designated user for the given account.
-
-        This method finds the first staff user associated with the account. If no staff user exists, it returns the first available user.
-        If the account has no users, an admin user is created and returned.
-
-        :param account: Instance of :class:`Account`. The account for which to find the designated user.
-        :returns: :class:`django.contrib.auth.models.User`
-            The designated user for the account.
-
-        .. attention::
-
-            If no staff or regular users exist for the account, an admin user is automatically created. You must set the password manually.
-
-        .. error::
-
-            Logs an error if no admin or user is found for the account.
-
-        **Example usage**::
-
-            user = UserProfile.admin_for_account(account)
-
-        .. seealso::
-
-            :class:`UserProfile`
-        """
-        admins = cls.objects.filter(account=account, user__is_staff=True).order_by("user__id")
-        if admins.exists():
-            return admins.first().user  # type: ignore[return-value]
-
-        logger.error("No admin found for account %s", account)
-
-        users = cls.objects.filter(account=account).order_by("user__id")
-        if users.exists():
-            user = users.first().user  # type: ignore[return-value]
-            return user
-
-        logger.error("No user for account %s", account)
-        admin_user = cls.objects.get_or_create(username="admin")
-        user_profile = cls.objects.create(user=admin_user, account=account)
-        logger.warning("Created admin user for account %s. Use manage.py to set the password", account)
-        return user_profile.user
 
     def __str__(self):
         return str(self.account.company_name) + "-" + str(self.user.email or self.user.username)
@@ -1032,9 +850,11 @@ class SubscriptionHosts(TimestampedModel):
     def save(self, *args, **kwargs):
         """
         Save the SubscriptionHosts instance, ensuring a valid hostname.
+
+        :raises AMValueError: If the host name is not a valid hostname.
         """
         self.host_name = self.host_name.lower()
-        AMValidator.is_valid_hostname(self.host_name)
+        AMValidator.validate_hostname(self.host_name)
         super().save(*args, **kwargs)
 
     def __str__(self):

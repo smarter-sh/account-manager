@@ -1,14 +1,13 @@
 """Django template and view helper functions for knox token authentication."""
 
 import logging
-from http import HTTPStatus
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden, JsonResponse
 from django.utils.decorators import method_decorator
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import ListAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
@@ -18,7 +17,6 @@ from am.common.utils import is_authenticated_request, smarter_build_absolute_uri
 from am.lib.django import waffle
 from am.lib.django.request import AMRequestMixin
 from am.lib.django.waffle import AMWaffleSwitches
-from am.lib.drf.view_helpers import SmarterAuthenticatedPermissionClass
 from am.lib.logging import WaffleSwitchedLoggerWrapper
 
 from ..token_authentication import AMTokenAuthentication
@@ -49,27 +47,19 @@ class AMAuthenticatedAPIView(APIView, AMRequestMixin):
     - Overrides Django's logic for initializing the request object to ensure that AMRequestMixin is fully initialized before any other logic runs.
     """
 
-    permission_classes = [SmarterAuthenticatedPermissionClass]
+    permission_classes = [IsAuthenticated]
     authentication_classes = [AMTokenAuthentication, SessionAuthentication]
 
     def initial(self, request, *args, **kwargs):
-        """Extend initial() DRF view method. Initialize the view with the request and any additional arguments.
+        """Extend initial() DRF view method.
 
-        This is the earliest point in the DRF view lifecycle where the request object is available.
-        Up to this point our AMRequestMixin, and AccountMixin classes are only partially
-        initialized. This method takes care of the rest of the initialization.
+        Initialize the view with the request and any additional arguments.
 
+        setup() has already initialized AMRequestMixin with the request.
 
         Args:
             request (HttpRequest): The incoming HTTP request.
         """
-        if not self.is_requestmixin_ready:
-            logger.info(
-                "%s.initial() - completing initialization of AMRequestMixin with request: %s",
-                self.formatted_class_name,
-                request.build_absolute_uri(),
-            )
-            self.am_request = request
         logger.info(
             "%s.initial() - request: %s, args: %s, kwargs: %s",
             self.formatted_class_name,
@@ -80,27 +70,20 @@ class AMAuthenticatedAPIView(APIView, AMRequestMixin):
         super().initial(self.request, *args, **kwargs)
 
     def setup(self, request: Request, *args, **kwargs):
-        """Extend setup() DRF view method. Setup the view. This is called by Django before dispatch() and is used to
+        """Extend setup() DRF view method.
+
+        Setup the view. This is called by Django before dispatch() and is used to
         set up the view for the request.
 
         Args:
             request (HttpRequest): The incoming HTTP request.
         """
-        # drf setup logic
-        super().setup(self.request, *args, **kwargs)
+        # drf setup logic: sets self.request, self.args and self.kwargs
+        super().setup(request, *args, **kwargs)
 
         # go through our own request and account mixin setup logic
         AMRequestMixin.__init__(self, request=request, *args, **kwargs)
 
-        # overwrite the request object with our am_request object
-        if not self.am_request:
-            logger.warning(
-                "%s.setup() - am_request is None, overwriting with request: %s",
-                self.formatted_class_name,
-                smarter_build_absolute_uri(request),
-            )
-            self.am_request = request
-        self.request = self.am_request
         api_request_initiated.send(sender=self.__class__, instance=self, request=self.request)
         logger.info(
             "%s.setup() - finished for request: %s, user: %s, self.user: %s is_authenticated: %s",
@@ -121,14 +104,13 @@ class AMAuthenticatedListAPIView(ListAPIView, AMRequestMixin):
     - Adds AMRequestMixin to the view, so that base Account Manager functionality is available to all subclasses.
     - Adds AMTokenAuthentication to the default SessionAuthentication for authentication.
     - Overrides Django's logic for initializing the request object to ensure that AMRequestMixin is fully initialized before any other logic runs.
-
     """
 
-    permission_classes = [SmarterAuthenticatedPermissionClass]
+    permission_classes = [IsAuthenticated]
     authentication_classes = [AMTokenAuthentication, SessionAuthentication]
 
     def initial(self, request, *args, **kwargs):
-        """Extend DRF initial() to add AMRequestMixin
+        """Extend DRF initial() to add AMRequestMixin.
 
         Args:
             request (HttpRequest): The incoming HTTP request.
@@ -160,11 +142,13 @@ class AMAdminAPIView(APIView, AMRequestMixin):
     - Limits access to admin users only (staff/superusers).
     """
 
-    permission_classes = [SmarterAuthenticatedPermissionClass]
+    permission_classes = [IsAuthenticated]
     authentication_classes = [AMTokenAuthentication, SessionAuthentication]
 
     def setup(self, request: Request, *args, **kwargs):
-        """Extend DRF setup() the view. This is called by Django before dispatch() and is used to
+        """Extend DRF setup() the view.
+
+        This is called by Django before dispatch() and is used to
         set up the view for the request.
 
         Args:
@@ -174,8 +158,8 @@ class AMAdminAPIView(APIView, AMRequestMixin):
             "%s.setup() - called for request: %s", self.formatted_class_name, smarter_build_absolute_uri(request)
         )
 
-        # experiment: we want to ensure that the request object is
-        # initialized before we call the AMRequestMixin.
+        # Django's setup() sets self.request, which the rest of this method reads.
+        super().setup(request, *args, **kwargs)
         AMRequestMixin.__init__(self, request=request, *args, **kwargs)
 
         # note: setup() is the earliest point in the request lifecycle where we can
@@ -188,7 +172,6 @@ class AMAdminAPIView(APIView, AMRequestMixin):
             self.user_profile,
             is_authenticated_request(self.request),
         )
-        super().setup(self.request, *args, **kwargs)
 
     def dispatch(self, request, *args, **kwargs):
         """Extend DRF dispatch() to add authentication check.
@@ -198,24 +181,9 @@ class AMAdminAPIView(APIView, AMRequestMixin):
 
         Raises:
             AuthenticationFailed: Raised when authentication fails.
-            AMTokenAuthenticationError: Raised for errors specific to AMTokenAuthentication.
         """
-        if not is_authenticated_request(request):
-            logger.warning(
-                "%s.dispatch() - request user is not authenticated: %s",
-                self.formatted_class_name,
-                request.user,
-            )
-            return HttpResponseForbidden("Forbidden: Invalid or missing authentication credentials.")
-
-        try:
-            response = super().dispatch(request, *args, **kwargs)
-        # pylint: disable=broad-except
-        except AttributeError:
-            # catches an error raised by a decorator elsewhere in the stack that
-            # barfs when the user object is None
-            # File "/home/smarter_user/venv/lib/python3.12/site-packages/django/contrib/admin/views/decorators.py", line 13, in <lambda>
-            return HttpResponseForbidden("Forbidden: Invalid or missing authentication credentials.")
+        # staff_member_required, on this method, has already refused anonymous and non-staff users.
+        response = super().dispatch(request, *args, **kwargs)
         logger.info(
             "%s.dispatch() - request: %s, user: %s",
             self.formatted_class_name,
@@ -224,16 +192,6 @@ class AMAdminAPIView(APIView, AMRequestMixin):
         )
         api_request_completed.send(sender=self.__class__, instance=self, request=self.request, response=response)
         return response
-
-    def is_superuser_or_unauthorized(self):
-        """Check if the authenticated user is a superuser.
-
-        Returns:
-            bool: True if the user is not a superuser, False otherwise.
-        """
-        if not self.user_profile or not self.user_profile.user.is_superuser:
-            return JsonResponse({"error": "Unauthorized"}, status=HTTPStatus.UNAUTHORIZED)
-        return False
 
 
 @method_decorator(staff_member_required, name="dispatch")
@@ -249,7 +207,7 @@ class AMAdminListAPIView(ListAPIView, AMRequestMixin):
     - Limits access to admin users only (staff/superusers).
     """
 
-    permission_classes = [SmarterAuthenticatedPermissionClass]
+    permission_classes = [IsAuthenticated]
     authentication_classes = [AMTokenAuthentication, SessionAuthentication]
 
     def setup(self, request: Request, *args, **kwargs):
@@ -300,23 +258,9 @@ class AMAdminListAPIView(ListAPIView, AMRequestMixin):
 
         Raises:
             AuthenticationFailed: Raised when authentication fails.
-            AMTokenAuthenticationError: Raised for errors specific to AMTokenAuthentication.
         """
-        if not is_authenticated_request(request):
-            logger.warning(
-                "%s.dispatch() - request user is not authenticated: %s",
-                self.formatted_class_name,
-                request.user,
-            )
-            return HttpResponseForbidden("Forbidden: Invalid or missing authentication credentials.")
-
-        try:
-            response = super().dispatch(request, *args, **kwargs)
-        except AttributeError:
-            # catches an error raised by a decorator elsewhere in the stack that
-            # barfs when the user object is None
-            # File "/home/smarter_user/venv/lib/python3.12/site-packages/django/contrib/admin/views/decorators.py", line 13, in <lambda>
-            return HttpResponseForbidden("Forbidden: Invalid or missing authentication credentials.")
+        # staff_member_required, on this method, has already refused anonymous and non-staff users.
+        response = super().dispatch(request, *args, **kwargs)
 
         logger.info(
             "%s.dispatch() - request: %s, user: %s",

@@ -10,7 +10,7 @@ from ..models import Account, UserProfile
 
 
 class TestAccount(AMTestBase):
-    """Test Account model"""
+    """Test Account model."""
 
     @classmethod
     def setUpClass(cls):
@@ -18,7 +18,7 @@ class TestAccount(AMTestBase):
         super().setUpClass()
         hashed_slug = hash_factory()
         username = cls.name
-        email = f"test-{hashed_slug}@mail.com"
+        email = f"test-{hashed_slug}@example.com"
         first_name = f"TestAdminFirstName_{hashed_slug}"
         last_name = f"TestAdminLastName_{hashed_slug}"
         cls.user = User.objects.create_user(

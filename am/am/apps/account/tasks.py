@@ -6,12 +6,11 @@ These tasks are i/o intensive operations for creating billing records with
 Celery workers in order to avoid blocking the main app thread. This is advance work to lay groundwork for
 future high-traffic scenarios.
 """
+
 # python stuff
 import logging
-from typing import Optional
 
 # django stuff
-from django.conf import settings
 from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Sum
 
@@ -25,12 +24,7 @@ from am.lib.logging import WaffleSwitchedLoggerWrapper
 from am.workers.celery import app
 
 # Account stuff
-from .models import Account, Charge, DailyBillingRecord
-from .utils import (
-    get_cached_admin_user_for_account,
-    get_cached_user_for_user_id,
-    get_cached_user_profile,
-)
+from .models import Charge, DailyBillingRecord
 
 
 def should_log(level):
@@ -50,98 +44,12 @@ module_prefix = "am.apps.account.tasks."
 @app.task(
     autoretry_for=(Exception,),
 )
-def create_charge(*args, **kwargs):
-    """
-    Create a charge record for a user or account.
-
-    :param user_id: Integer, optional. The ID of the user for whom the charge is created.
-    :param account_id: Integer, optional. The ID of the account for which the charge is created.
-    :param provider: String, optional. The provider for the charge.
-    :param charge_type: String, optional. The type of charge (e.g., usage, subscription).
-    :param prompt_tokens: Integer, optional. Number of prompt tokens used.
-    :param completion_tokens: Integer, optional. Number of completion tokens used.
-    :param total_tokens: Integer, optional. Total number of tokens used.
-    :param model: String, optional. The model used for the charge.
-    :param reference: String, optional. Reference information for the charge.
-
-    .. note::
-
-           - Either ``user_id`` or ``account_id`` must be provided to associate the charge.
-           - This task is automatically retried on failure, with backoff and maximum retries configured via Celery settings.
-
-
-    **Example usage**::
-
-        # Create a charge for a user
-        create_charge.delay(user_id=123, charge_type="usage", prompt_tokens=100, completion_tokens=50)
-
-        # Create a charge for an account
-        create_charge.delay(account_id=456, charge_type="subscription", total_tokens=200)
-
-    """
-
-    account: Optional[Account] = None
-    user = None
-    user_profile = None
-
-    user_id = kwargs.get("user_id")
-    if user_id:
-        user = get_cached_user_for_user_id(user_id)
-        if user:
-            user_profile = get_cached_user_profile(user=user)
-            if user_profile:
-                account = user_profile.account
-    else:
-        account_id = kwargs.get("account_id")
-        if account_id:
-            account = Account.objects.get(id=account_id)
-            if account:
-                user = get_cached_admin_user_for_account(account=account)
-
-    provider = kwargs.get("provider")
-    charge_type = kwargs.get("charge_type")
-    prompt_tokens = kwargs.get("prompt_tokens")
-    completion_tokens = kwargs.get("completion_tokens")
-    total_tokens = kwargs.get("total_tokens")
-    model = kwargs.get("model")
-    reference = kwargs.get("reference")
-    prefix = formatted_text(module_prefix + "create_charge()")
-
-    logger.info(
-        "%s. user_id %s, charge_type %s, reference %s",
-        prefix,
-        user_id,
-        charge_type,
-        reference,
-    )
-
-    try:
-        Charge.objects.create(
-            account=account,
-            provider=provider,
-            user=user,
-            charge_type=charge_type,
-            completion_tokens=completion_tokens,
-            prompt_tokens=prompt_tokens,
-            total_tokens=total_tokens,
-            model=model,
-            reference=reference or "undefined charge reference",
-        )
-    # pylint: disable=W0703
-    except Exception as e:
-        logger.error("%s - error creating charge: %s", prefix, e)
-
-
-@app.task(
-    autoretry_for=(Exception,),
-)
 def aggregate_charges():
     """
     Top-level Celery task for aggregating charge records.
 
     This task triggers the aggregation of daily billing records by calling
     :func:`aggregate_daily_billing_records`. It is typically scheduled via Celery Beat.
-
 
     **Example usage**::
 
@@ -169,9 +77,8 @@ def aggregate_daily_billing_records():
 
     .. note::
 
-           - This task aggregates all charges for each user/account/date/charge_type combination,
+           - This task aggregates all charges for each user/account/date/provider/charge_type combination,
            - updates or creates a corresponding DailyBillingRecord, and deletes the original Charge records.
-
 
     **Example usage**::
 
@@ -184,11 +91,15 @@ def aggregate_daily_billing_records():
     MAX_AGGREGATION_ERROR_THRESHOLD = 10
     message_prefix = formatted_text(module_prefix + "aggregate_daily_billing_records()")
 
-    def aggregate(user, account, created_at_date, charge_type):
+    def aggregate(user, account, created_at_date, provider, charge_type):
         """Handle aggregation of one set of charges."""
         with transaction.atomic():
             aggregation_queryset = Charge.objects.filter(
-                user=user, account=account, created_at__date=created_at_date, charge_type=charge_type
+                user=user,
+                account=account,
+                created_at__date=created_at_date,
+                provider=provider,
+                charge_type=charge_type,
             )
 
             aggregated_data = aggregation_queryset.aggregate(
@@ -199,7 +110,7 @@ def aggregate_daily_billing_records():
 
             try:
                 record = DailyBillingRecord.objects.get(
-                    user_id=user, account_id=account, date=created_at_date, charge_type=charge_type
+                    user_id=user, account_id=account, date=created_at_date, provider=provider, charge_type=charge_type
                 )
                 record.prompt_tokens += aggregated_data["prompt_tokens"]
                 record.completion_tokens += aggregated_data["completion_tokens"]
@@ -210,6 +121,7 @@ def aggregate_daily_billing_records():
                     user_id=user,
                     account_id=account,
                     date=created_at_date,
+                    provider=provider,
                     charge_type=charge_type,
                     prompt_tokens=aggregated_data["prompt_tokens"],
                     completion_tokens=aggregated_data["completion_tokens"],
@@ -222,17 +134,20 @@ def aggregate_daily_billing_records():
     i = 0
     i_error_count = 0
 
-    working_queryset = Charge.objects.values("user", "account", "created_at__date", "charge_type").distinct()
-    logger.info("%s found %s pending billing items", working_queryset.count(), message_prefix)
+    working_queryset = Charge.objects.values(
+        "user", "account", "created_at__date", "provider", "charge_type"
+    ).distinct()
+    logger.info("%s found %s pending billing items", message_prefix, working_queryset.count())
 
     for charge_identity in working_queryset:
         user = charge_identity["user"]
         account = charge_identity["account"]
         created_at_date = charge_identity["created_at__date"]
+        provider = charge_identity["provider"]
         charge_type = charge_identity["charge_type"]
 
         try:
-            aggregate(user, account, created_at_date, charge_type)
+            aggregate(user, account, created_at_date, provider, charge_type)
         except (DatabaseError, IntegrityError) as e:
             logger.error("%s - error processing billing item %s: %s", message_prefix, charge_identity, e)
             i_error_count += 1

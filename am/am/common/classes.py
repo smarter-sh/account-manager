@@ -1,41 +1,42 @@
-"""Common classes"""
+"""Common classes."""
 
 import ipaddress
 import logging
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
-import yaml
 from django.core.exceptions import AppRegistryNotReady
 from django.http import HttpRequest
 from django.utils.deprecation import MiddlewareMixin
 
 from am.common.conf import am_settings
-from am.common.exceptions import AMValueError
 from am.common.helpers.console_helpers import formatted_text
-from am.common.utils import (
-    is_authenticated_request,
-)
 from am.common.utils import (
     smarter_build_absolute_uri as utils_smarter_build_absolute_uri,
 )
-from am.lib import json
 from am.lib.logging import WaffleSwitchedLoggerWrapper
 
 
-try:
-    # this resolves an import issue in collect static assets where Django apps are not yet importable
-    from am.lib.django import waffle
-    from am.lib.django.waffle import AMWaffleSwitches
+def mixin_logging_is_active() -> bool:
+    """
+    Return True if the REQUEST_MIXIN_LOGGING waffle switch is on.
 
-    mixin_logging_is_active: bool = waffle.switch_is_active(AMWaffleSwitches.REQUEST_MIXIN_LOGGING)
-# pylint: disable=broad-except
-except AppRegistryNotReady as e:
-    mixin_logging_is_active: bool = False
+    :returns: The switch's state, or False while Django's apps are not loaded yet
+        (for example during collectstatic), when waffle can't be imported.
+    :rtype: bool
+    """
+    try:
+        # pylint: disable=import-outside-toplevel
+        from am.lib.django import waffle
+        from am.lib.django.waffle import AMWaffleSwitches
+
+        return waffle.switch_is_active(AMWaffleSwitches.REQUEST_MIXIN_LOGGING)
+    except AppRegistryNotReady:
+        return False
 
 
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
-    return mixin_logging_is_active and level >= am_settings.log_level
+    return level >= am_settings.log_level and mixin_logging_is_active()
 
 
 base_logger = logging.getLogger(__name__)
@@ -77,7 +78,6 @@ class AMHelperMixin:
 
         :return: The formatted class name as a string.
         :rtype: str
-
         """
         return formatted_text(self.__class__.__name__)
 
@@ -96,7 +96,9 @@ class AMHelperMixin:
     @property
     def ready(self) -> bool:
         """
-        Indicates whether the object is ready for use. This is a placeholder
+        Indicates whether the object is ready for use.
+
+        This is a placeholder
         that should be overridden in subclasses.
 
         :return: True if ready, False otherwise.
@@ -141,44 +143,10 @@ class AMHelperMixin:
 
         :param request: The request object.
         :type request: HttpRequest
-        :return: The absolute request URL.
+        :return: The absolute request URL, or a placeholder test url if it can't be built.
         :rtype: str
-        :raises AMValueError: If the URI cannot be built from the request.
         """
-        retval = utils_smarter_build_absolute_uri(request)
-        if not retval:
-            raise AMValueError(
-                "Failed to build absolute URI from request. "
-                "Ensure the request object is valid and has the necessary attributes."
-            )
-        return retval
-
-    def data_to_dict(self, data: Union[dict, str]) -> dict:
-        """
-        Converts data to a dictionary, handling different types of input.
-
-        This method accepts either a dictionary or a string. If a string is provided,
-        it will attempt to parse it as JSON first, and if that fails, as YAML.
-        If parsing fails or the data type is unsupported, a AMValueError is raised.
-
-        :param data: The data to convert, either a dict or a JSON/YAML string.
-        :type data: dict or str
-        :return: The data as a dictionary.
-        :rtype: dict
-        :raises AMValueError: If the data cannot be converted to a dictionary.
-        """
-        if isinstance(data, dict):
-            return data
-        elif isinstance(data, str):
-            try:
-                return json.loads(data)
-            except json.JSONDecodeError:
-                try:
-                    return yaml.safe_load(data)
-                except yaml.YAMLError as yaml_error:
-                    raise AMValueError("String data is neither valid JSON nor YAML.") from yaml_error
-        else:
-            raise AMValueError("Unsupported data type for conversion to dict.")
+        return utils_smarter_build_absolute_uri(request)  # type: ignore[return-value]
 
 
 class AMMiddlewareMixin(MiddlewareMixin, AMHelperMixin):
@@ -282,41 +250,3 @@ class AMMiddlewareMixin(MiddlewareMixin, AMHelperMixin):
         except ValueError as e:
             logger.warning("%s._is_private_ip() - Invalid IP address: %s, error: %s", self.formatted_class_name, ip, e)
             return True
-
-    def has_auth_indicators(self, request):
-        """
-        Check if request has authentication indicators (cookies, headers, etc.).
-
-        This method inspects the request for common authentication signals,
-        such as session cookies, CSRF tokens, authorization headers, API keys,
-        or Django's built-in authentication.
-
-        :param request: The Django request object.
-        :type request: HttpRequest
-        :return: True if authentication indicators are present, False otherwise.
-        :rtype: bool
-        """
-        if not hasattr(request, "COOKIES") or not hasattr(request, "META"):
-            return False
-
-        # Check for Django session cookie
-        if request.COOKIES.get("sessionid"):
-            return True
-
-        # Check for CSRF token (indicates active session)
-        if request.COOKIES.get("csrftoken"):
-            return True
-
-        # Check for Authorization header
-        if request.META.get("HTTP_AUTHORIZATION"):
-            return True
-
-        # Check for API key header
-        if request.META.get("HTTP_X_API_KEY"):
-            return True
-
-        # Check if user is authenticated (Django built-in)
-        if is_authenticated_request(request):
-            return True
-
-        return False

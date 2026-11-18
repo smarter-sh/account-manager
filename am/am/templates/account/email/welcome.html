@@ -1,0 +1,45 @@
+{% comment %}
+  The welcome email that an account contact is sent when it is created (AccountContact.save()).
+  Context: am.apps.account.models.welcome_email_context(). Mail clients strip <style> blocks and
+  external stylesheets, so the layout is a table with inline styles.
+{% endcomment %}<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to Smarter!</title>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #f4f5f7; font-family: Arial, Helvetica, sans-serif; color: #3f4254">
+    <table role="presentation" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f5f7">
+      <tr>
+        <td align="center" style="padding: 40px 10px">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff">
+            <tr>
+              <td style="padding: 32px 40px 8px 40px">
+                <h1 style="margin: 0; font-size: 26px">Welcome to Smarter, {{ first_name }}!</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 16px 40px; font-size: 15px; line-height: 1.6">
+                <p style="margin: 0 0 12px 0">Your account is ready. Sign in at <a href="{{ base_url }}">{{ base_url }}</a>.</p>
+                <p style="margin: 0">
+                  Questions? Email <a href="mailto:{{ support_email }}">{{ support_email }}</a>{% if support_phone %} or call
+                  {{ support_phone }}{% endif %}{% if office_hours %}, {{ office_hours }}{% endif %}.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 24px 40px 32px 40px; font-size: 12px; color: #a1a5b7">
+                {{ corporate_name }}{% if contact_address %}<br />{{ contact_address }}{% endif %}{% if contact_url %}<br /><a
+                  href="{{ contact_url }}"
+                  style="color: #a1a5b7"
+                  >Contact us</a
+                >{% endif %}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

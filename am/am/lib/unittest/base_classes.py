@@ -1,6 +1,4 @@
-"""
-Project level base classes for unit tests.
-"""
+"""Project level base classes for unit tests."""
 
 import csv
 import logging
@@ -13,7 +11,6 @@ from django.test import RequestFactory
 
 from am.common.utils import camel_to_snake, hash_factory
 from am.lib import json
-
 
 logger = logging.getLogger(__name__)
 

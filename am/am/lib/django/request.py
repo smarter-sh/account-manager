@@ -5,15 +5,12 @@ Smarter request mixin.
 This is a helper class for the Django request object that resolves
 known url patterns. key features include:
 - lazy loading of the user, account, user profile.
-- meta data for describing chatbot characteristics.
 - url parsing and validation.
-- url pattern recognition.
+- request body parsing (json or yaml).
 - logging.
 """
 
-import inspect
 import logging
-import re
 import socket
 from datetime import datetime
 from functools import cached_property
@@ -41,12 +38,6 @@ from am.lib.django.waffle import AMWaffleSwitches
 from am.lib.logging import WaffleSwitchedLoggerWrapper
 
 
-# Match netloc: chatbot_name.account_number.api.environment_api_domain
-netloc_pattern_named_url = re.compile(
-    rf"^(?P<chatbot_name>[a-zA-Z0-9\-]+)\.(?P<account_number>\d{{4}}-\d{{4}}-\d{{4}})\.api\.{re.escape(am_settings.environment_domain)}(:\d+)?$"
-)
-
-
 def should_log(level):
     """Check if logging should be done based on the waffle switch."""
     return waffle.switch_is_active(AMWaffleSwitches.REQUEST_MIXIN_LOGGING) and level >= am_settings.log_level
@@ -61,26 +52,16 @@ AMRequestType = Optional[Union[RestFrameworkRequest, HttpRequest, WSGIRequest, M
 
 class AMRequestMixin(AccountMixin):
     """
-    Helper class for the Django request object that enforces authentication and
+    Helper class for the Django request object that enforces authentication and.
+
     provides lazy loading of the user, account, user profile.
 
-    This mixin works with any Django request object and any valid URL, but is designed
-    as a helper class for Smarter ChatBot URLs.
+    This mixin works with any Django request object and any valid URL.
 
     .. note::
         The request object is an optional positional argument due to Django view lifecycles,
         which do not recognize the request object until after class ``__init__()``.
         ``AMRequestMixin`` is included as a mixin in the Account Manager base view classes.
-
-    **Valid endpoints:**
-
-    2. Authenticated sandbox endpoints (authenticated chats)
-       (``self.is_chatbot_sandbox_url == True``)
-
-       - ``http://localhost:8000/workbench/<str:name>/`` → ``am.apps.prompt.views.ChatAppWorkbenchView``
-       - ``http://localhost:8000/workbench/<str:name>/config/`` → ``am.apps.prompt.views.ChatConfigView``
-
-
     """
 
     __slots__ = (
@@ -118,7 +99,9 @@ class AMRequestMixin(AccountMixin):
                 self.formatted_class_name,
             )
             super().__init__(request, *args, api_token=self.api_token, **kwargs)
-        if self.am_request:
+        if self.am_request and self.user is not None:
+            # never replace the request's AnonymousUser with None: Django's auth decorators
+            # and templates expect request.user to be a user object.
             self.am_request.user = self.user  # type: ignore
 
     def init(self, request: HttpRequest, *args, **kwargs):
@@ -170,52 +153,20 @@ class AMRequestMixin(AccountMixin):
         super().__init__(request, *args, api_token=self.api_token, **kwargs)
 
         logger.info(
-            "%s.init() - initializing with instance_id=%s, request=%s, args=%s, kwargs=%s auth_header=%s user_profile=%s, account=%s",
+            "%s.init() - initializing with instance_id=%s, request=%s, args=%s, kwargs=%s has_auth_header=%s user_profile=%s, account=%s",
             self.formatted_class_name,
             self._instance_id,
             request,
             args,
             kwargs,
-            request.META.get("HTTP_AUTHORIZATION") if request and hasattr(request, "META") else None,
+            bool(request.META.get("HTTP_AUTHORIZATION")) if request and hasattr(request, "META") else False,
             self.user_profile if self.user_profile else None,
             self.account if self.account else None,
         )
 
-        if self.is_requestmixin_ready:
-            self.helper_logger(
-                f"init() {self._instance_id} initialized successfully url={self.url}, user={self.user_profile}"
-            )
-        else:
-            msg = f"{self.formatted_class_name}.init() - request {self._instance_id} is not ready. request={self.am_request}"
-            logger.warning(msg)
-
-        logger.info("AMRequestMixin().init() - finished %s", self.dump())
-
-    def invalidate_cached_properties(self):
-        """
-        Invalidates all cached properties on the instance to force re-evaluation.
-
-        This method removes all attributes cached by `@cached_property` decorators
-        from the instance's `__dict__`. It is useful for testing or when the request
-        object changes and you need to ensure that all dependent properties are recalculated.
-
-        Example::
-
-            from am.lib.django.request import AMRequestMixin
-
-            class Foo(AMRequestMixin):
-                pass
-
-            foo = Foo(request)
-            foo.invalidate_cached_properties(request)
-
-        Raises:
-            None
-        """
-        for cls in self.__class__.__mro__:
-            for name, value in inspect.getmembers(cls):
-                if isinstance(value, cached_property):
-                    self.__dict__.pop(name, None)
+        self.helper_logger(
+            f"init() {self._instance_id} initialized successfully url={self.url}, user={self.user_profile}"
+        )
 
     @property
     def am_request(self) -> AMRequestType:
@@ -325,7 +276,8 @@ class AMRequestMixin(AccountMixin):
     @cached_property
     def qualified_request(self) -> bool:
         """
-        A cursory screening of the WSGI request object to look for
+        A cursory screening of the WSGI request object to look for.
+
         any disqualifying conditions that confirm this is not a
         request that we are interested in.
 
@@ -352,7 +304,6 @@ class AMRequestMixin(AccountMixin):
             static_request = AMRequestMixin(static_asset_request)
             if not static_request.qualified_request:
                 print("This request is not of interest.")
-
         """
         if not self._am_request:
             return False
@@ -403,7 +354,6 @@ class AMRequestMixin(AccountMixin):
             request_mixin = AMRequestMixin(request)
             url_str = request_mixin.url
             print(url_str)  # e.g., 'https://example.com/path/'
-
         """
         if not isinstance(self._parse_result, ParseResult):
             raise AMValueError(
@@ -431,7 +381,6 @@ class AMRequestMixin(AccountMixin):
             request_mixin = AMRequestMixin(request)
             parsed = request_mixin.parsed_url
             print(parsed.netloc)  # e.g., 'example.com'
-
         """
         if not isinstance(self._parse_result, ParseResult):
             raise AMValueError("The URL has not been initialized as a ParseResult.")
@@ -449,7 +398,6 @@ class AMRequestMixin(AccountMixin):
             request_mixin = AMRequestMixin(request)
             parts = request_mixin.url_path_parts
             print(parts)  # e.g., ['api', 'v1', 'workbench', '1', 'chat']
-
         """
         return self.parsed_url.path.strip("/").split("/")
 
@@ -468,7 +416,6 @@ class AMRequestMixin(AccountMixin):
             request_mixin = AMRequestMixin(request)
             params = request_mixin.params
             print(params)  # e.g., {'uid': 'xyz'}
-
         """
         if not self._params:
             try:
@@ -494,7 +441,6 @@ class AMRequestMixin(AccountMixin):
             request_mixin = AMRequestMixin(request)
             ts = request_mixin.timestamp
             print(ts)  # e.g., 2025-12-01 12:34:56.789012
-
         """
         return self._timestamp
 
@@ -510,67 +456,27 @@ class AMRequestMixin(AccountMixin):
             request_mixin = AMRequestMixin(request)
             data = request_mixin.data
             print(data)  # e.g., {'key': 'abc123', ...}
-
         """
         if self._data:
             return self._data
-
-        if not self.am_request:
-            return None
-        if not self.qualified_request:
+        if not self.am_request or not self.qualified_request:
             return None
 
-        if not self.am_request:
-            logger.warning("%s.data() - request is None or not set.", self.formatted_class_name)
-            return {}
-        try:
-            body = self.am_request.body if hasattr(self.am_request, "body") else None
-            if body is not None:
-                body_str = body.decode("utf-8").strip()
-
-                try:
-                    self._data = json.loads(body_str) if isinstance(body_str, (str, bytearray, bytes)) else None
-                    logger.info(
-                        "%s.data() - initialized json from request body: %s",
-                        self.formatted_class_name,
-                        body_str,
-                    )
-                except json.JSONDecodeError:
-                    try:
-                        self._data = yaml.safe_load(body_str) if body_str else {}
-                        logger.info(
-                            "%s.data() - initialized json from parsed yaml request body: %s",
-                            self.formatted_class_name,
-                            body_str,
-                        )
-                    except yaml.YAMLError:
-                        logger.error(
-                            "%s.data() - failed to parse request body: %s",
-                            self.formatted_class_name,
-                            body_str,
-                        )
-                self._data = self._data or {}
-        except json.JSONDecodeError:
+        body = getattr(self.am_request, "body", None)
+        body_str = body.decode("utf-8").strip() if isinstance(body, bytes) else ""
+        if body_str:
             try:
-                body = self.am_request.body if hasattr(self.am_request, "body") else None
-                if body is not None:
-                    body_str = body.decode("utf-8").strip()
-                    self._data = yaml.safe_load(body_str) if body_str else {}
-                    logger.info(
-                        "%s.data() - initialized from parsed request body as yaml: %s",
-                        self.formatted_class_name,
-                        body_str,
+                self._data = json.loads(body_str)
+            except json.JSONDecodeError:
+                try:
+                    self._data = yaml.safe_load(body_str)
+                except yaml.YAMLError:
+                    # the body is not logged: it may hold credentials or personal data.
+                    logger.error(
+                        "%s.data() - failed to parse the request body as JSON or YAML.", self.formatted_class_name
                     )
-            except yaml.YAMLError:
-                logger.error(
-                    "%s - failed to parse request body as JSON or YAML. request.body=%s",
-                    self.formatted_class_name,
-                    body_str,
-                )
 
         self._data = self._data or {}
-        self.helper_logger(f"request body json={self._data}")
-
         return self._data
 
     @cached_property
@@ -595,7 +501,6 @@ class AMRequestMixin(AccountMixin):
             request_mixin = AMRequestMixin(request)
             unique_str = request_mixin.unique_client_string
             print(unique_str)
-
         """
         if not self.am_request:
             return "unique_client_string"
@@ -620,7 +525,6 @@ class AMRequestMixin(AccountMixin):
             request_mixin = AMRequestMixin(request)
             ip = request_mixin.ip_address
             print(ip)  # e.g., '192.168.1.100'
-
         """
         if self.am_request is not None and hasattr(self.am_request, "META") and isinstance(self.am_request.META, dict):
             return self.am_request.META.get("REMOTE_ADDR", "") or "ip_address"
@@ -642,7 +546,6 @@ class AMRequestMixin(AccountMixin):
             request_mixin = AMRequestMixin(request)
             ua = request_mixin.user_agent
             print(ua)  # e.g., 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)...'
-
         """
         if self.am_request is not None and hasattr(self.am_request, "META") and isinstance(self.am_request.META, dict):
             # META is a dictionary-like object containing all HTTP headers
@@ -663,8 +566,6 @@ class AMRequestMixin(AccountMixin):
         """
         if not self.am_request:
             return False
-        if not self.parsed_url:
-            return False
         return self.requester_domain == am_settings.platform_domain
 
     @cached_property
@@ -676,8 +577,6 @@ class AMRequestMixin(AccountMixin):
             bool: True if the URL is the environment root domain, otherwise False.
         """
         if not self.am_request:
-            return False
-        if not self.parsed_url:
             return False
         return self.parsed_url.netloc == am_settings.environment_domain and self.parsed_url.path == "/"
 
@@ -694,8 +593,6 @@ class AMRequestMixin(AccountMixin):
             bool: True if the URL matches the smarter API pattern, otherwise False.
         """
         if not self.am_request:
-            return False
-        if not self.url:
             return False
         if "api" in self.url_path_parts:
             return True
@@ -714,8 +611,6 @@ class AMRequestMixin(AccountMixin):
         """
         if not self.am_request:
             return False
-        if not self.url:
-            return False
         return am_settings.environment_api_domain in self.url
 
     @cached_property
@@ -732,13 +627,7 @@ class AMRequestMixin(AccountMixin):
         """
         if not self.am_request:
             return None
-        if not self.url:
-            return None
-        if not self.parsed_url:
-            return None
-        if self.parsed_url.path == "":
-            return "/"
-        return self.parsed_url.path
+        return self.parsed_url.path or "/"
 
     @cached_property
     def root_domain(self) -> Optional[str]:
@@ -753,20 +642,13 @@ class AMRequestMixin(AccountMixin):
             print(request_mixin.root_domain)
             # For 'https://hr.3141-5926-5359.alpha.api.example.com/chatbot/' → 'smarter.sh'
             # For 'http://localhost:8000/' → 'localhost'
-
         """
         if not self.am_request:
             return None
-        if not self.url:
-            return None
-        url = AMValidator.urlify(self.url, environment=am_settings.environment)  # type: ignore
-        if url:
-            extracted = tldextract.extract(url)
-            if extracted.domain and extracted.suffix:
-                return f"{extracted.domain}.{extracted.suffix}"
-            if extracted.domain:
-                return extracted.domain
-        return None
+        extracted = tldextract.extract(self.url)
+        if extracted.domain and extracted.suffix:
+            return f"{extracted.domain}.{extracted.suffix}"
+        return extracted.domain or None
 
     @cached_property
     def subdomain(self) -> Optional[str]:
@@ -784,10 +666,7 @@ class AMRequestMixin(AccountMixin):
         """
         if not self.am_request:
             return None
-        if not self.url:
-            return None
-        extracted = tldextract.extract(self.url)
-        return extracted.subdomain
+        return tldextract.extract(self.url).subdomain
 
     @cached_property
     def domain(self) -> Optional[str]:
@@ -803,14 +682,13 @@ class AMRequestMixin(AccountMixin):
         """
         if not self.am_request:
             return None
-        if not self.parsed_url:
-            return None
-        return self.parsed_url.netloc if self.parsed_url else None
+        return self.parsed_url.netloc
 
     @cached_property
     def formatted_class_name(self) -> str:
         """
-        Returns the class name in a formatted string
+        Returns the class name in a formatted string.
+
         along with the name of this mixin.
 
         :return: Formatted class name string.
@@ -822,6 +700,7 @@ class AMRequestMixin(AccountMixin):
     def is_requestmixin_ready(self) -> bool:
         """
         Returns True if the request mixin is ready for processing.
+
         This is a convenience property to check if the request is ready.
 
         :return: True if the request mixin is ready, False otherwise.
@@ -856,10 +735,9 @@ class AMRequestMixin(AccountMixin):
     @property
     def ready(self) -> bool:
         """
-        returns True if the request is ready for processing.
+        Returns True if the request is ready for processing.
 
         :return: True if the request is ready, False otherwise.
-
         """
         retval = bool(super().ready)
         if not retval:
@@ -873,20 +751,9 @@ class AMRequestMixin(AccountMixin):
     # --------------------------------------------------------------------------
     # instance methods
     # --------------------------------------------------------------------------
-    def get_cookie_value(self, cookie_name):
-        """
-        Retrieve the value of a cookie from the request object.
-
-        :param request: Django HttpRequest object
-        :param cookie_name: Name of the cookie to retrieve
-        :return: Value of the cookie or None if the cookie does not exist
-        """
-        if self.am_request and self.am_request.COOKIES:
-            return self.am_request.COOKIES.get(cookie_name)
-
     def to_json(self) -> dict[str, Any]:
         """
-        serializes the object.
+        Serializes the object.
 
         :return: A dictionary representation of the object.
         """
@@ -918,13 +785,5 @@ class AMRequestMixin(AccountMixin):
         }
 
     def helper_logger(self, message: str):
-        """
-        Create a log entry
-        """
+        """Create a log entry."""
         logger.info("%s %s", self.formatted_class_name, message)
-
-    def dump(self):
-        """
-        Dump the object to the console.
-        """
-        return json.dumps(self.to_json())

@@ -1,4 +1,4 @@
-"""This module is used to add an email address to the Account Contact list."""
+"""This module is used to print every Django setting to the console."""
 
 from django.conf import settings
 
@@ -7,7 +7,7 @@ from am.lib.django.management.base import AMCommand
 
 # pylint: disable=E1101
 class Command(AMCommand):
-    """add an email address to the Account Contact list."""
+    """Print every upper-case Django setting to the console."""
 
     def handle(self, *args, **options):
         """Dump all Django settings."""
@@ -15,6 +15,6 @@ class Command(AMCommand):
 
         for setting in dir(settings):
             if setting.isupper():
-                print(f"{setting}: {getattr(settings, setting)}")
+                self.stdout.write(f"{setting}: {getattr(settings, setting)}")
 
         self.handle_completed_success()

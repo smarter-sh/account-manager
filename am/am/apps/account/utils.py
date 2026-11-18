@@ -1,5 +1,5 @@
 """
-Account Utilities
+Account Utilities.
 
 This module provides foundational utilities for accessing, managing, and caching account and user data in the Account Manager platform.
 It is the base model for all Django ORM operations in the project, and is designed for both performance and reliability.
@@ -16,12 +16,10 @@ Two caching strategies are used:
 - **Redis-Based ORM Caching**:
   Persistent, cross-process caching for Django ORM objects.
   *Scope*: Shared across all processes; cache lifetime is controlled by expiration settings.
-
 """
 
 import logging
 import re
-import uuid
 from typing import Any, Optional, Union
 
 from django.contrib.auth.models import AnonymousUser
@@ -70,6 +68,7 @@ def get_cached_subscription(
 ) -> Optional[Subscription]:
     """
     Retrieve and cache a Subscription instance for one of the following:
+
      - a given account and plan type
      - a given host name
      - a given user
@@ -86,10 +85,8 @@ def get_cached_subscription(
     """
 
     @cache_results()
-    def cached_subscription_by_user(user: User) -> Optional[Subscription]:
-        """
-        cache for subscription objects by user.
-        """
+    def cached_subscription_by_user(user: Union[AnonymousUser, User]) -> Optional[Subscription]:
+        """Cache for subscription objects by user."""
         logger.info(
             "cached_subscription_by_user() retrieving and caching subscription for user %s",
             user,
@@ -108,9 +105,7 @@ def get_cached_subscription(
 
     @cache_results()
     def cached_subscription_by_host(host: str) -> Optional[Subscription]:
-        """
-        cache for subscription objects by host name.
-        """
+        """Cache for subscription objects by host name."""
         logger.info(
             "cached_subscription_by_host() retrieving and caching subscription for host %s",
             host,
@@ -129,9 +124,7 @@ def get_cached_subscription(
 
     @cache_results()
     def cached_subscription_by_account_and_plan(account_id: int, plan_type: int) -> Optional[Subscription]:
-        """
-        cache for subscription objects by account ID and plan type.
-        """
+        """Cache for subscription objects by account ID and plan type."""
         logger.info(
             "cached_subscription_by_account_and_plan() retrieving and caching subscription for account ID %s and plan type %s",
             account_id,
@@ -203,9 +196,7 @@ def get_cached_account(
 
     @cache_results()
     def cached_account_by_id(account_id) -> Optional[Account]:
-        """
-        cache for account objects by ID.
-        """
+        """Cache for account objects by ID."""
         logger.info("cached_account_by_id() retrieving and caching account %s", account_id)
         try:
             account = Account.objects.get(id=account_id)
@@ -216,9 +207,7 @@ def get_cached_account(
 
     @cache_results()
     def cached_account_by_number(account_number) -> Optional[Account]:
-        """
-        cache for account objects by account number.
-        """
+        """Cache for account objects by account number."""
         logger.info("cached_account_by_number() retrieving and caching account %s", account_number)
         try:
             account = Account.objects.get(account_number=account_number)
@@ -238,40 +227,12 @@ def get_cached_account(
         )
 
 
-@cache_results()
-def get_cached_smarter_account(invalidate: bool = False) -> Optional[Account]:
-    """
-    Retrieve the special "account" account instance, using caching for performance.
-
-    :param invalidate: Boolean, optional. If True, invalidates the cache before fetching.
-    :returns: The smarter Account instance if found, otherwise None.
-
-    .. note::
-
-           The smarter account is identified by the constant ``ACCOUNT_ACCOUNT_NUMBER`` and is used for platform-level operations.
-
-    .. attention::
-
-           If the smarter account does not exist or is misconfigured, None is returned.
-
-    **Example usage**::
-
-        # Get the smarter account
-        smarter_account = get_cached_smarter_account()
-
-        # Invalidate cache before fetching
-        smarter_account = get_cached_smarter_account(invalidate=True)
-    """
-    account = get_cached_account(account_number=ACCOUNT_ACCOUNT_NUMBER, invalidate=invalidate)
-    return account
-
-
-def get_cached_default_account(invalidate: bool = False) -> Account:
+def get_cached_default_account(invalidate: bool = False) -> Optional[Account]:
     """
     Retrieve the default account instance, using caching for performance.
 
-    :param invalidate: Boolean, optional. If True, invalidates the cache before fetching.
-    :returns: The default Account instance.
+    :param invalidate: Boolean, optional. If True, invalidates the cached result instead of fetching it.
+    :returns: The default Account instance, or None if ``invalidate`` is True.
 
     .. important::
 
@@ -310,12 +271,10 @@ def _get_account_for_user(user, invalidate: bool = False) -> Optional[Account]:
 
     @cache_results()
     def _get_account_for_user_by_id(user_id):
-        """
-        cache for user accounts.
-        """
+        """Cache for user accounts."""
         user_profiles = UserProfile.objects.filter(user_id=user_id)
         for user_profile in user_profiles:
-            if user_profile.account.is_default_account and waffle.switch_is_active(AMWaffleSwitches.CACHE_LOGGING):
+            if user_profile.account.is_default_account:
                 logger.info(
                     "get_cached_account_for_user() retrieving and caching default account %s for user %s",
                     user_profile.account,
@@ -466,9 +425,7 @@ def get_cached_user_for_user_id(user_id: int, invalidate: bool = False) -> Optio
 
     @cache_results()
     def cached_user(user_id) -> Optional[User]:
-        """
-        cache for user objects.
-        """
+        """Cache for user objects."""
         try:
             user = User.objects.get(id=user_id)
             logger.info("cached_user() retrieving and caching user %s", user)
@@ -509,9 +466,7 @@ def get_cached_user_for_username(username: str, invalidate: bool = False) -> Opt
 
     @cache_results()
     def cached_user(username) -> Optional[User]:
-        """
-        cache for user objects.
-        """
+        """Cache for user objects."""
         try:
             user = User.objects.get(username=username)
             logger.info("cached_user() retrieving and caching user %s", user)
@@ -571,17 +526,17 @@ def get_cached_admin_user_for_account(account: Account, invalidate: bool = False
             )
             return user_profile.user
         else:
-            # Create a new admin user and UserProfile
-            random_email = f"{uuid.uuid4().hex[:8]}@mail.com"
-            if account and isinstance(account.account_number, str):
-                admin_user = User.objects.create_user(username=account.account_number, email=random_email, is_staff=True)  # type: ignore[arg-type]
-                logger.info("%s created new admin User %s for account %s", console_prefix, admin_user, account)
-                user_profile = UserProfile.objects.create(user=admin_user, account=account)
-                logger.info("%s created new admin UserProfile for user %s", console_prefix, user_profile)
-        if not user_profile:
-            logger.error("%s failed to query nor create admin UserProfile for account %s", console_prefix, account)
-            raise AMConfigurationError("Failed to create admin UserProfile")
-        return user_profile.user if user_profile else None  # type: ignore[return-value]
+            # Create a new admin user and UserProfile. An account whose every profile is a test
+            # profile is a test account, so its admin is a test profile too, which keeps the
+            # welcome email to the admin's account contact quiet.
+            profiles = UserProfile.objects.filter(account=account)
+            is_test_account = profiles.exists() and not profiles.filter(is_test=False).exists()
+            admin_email = f"{account_number}@{am_settings.root_domain}"
+            admin_user = User.objects.create_user(username=account_number, email=admin_email, is_staff=True)
+            logger.info("%s created new admin User %s for account %s", console_prefix, admin_user, account)
+            user_profile = UserProfile.objects.create(user=admin_user, account=account, is_test=is_test_account)
+            logger.info("%s created new admin UserProfile for user %s", console_prefix, user_profile)
+        return user_profile.user
 
     account_number = account.account_number if isinstance(account, Account) else None
     if not account_number:
@@ -589,12 +544,12 @@ def get_cached_admin_user_for_account(account: Account, invalidate: bool = False
     return admin_for_account(account_number) if not invalidate else admin_for_account.invalidate(account_number)  # type: ignore[return-value]
 
 
-def get_cached_smarter_admin_user_profile(invalidate: bool = False) -> UserProfile:
+def get_cached_smarter_admin_user_profile(invalidate: bool = False) -> Optional[UserProfile]:
     """
     Retrieve the admin UserProfile for the smarter account, using caching for performance.
 
-    :param invalidate: Boolean, optional. If True, invalidates the cache before fetching.
-    :returns: UserProfile instance for the smarter admin user.
+    :param invalidate: Boolean, optional. If True, invalidates the cached result instead of fetching it.
+    :returns: UserProfile instance for the smarter admin user, or None if ``invalidate`` is True.
 
     .. note::
 
@@ -635,13 +590,10 @@ def get_cached_smarter_admin_user_profile(invalidate: bool = False) -> UserProfi
             )
             return super_user_profile
 
-        try:
-            staff_user_profile = (
-                UserProfile.objects.filter(account=smarter_account, user__is_staff=True).order_by("pk").first()
-            )
-        except UserProfile.DoesNotExist:
-            pass
-        if staff_user_profile and waffle.switch_is_active(AMWaffleSwitches.CACHE_LOGGING):
+        staff_user_profile = (
+            UserProfile.objects.filter(account_id=smarter_account_id, user__is_staff=True).order_by("pk").first()
+        )
+        if staff_user_profile:
             logger.info(
                 "cached_smarter_admin_user_profile() retrieving and caching staff UserProfile %s",
                 staff_user_profile,
@@ -697,64 +649,11 @@ def account_number_from_url(url: str, invalidate: bool = False) -> Optional[str]
         AMValidator.validate_url(url)
         match = re.search(AMValidator.ACCOUNT_ACCOUNT_NUMBER_REGEX, url)
         retval = match.group(0) if match else None
-        if retval is not None and waffle.switch_is_active(AMWaffleSwitches.CACHE_LOGGING):
+        if retval is not None:
             logger.info("account_number_from_url() extracted and cached account number %s from URL %s", retval, url)
         return retval
 
     return _account_number_from_url(url) if not invalidate else _account_number_from_url.invalidate(url)
-
-
-def get_users_for_account(account: Account) -> list[User]:
-    """
-    Retrieve a list of users associated with a given account.
-
-    :param account: Account instance. The account for which to retrieve users.
-    :returns: List of User instances.
-
-    .. important::
-
-           The account parameter is required. If not provided, an exception is raised.
-
-    .. warning::
-
-           If the account has no associated users, an empty list is returned.
-
-    **Example usage**::
-
-        # Get all users for an account
-        users = get_users_for_account(account)
-    """
-    if not account:
-        raise AMValueError("Account is required")
-    users = User.objects.filter(userprofile__account=account)
-    return list[users]  # type: ignore[list-item,return-value]
-
-
-def get_user_profiles_for_account(account: Account) -> Optional[list[UserProfile]]:
-    """
-    Retrieve a list of user profiles associated with a given account.
-
-    :param account: Account instance. The account for which to retrieve user profiles.
-    :returns: List of UserProfile instances, or None if no profiles exist.
-
-    .. important::
-
-           The account parameter is required. If not provided, an exception is raised.
-
-    .. warning::
-
-           If the account has no associated user profiles, None is returned.
-
-    **Example usage**::
-
-        # Get all user profiles for an account
-        profiles = get_user_profiles_for_account(account)
-    """
-    if not account:
-        raise AMValueError("Account is required")
-
-    user_profiles = UserProfile.objects.filter(account=account)
-    return user_profiles  # type: ignore[list-item,return-value]
 
 
 def cache_invalidate(user: Optional[User] = None, account: Optional[Account] = None):
@@ -789,28 +688,25 @@ def cache_invalidate(user: Optional[User] = None, account: Optional[Account] = N
     """
     resolved_user = get_resolved_user(user) if user else None
 
-    if not isinstance(resolved_user, User) and not isinstance(account, Account):
-        raise AMValueError("either user or account is required")
-
-    if not isinstance(resolved_user, User) and isinstance(account, Account):
-        resolved_user = get_cached_admin_user_for_account(account, invalidate=True)
-    else:
+    if isinstance(resolved_user, User):
         user_profile = UserProfile.objects.filter(user=resolved_user).first()
         if not user_profile:
             # this can happen during new platform bootstrap initialization, so just log a warning and return
             logger.warning("cache_invalidate() no UserProfile found for user: %s", resolved_user)
             return
-        account = user_profile.account
+        resolved_account = user_profile.account
+    elif isinstance(account, Account):
+        resolved_account = account
+        resolved_user = get_cached_admin_user_for_account(account, invalidate=True)
+    else:
+        raise AMValueError("either user or account is required")
 
-    logger.info("cache_invalidate() invalidating cache for user: %s account: %s", resolved_user, account)
+    logger.info("cache_invalidate() invalidating cache for user: %s account: %s", resolved_user, resolved_account)
 
-    if not isinstance(account, Account):
-        raise AMValueError(f"could not resolve account {account} for user {user}")
-
-    get_cached_account(account_id=account.id, invalidate=True)
-    get_cached_admin_user_for_account(account=account, invalidate=True)
+    get_cached_account(account_id=resolved_account.id, invalidate=True)
+    get_cached_admin_user_for_account(account=resolved_account, invalidate=True)
 
     if isinstance(resolved_user, User):
         get_cached_account_for_user(user=resolved_user, invalidate=True)
-        get_cached_user_profile(user=resolved_user, account=account, invalidate=True)
+        get_cached_user_profile(user=resolved_user, account=resolved_account, invalidate=True)
         get_cached_user_for_user_id(user_id=resolved_user.id, invalidate=True)

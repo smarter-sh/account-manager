@@ -12,7 +12,10 @@ from am.lib.django.management.base import AMCommand
 
 # pylint: disable=E1101
 class Command(AMCommand):
-    """Django manage.py create_user command. This command is used to create a new user for an account."""
+    """Django manage.py create_user command.
+
+    This command is used to create a new user for an account.
+    """
 
     def add_arguments(self, parser):
         """Add arguments to the command."""
@@ -34,14 +37,14 @@ class Command(AMCommand):
             user = User.objects.get(username=username)
             user.set_password(new_password)
             user.save()
-            self.stdout.write(self.style.SUCCESS(f"Password for user {username} has been changed to {new_password}."))
+            self.stdout.write(self.style.SUCCESS(f"Password for user {username} has been changed."))
             return user
         except User.DoesNotExist:
             self.stdout.write(self.style.ERROR(f"User {username} does not exist."))
         return None
 
     def handle(self, *args, **options):
-        """create the superuser account."""
+        """Create the superuser account."""
         self.handle_begin()
 
         account_number = options["account_number"]
@@ -54,12 +57,11 @@ class Command(AMCommand):
 
         account = Account.objects.get(account_number=account_number)
 
-        if not password:
-            password_length = 16
-            alphabet = string.ascii_letters + string.digits + string.punctuation
-            password = "".join(secrets.choice(alphabet) for _ in range(password_length))
-
         if not User.objects.filter(username=username).exists():
+            if not password:
+                password_length = 16
+                alphabet = string.ascii_letters + string.digits + string.punctuation
+                password = "".join(secrets.choice(alphabet) for _ in range(password_length))
             user = User.objects.create_user(username=username, email=email, first_name=first_name, last_name=last_name)
             if is_admin:
                 user.is_staff = True
@@ -81,10 +83,9 @@ class Command(AMCommand):
                 subject="Your Smarter user account has been created", to=email, body=body, html=False, quiet=False
             )
 
-        else:
-            if password:
-                self.change_password(username, password)
-                self.handle_completed_success(msg=f"Updated password for {username}.")
+        elif password:
+            self.change_password(username, password)
+            self.handle_completed_success(msg=f"Updated password for {username}.")
 
         user = User.objects.get(username=username)
         user_profile, created = UserProfile.objects.get_or_create(user=user, account=account)

@@ -1,13 +1,12 @@
 # pylint: disable=W0707,W0718,W0613
 """Views for unit tests."""
+
 import logging
 
 from rest_framework import serializers, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from am.common.exceptions import AMConfigurationError
-from am.lib import json
 from am.lib.drf.view_helpers import (
     AMUnauthenticatedAPIListView,
     AMUnauthenticatedAPIView,
@@ -16,7 +15,6 @@ from am.lib.drf.views.token_authentication_helpers import (
     AMAuthenticatedAPIView,
     AMAuthenticatedListAPIView,
 )
-
 
 logger = logging.getLogger(__name__)
 faux_dict = {
@@ -96,49 +94,3 @@ class TestJsonListViewAuthenticated(AMAuthenticatedListAPIView):
         """Handle GET requests and return a faux JSON list."""
         queryset = self.get_queryset()
         return Response(queryset, status=status.HTTP_200_OK)
-
-
-class TestStackademyCourseCatalogueView(AMUnauthenticatedAPIView):
-    """A placeholder view for the Stackademy course catalog."""
-
-    def catalogue(self) -> list[dict]:
-
-        with open("./stackaemy_courses.json", encoding="utf-8") as file:
-            try:
-                return json.load(file)
-            except json.JSONDecodeError as e:
-                raise AMConfigurationError(
-                    "Failed to decode JSON from stackaemy_courses.json. "
-                    "Please ensure the file is correctly formatted."
-                ) from e
-        return None
-
-    def get(self, request: Request, *args, **kwargs):
-        """
-        Handle GET requests and return the faux Stackacademy
-        course catalog.
-        """
-        course_id = request.query_params.get("course_id")
-        max_cost = request.query_params.get("max_cost")
-        description = request.query_params.get("description")
-
-        filtered = self.catalogue()
-
-        if course_id is not None:
-            try:
-                course_id = int(course_id)
-                filtered = [c for c in filtered if c["course_id"] == course_id]
-            except ValueError:
-                pass
-
-        if max_cost is not None:
-            try:
-                max_cost = float(max_cost)
-                filtered = [c for c in filtered if c["cost"] <= max_cost]
-            except ValueError:
-                pass
-
-        if description is not None:
-            filtered = [c for c in filtered if description.lower() in c["description"].lower()]
-
-        return Response(filtered, status=status.HTTP_200_OK)

@@ -4,7 +4,7 @@
 
 
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 from django.core.handlers.wsgi import WSGIRequest
 from django.dispatch import receiver
@@ -43,7 +43,7 @@ def handle_api_request_initiated(sender, instance, request: WSGIRequest, **kwarg
 @receiver(api_request_completed, dispatch_uid="api_request_completed")
 def handle_api_request_completed(sender, instance, request: WSGIRequest, response, **kwargs):
     """Handle API request completed signal."""
-    json_content: Optional[dict]
+    json_content: Optional[Union[dict, list, str]]
     try:
         json_content = json.loads(response.content)
     # pylint: disable=W0718
@@ -53,7 +53,6 @@ def handle_api_request_completed(sender, instance, request: WSGIRequest, respons
         )
         try:
             json_content = response.content.decode("utf-8", errors="replace")
-            json_content = json.loads(json_content) if isinstance(json_content, str) else json_content
         except Exception:
             json_content = None
 

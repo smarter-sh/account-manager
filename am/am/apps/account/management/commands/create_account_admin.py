@@ -25,7 +25,7 @@ class Command(AMCommand):
         parser.add_argument("-p", "--password", type=str, help="The password for the new superuser")
 
     def handle(self, *args, **options):
-        """create the superuser account."""
+        """Create the superuser account."""
         self.handle_begin()
 
         username = options["username"]
@@ -85,16 +85,20 @@ class Command(AMCommand):
                 email=ACCOUNT_CUSTOMER_SUPPORT_EMAIL,
                 phone=ACCOUNT_CUSTOMER_SUPPORT_PHONE,
                 is_primary=True,
+                # the contact is our own support inbox, so don't send it a welcome email
+                welcomed=True,
             )
+            account_contact.save()
             self.handle_completed_success(
                 msg=f"Created account contact for {account_contact.first_name} {account_contact.last_name}, account {account_contact.account.account_number} {account_contact.account.company_name}"
             )
 
         # ensure that the admin user has at least one auth token (api key)
         if not AMAuthToken.objects.filter(user=user).exists():
-            _, token_key = AMAuthToken.objects.create(
+            auth_token, _ = AMAuthToken.objects.create(
                 name="account-admin-key", user=user, description="created by manage.py"
             )  # type: ignore[assignment]
-            self.handle_completed_success(msg=f"created API key: {token_key}")
+            # this command runs in the deployment's init job, whose log is retained, so never print the key itself.
+            self.handle_completed_success(msg=f"created API key {auth_token.name} with key_id: {auth_token.key_id}")
             return
         self.handle_completed_success()
