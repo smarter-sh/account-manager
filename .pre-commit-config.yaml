@@ -1,55 +1,83 @@
 default_language_version:
   # default language version for each language
-  python: python3.12
+  python: python3.14
+# Install the commit-msg hook too, so that commitlint checks each commit message.
+# semantic-release versions Account Manager from the conventional commit messages.
+default_install_hook_types: [pre-commit, commit-msg]
 repos:
+  - repo: https://github.com/DanielNoord/pydocstringformatter
+    rev: v1.0.0
+    hooks:
+      - id: pydocstringformatter
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
+    rev: v3.22.0
     hooks:
       - id: pyupgrade
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
+    rev: v2.4.3
     hooks:
       - id: codespell
         args: ["--ignore-words=codespell.txt"]
-        exclude: '\.svg$|^am/am/static/|^helm/|^docs/source/example-manifests/'
-  - repo: local
-    hooks:
-      - id: eslint
-        name: eslint
-        entry: bash -c 'cd client && npx eslint'
-        language: node
-        types: [javascript]
-        files: ^client/
+        exclude: '\.svg$|^am/am/static/|^helm/|package-lock\.json$'
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v4.0.0-alpha.8
     hooks:
       - id: prettier
-        exclude: "^am/am/templates|^helm/|^docs/source/example-manifests/"
+        args: [--no-error-on-unmatched-pattern]
+        exclude: "^am/am/templates/|^am/am/static/|^helm/"
   - repo: https://github.com/psf/black
-    rev: 25.12.0
+    rev: 26.10.1
     hooks:
       - id: black
+  # flake8 checks pyflakes and pycodestyle (.flake8). Complexity (C901) has a backlog, so the
+  # complexity-new-violations hook fails only on the functions that a change makes too complex,
+  # compared with HEAD: see scripts/complexity_new_violations.py. Its flake8 is the same release.
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.3.0
+    rev: 7.5.0
     hooks:
       - id: flake8
+  - repo: local
+    hooks:
+      - id: complexity-new-violations
+        name: flake8 complexity (new violations only)
+        entry: python -I scripts/complexity_new_violations.py
+        language: python
+        additional_dependencies: ["flake8==7.5.0"]
+        types: [python]
+        # mccabe names a module-level block by its line ("If 1211"), so any edit above the
+        # settings' startup diagnostics block would make that block look new.
+        exclude: ^am/am/settings/
+        require_serial: true
   - repo: https://github.com/PyCQA/isort
-    rev: 7.0.0
+    rev: 10.0.0b3
     hooks:
       - id: isort
         args: ["--settings-path=pyproject.toml"]
-  # - repo: local
-  #   hooks:
-  #     - id: pylint
-  #       name: pylint
-  #       entry: ./scripts/run_pylint.sh
-  #       language: script
-  #       types: [python]
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.4.0
+    hooks:
+      - id: autoflake
+        # --in-place: without it, autoflake only prints a diff and passes. A package's __init__.py
+        # re-exports its modules' names, and released migrations are never edited.
+        args: [--in-place, --remove-all-unused-imports, --ignore-init-module-imports]
+        exclude: /migrations/
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.9.2
+    rev: 1.9.4
     hooks:
       - id: bandit
         args: ["-ll"]
+  # pyright, the engine of VS Code's Pylance, on the changed Python files. The repository has a backlog
+  # of pyright errors, so the hook fails only on the errors that a change adds, compared with HEAD:
+  # see scripts/pyright_new_errors.py. It needs Node.js (npx) and the project's venv (make python-init).
+  - repo: local
+    hooks:
+      - id: pyright-new-errors
+        name: pyright (new errors only)
+        entry: python3 -I scripts/pyright_new_errors.py
+        language: system
+        types: [python]
+        files: ^am/
+        require_serial: true
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
@@ -58,14 +86,13 @@ repos:
       - id: fix-byte-order-marker
       - id: check-case-conflict
       - id: check-json
-        exclude: ".*/reactapp/.*"
       - id: check-merge-conflict
       - id: check-symlinks
       - id: check-toml
       - id: check-xml
         exclude: "am/am/static/|am/am/templates/"
       - id: check-yaml
-        exclude: ^helm/charts/account-manager/templates/.*\.yaml$
+        exclude: ^helm/charts/[^/]+/templates/.*\.yaml$
       - id: destroyed-symlinks
       - id: detect-aws-credentials
         args: ["--allow-missing-credentials"]
@@ -73,15 +100,16 @@ repos:
       - id: end-of-file-fixer
       - id: forbid-new-submodules
       - id: trailing-whitespace
-      - id: check-case-conflict
-      - id: check-merge-conflict
       - id: debug-statements
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
-    rev: v9.23.0
+    rev: v9.27.0
     hooks:
       - id: commitlint
         stages: [commit-msg]
-        additional_dependencies: ["@commitlint/config-angular"]
+        # The latest Node.js release can be a prerelease (v27.0.0-alpha), whose version nodeenv
+        # cannot parse, so the hook's environment failed to install. The latest LTS is a release.
+        language_version: lts
+        additional_dependencies: ["@commitlint/config-conventional", "@commitlint/config-angular"]
 ci:
   # for more information, see https://pre-commit.ci
   autofix_commit_msg: |
@@ -90,14 +118,5 @@ ci:
   autoupdate_branch: ""
   autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
   autoupdate_schedule: weekly
-  skip:
-    [
-      terraform-fmt,
-      helmlint,
-      terraform-validate,
-      tflint,
-      shellcheck,
-      markdown-link-check,
-      commitlint,
-    ]
+  skip: [commitlint, pyright-new-errors]
   submodules: false

@@ -1,6 +1,6 @@
 [project]
 name = "account-manager"
-version = "0.1.0"
+version = "1.1.1"
 requires-python = ">=3.10"
 description = "Account Manager: an account and payment management service for Smarter"
 authors = [{ name = "Lawrence McDaniel", email = "lpm0073@gmail.com" }]
@@ -28,7 +28,7 @@ classifiers = [
 
 [project.urls]
 homepage = "https://smarter.sh/"
-documentation = "https://docs.smarter.sh"
+documentation = "https://docs.smarter.sh/"
 repository = "https://github.com/smarter-sh/account-manager"
 bugtracker = "https://github.com/smarter-sh/account-manager/issues"
 changelog = "https://github.com/smarter-sh/account-manager/blob/main/CHANGELOG.md"
@@ -39,7 +39,13 @@ build-backend = "setuptools.build_meta"
 
 [tool.isort]
 profile = "black"
-lines_after_imports = 2
+
+# Pyright, and Pylance in VS Code, which is built on it. These two checks fire on idioms that are
+# correct here: every Django model and DRF serializer with its own nested Meta "overrides" its
+# parent's. See scripts/pyright_new_errors.py for checking only the errors a change adds.
+[tool.pyright]
+reportIncompatibleVariableOverride = false
+reportIncompatibleMethodOverride = false
 
 [tool.black]
 line-length = 120
