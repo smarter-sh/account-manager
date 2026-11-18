@@ -15,7 +15,7 @@ maintainers:
     url: https://lawrencemcdaniel.com
 dependencies:
   - name: redis
-    version: 23.2.12
+    version: 28.3.12
     repository: https://charts.bitnami.com/bitnami
     condition: redis.enabled
 icon: https://cdn.platform.smarter.sh/images/logo/smarter-crop.png
